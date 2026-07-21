@@ -33,6 +33,8 @@ create table if not exists proyectos (
   entregables jsonb not null default '[]',
   forma_pago text not null default 'transferencia'
     check (forma_pago in ('transferencia','efectivo','mixto')),
+  estado_facturacion text not null default 'pendiente'
+    check (estado_facturacion in ('pendiente','emitida','pagada')),
   notas text,
   created_at timestamptz not null default now()
 );
@@ -69,6 +71,9 @@ create table if not exists gastos (
   tipo text not null default 'variable' check (tipo in ('fijo','variable')),
   fecha date not null default current_date,
   recurrente boolean not null default false,
+  -- Si es false, el gasto afecta al balance personal pero no al fiscal
+  -- (ver migration_003) — p. ej. pagos en efectivo sin ticket.
+  deducible boolean not null default true,
   -- Clasificación fiscal (ver migration_002)
   categoria text not null default 'otros'
     check (categoria in ('combustible','material_amortizable','material_fungible','servicios','dietas','fijo','otros')),
