@@ -1,72 +1,80 @@
 import { db } from "../supabase.js";
-import { eur, dateEs, quarterOf, ESTADOS_PROYECTO, ESTADOS_FACTURA } from "../utils/format.js";
-import { calcularModelo130, round2 } from "../utils/invoice-calc.js";
+import { eur, ESTADOS_PROYECTO } from "../utils/format.js";
+import { calcularModelo130 } from "../utils/invoice-calc.js";
+import { construirLedger, resumenPeriodo, resumenTrimestre, rangoMes, rangoAnio, conIva, estadoEfectivo } from "../utils/resumen.js";
 import { escapeHtml } from "./clientes.js";
 
+const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+let chartMensualDash = null;
+let chartEstados = null;
+
 export async function renderDashboard(container) {
-  const [{ data: facturas, error: e1 }, { data: gastos, error: e2 }, { data: proyectos, error: e3 }, { data: clientes }] = await Promise.all([
+  const [{ data: proyectos, error: e1 }, { data: facturaProyectos, error: e2 }, { data: facturas, error: e3 }, { data: gastos, error: e4 }, { data: clientes }] = await Promise.all([
+    db.from("proyectos").select("*").exec(),
+    db.from("factura_proyectos").select("importe,factura_id,proyecto_id,facturas(numero,estado,fecha,tipo)").exec(),
     db.from("facturas").select("*").exec(),
     db.from("gastos").select("*").exec(),
-    db.from("proyectos").select("*").exec(),
     db.from("clientes").select("id,nombre").exec(),
   ]);
-  if (e1 || e2 || e3) { container.innerHTML = `<p class="muted">Error cargando el dashboard: ${e1||e2||e3}</p>`; return; }
+  if (e1 || e2 || e3 || e4) { container.innerHTML = `<p class="muted">Error cargando el dashboard: ${e1||e2||e3||e4}</p>`; return; }
 
   const clientesMap = Object.fromEntries((clientes||[]).map(c=>[c.id,c.nombre]));
+  const ledger = construirLedger(proyectos, facturaProyectos);
   const hoy = new Date();
   const anio = hoy.getFullYear();
-  const mes = hoy.getMonth();
+  const qActual = Math.floor(hoy.getMonth()/3) + 1;
 
-  const facturasAnio = (facturas||[]).filter(f => new Date(f.fecha).getFullYear() === anio && f.tipo === "factura");
-  const facturadoMes = round2(facturasAnio.filter(f => new Date(f.fecha).getMonth() === mes).reduce((s,f)=>s+Number(f.total||0),0));
-  const gastosAnio = (gastos||[]).filter(g => new Date(g.fecha).getFullYear() === anio);
-  const totalBaseAnio = round2(facturasAnio.reduce((s,f)=>s+Number(f.base_imponible||0),0));
-  const totalGastosAnio = round2(gastosAnio.reduce((s,g)=>s+Number(g.importe||0),0));
-  const beneficioYtd = round2(totalBaseAnio - totalGastosAnio);
+  const rMes = rangoMes(anio, hoy.getMonth());
+  const resumenMes = resumenPeriodo(ledger, gastos, rMes.desde, rMes.hasta);
+  const rAnio = rangoAnio(anio);
+  const resumenAnual = resumenPeriodo(ledger, gastos, rAnio.desde, rAnio.hasta);
 
-  const pendientes = (facturas||[]).filter(f => f.tipo === "factura" && (f.estado === "emitida" || f.estado === "vencida"));
-  const pendienteTotal = round2(pendientes.reduce((s,f)=>s+Number(f.total||0),0));
+  const porMes = MESES.map((_, i) => resumenPeriodo(ledger, gastos, rangoMes(anio,i).desde, rangoMes(anio,i).hasta));
 
   // Provisión Modelo 130 del trimestre en curso
-  const qActual = quarterOf(hoy.toISOString().slice(0,10));
   let acumulado = 0;
   for (let q = 1; q < qActual; q++) {
-    const facQ = facturasAnio.filter(f => quarterOf(f.fecha) === q);
-    const gasQ = gastosAnio.filter(g => quarterOf(g.fecha) === q);
-    const r = calcularModelo130({
-      ingresosBaseTrimestre: round2(facQ.reduce((s,f)=>s+Number(f.base_imponible||0),0)),
-      gastosTrimestre: round2(gasQ.reduce((s,g)=>s+Number(g.importe||0),0)),
-      retencionesSoportadasTrimestre: round2(facQ.reduce((s,f)=>s+Number(f.retencion_importe||0),0)),
-      pagosPreviosAnio: acumulado,
-    });
+    const t = resumenTrimestre(ledger, facturas, gastos, anio, q);
+    const r = calcularModelo130({ ingresosBaseTrimestre: t.transferencia, gastosTrimestre: t.gastosDeducibles, retencionesSoportadasTrimestre: t.retenciones, pagosPreviosAnio: acumulado });
     acumulado += r.aIngresar;
   }
-  const facQActual = facturasAnio.filter(f => quarterOf(f.fecha) === qActual);
-  const gasQActual = gastosAnio.filter(g => quarterOf(g.fecha) === qActual);
-  const provision = calcularModelo130({
-    ingresosBaseTrimestre: round2(facQActual.reduce((s,f)=>s+Number(f.base_imponible||0),0)),
-    gastosTrimestre: round2(gasQActual.reduce((s,g)=>s+Number(g.importe||0),0)),
-    retencionesSoportadasTrimestre: round2(facQActual.reduce((s,f)=>s+Number(f.retencion_importe||0),0)),
-    pagosPreviosAnio: acumulado,
-  });
+  const tActual = resumenTrimestre(ledger, facturas, gastos, anio, qActual);
+  const provision = calcularModelo130({ ingresosBaseTrimestre: tActual.transferencia, gastosTrimestre: tActual.gastosDeducibles, retencionesSoportadasTrimestre: tActual.retenciones, pagosPreviosAnio: acumulado });
+
+  // Pendiente de cobro: filas ya emitidas pero no pagadas (con IVA, que es lo que se cobra)
+  const pendientes = ledger.filter(f => estadoEfectivo(f) === "emitida");
+  const pendienteTotal = pendientes.reduce((s,f)=>s+conIva(f.importeBase),0);
 
   const enCurso = (proyectos||[]).filter(p => p.estado !== "cobrado").slice(0, 6);
+  const porEstado = Object.keys(ESTADOS_PROYECTO).map(k => ({ key: k, label: ESTADOS_PROYECTO[k].label, count: (proyectos||[]).filter(p=>p.estado===k).length }));
 
   container.innerHTML = `
     <div class="grid grid-4" style="margin-bottom:20px;">
-      <div class="card kpi"><div class="label">Facturado este mes</div><div class="value">${eur(facturadoMes)}</div></div>
-      <div class="card kpi"><div class="label">Pendiente de cobro</div><div class="value">${eur(pendienteTotal)}</div><div class="muted" style="font-size:12px;">${pendientes.length} factura(s)</div></div>
-      <div class="card kpi"><div class="label">Beneficio neto (YTD)</div><div class="value" style="color:var(--green-fg)">${eur(beneficioYtd)}</div></div>
+      <div class="card kpi"><div class="label">Facturado este mes</div><div class="value">${eur(resumenMes.transferencia + resumenMes.efectivo)}</div></div>
+      <div class="card kpi"><div class="label">Pendiente de cobro</div><div class="value">${eur(pendienteTotal)}</div><div class="muted" style="font-size:12px;">${pendientes.length} proyecto(s) emitido(s)</div></div>
+      <div class="card kpi"><div class="label">Beneficio fiscal (año)</div><div class="value" style="color:var(--green-fg)">${eur(resumenAnual.beneficioFiscal)}</div></div>
       <div class="card kpi dark"><div class="label">Provisión Modelo 130 (T${qActual})</div><div class="value">${eur(provision.aIngresar)}</div></div>
     </div>
 
     <div class="grid grid-2" style="margin-bottom:20px;">
       <div class="card">
-        <h3>Facturas pendientes de cobro</h3>
+        <h3>Facturación ${anio} <span class="muted" style="font-weight:400; font-size:12px;">(transferencia vs. efectivo)</span></h3>
+        <div style="position:relative; height:200px;"><canvas id="chart-dash-mensual"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Proyectos por estado</h3>
+        <div style="position:relative; height:200px;"><canvas id="chart-dash-estados"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-bottom:20px;">
+      <div class="card">
+        <h3>Pendiente de cobro</h3>
         <table>
-          <thead><tr><th>Cliente</th><th>Importe</th><th>Estado</th></tr></thead>
-          <tbody>${pendientes.slice(0,8).map(f => `<tr><td>${escapeHtml(clientesMap[f.cliente_id]||"—")}</td><td>${eur(f.total)}</td><td><span class="badge" style="background:${ESTADOS_FACTURA[f.estado].bg};color:${ESTADOS_FACTURA[f.estado].fg}">${ESTADOS_FACTURA[f.estado].label}</span></td></tr>`).join("") || `<tr><td colspan="3" class="muted">Nada pendiente 🎉</td></tr>`}</tbody>
+          <thead><tr><th>Proyecto</th><th>Cliente</th><th>Importe c/IVA</th></tr></thead>
+          <tbody>${pendientes.slice(0,8).map(f => `<tr><td>${escapeHtml(f.proyecto.nombre)}</td><td>${escapeHtml(clientesMap[f.proyecto.cliente_id]||"—")}</td><td>${eur(conIva(f.importeBase))}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Nada pendiente 🎉</td></tr>`}</tbody>
         </table>
+        ${pendientes.length ? `<p style="margin-top:10px;"><a href="#/mensual">Ver y marcar como pagadas →</a></p>` : ""}
       </div>
       <div class="card">
         <h3>Proyectos en curso</h3>
@@ -77,4 +85,38 @@ export async function renderDashboard(container) {
         </div>`).join("") || `<p class="muted">No hay proyectos activos. <a href="#/proyectos">Crea uno</a>.</p>`}
       </div>
     </div>`;
+
+  const ctxMes = container.querySelector("#chart-dash-mensual");
+  if (ctxMes && window.Chart) {
+    if (chartMensualDash) { chartMensualDash.destroy(); chartMensualDash = null; }
+    chartMensualDash = new window.Chart(ctxMes, {
+      type: "bar",
+      data: {
+        labels: MESES,
+        datasets: [
+          { label: "Transferencia", data: porMes.map(m=>m.transferencia), backgroundColor: "#3E6FE0", stack: "s" },
+          { label: "Efectivo", data: porMes.map(m=>m.efectivo), backgroundColor: "#F2B84B", stack: "s" },
+        ],
+      },
+      options: {
+        maintainAspectRatio: false,
+        scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, ticks: { callback: v => eur(v) } } },
+        plugins: { legend: { position: "bottom" } },
+      },
+    });
+  }
+
+  const ctxEst = container.querySelector("#chart-dash-estados");
+  if (ctxEst && window.Chart) {
+    if (chartEstados) { chartEstados.destroy(); chartEstados = null; }
+    const conDatos = porEstado.filter(e => e.count > 0);
+    chartEstados = new window.Chart(ctxEst, {
+      type: "doughnut",
+      data: {
+        labels: conDatos.map(e=>e.label),
+        datasets: [{ data: conDatos.map(e=>e.count), backgroundColor: conDatos.map(e=>ESTADOS_PROYECTO[e.key].fg), borderWidth: 0 }],
+      },
+      options: { maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } } } },
+    });
+  }
 }

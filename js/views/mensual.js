@@ -1,6 +1,7 @@
 import { db } from "../supabase.js";
-import { eur, dateEs, FORMAS_PAGO } from "../utils/format.js";
-import { round2, sumaGastosDeduciblesEnRango } from "../utils/invoice-calc.js";
+import { eur, FORMAS_PAGO } from "../utils/format.js";
+import { round2 } from "../utils/invoice-calc.js";
+import { construirLedger, resumenPeriodo, rangoAnio, conIva, estadoEfectivo } from "../utils/resumen.js";
 import { escapeHtml } from "./clientes.js";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -18,30 +19,9 @@ export async function renderMensual(container) {
 
   const clientesMap = Object.fromEntries((clientes || []).map(c => [c.id, c.nombre]));
   const anioActual = new Date().getFullYear();
-  const fpPorProyecto = {};
-  (facturaProyectos || []).forEach(fp => {
-    if (!fp.facturas || fp.facturas.tipo !== "factura") return;
-    (fpPorProyecto[fp.proyecto_id] ||= []).push(fp);
-  });
+  const ledger = construirLedger(proyectos, facturaProyectos);
 
-  // Construimos una fila por (proyecto, factura vinculada); si un proyecto no
-  // tiene ninguna factura vinculada, se muestra igualmente con una sola fila
-  // "sin factura" para poder generarla desde aquí.
-  const filas = [];
-  (proyectos || []).forEach(p => {
-    const vinculos = fpPorProyecto[p.id];
-    const fechaRef = p.fecha_entrega || p.fecha_inicio || null;
-    if (vinculos && vinculos.length) {
-      vinculos.forEach(v => {
-        const fecha = v.facturas.fecha || fechaRef;
-        filas.push({ proyecto: p, fecha, importe: Number(v.importe || 0), facturaNumero: v.facturas.numero, facturaEstado: v.facturas.estado, facturaId: v.factura_id });
-      });
-    } else {
-      filas.push({ proyecto: p, fecha: fechaRef, importe: Number(p.precio_acordado || 0), facturaNumero: null, facturaEstado: null, facturaId: null });
-    }
-  });
-
-  const anios = Array.from(new Set([...filas.map(f => f.fecha ? new Date(f.fecha).getFullYear() : anioActual), anioActual])).sort((a,b)=>b-a);
+  const anios = Array.from(new Set([...ledger.map(f => f.fecha ? new Date(f.fecha).getFullYear() : anioActual), anioActual])).sort((a,b)=>b-a);
 
   container.innerHTML = `
     <div style="display:flex; justify-content:space-between; margin-bottom:14px; gap:8px; align-items:center;">
@@ -59,26 +39,22 @@ export async function renderMensual(container) {
   pintar(anioActual);
 
   function pintar(anio) {
-    const filasAnio = filas.filter(f => f.fecha && new Date(f.fecha).getFullYear() === anio);
-
-    const totalAnual = round2(filasAnio.reduce((s,f)=>s+f.importe,0));
-    const totalTransferencia = round2(filasAnio.filter(f => (f.proyecto.forma_pago||"transferencia") === "transferencia").reduce((s,f)=>s+f.importe,0));
-    const totalEfectivo = round2(filasAnio.filter(f => f.proyecto.forma_pago === "efectivo").reduce((s,f)=>s+f.importe,0));
-    const totalMixto = round2(filasAnio.filter(f => f.proyecto.forma_pago === "mixto").reduce((s,f)=>s+f.importe,0));
-    const totalGastos = round2(sumaGastosDeduciblesEnRango(gastos, `${anio}-01-01`, `${anio}-12-31`));
+    const { desde, hasta } = rangoAnio(anio);
+    const r = resumenPeriodo(ledger, gastos, desde, hasta);
+    const filasAnio = r.filas;
 
     container.querySelector("#resumen-anual").innerHTML = `
-      <div class="card kpi"><div class="label">Total facturado ${anio}</div><div class="value">${eur(totalAnual)}</div></div>
-      <div class="card kpi"><div class="label">Por transferencia</div><div class="value" style="color:${FORMAS_PAGO.transferencia.fg}">${eur(totalTransferencia)}</div></div>
-      <div class="card kpi"><div class="label">En efectivo</div><div class="value" style="color:${FORMAS_PAGO.efectivo.fg}">${eur(totalEfectivo + totalMixto)}</div></div>
-      <div class="card kpi dark"><div class="label">Gastos deducibles ${anio}</div><div class="value">${eur(totalGastos)}</div></div>
+      <div class="card kpi"><div class="label">Total facturado ${anio}</div><div class="value">${eur(r.totalBase)}</div><div class="muted" style="font-size:12px;">${eur(r.totalConIva)} con IVA</div></div>
+      <div class="card kpi"><div class="label">Por transferencia</div><div class="value" style="color:${FORMAS_PAGO.transferencia.fg}">${eur(r.transferencia)}</div></div>
+      <div class="card kpi"><div class="label">En efectivo</div><div class="value" style="color:${FORMAS_PAGO.efectivo.fg}">${eur(r.efectivo)}</div></div>
+      <div class="card kpi dark"><div class="label">Gastos deducibles ${anio}</div><div class="value">${eur(r.gastosDeducibles)}</div></div>
     `;
 
     const $body = container.querySelector("#meses-body");
     $body.innerHTML = MESES.map((nombreMes, idx) => {
       const filasMes = filasAnio.filter(f => new Date(f.fecha).getMonth() === idx)
         .sort((a,b) => (a.proyecto.nombre||"").localeCompare(b.proyecto.nombre||""));
-      const totalMes = round2(filasMes.reduce((s,f)=>s+f.importe,0));
+      const totalMes = round2(filasMes.reduce((s,f)=>s+f.importeBase,0));
       if (!filasMes.length) {
         return `<details class="card" style="margin-bottom:10px;"><summary style="cursor:pointer; font-weight:600;">${nombreMes} — ${eur(0)}</summary><p class="muted" style="margin-top:10px;">Sin proyectos este mes.</p></details>`;
       }
@@ -86,20 +62,22 @@ export async function renderMensual(container) {
       <details class="card" style="margin-bottom:10px;" ${idx === new Date().getMonth() && anio === anioActual ? "open" : ""}>
         <summary style="cursor:pointer; font-weight:600;">${nombreMes} — ${eur(totalMes)} <span class="muted" style="font-weight:400;">(${filasMes.length} proyecto${filasMes.length===1?"":"s"})</span></summary>
         <table style="margin-top:10px;">
-          <thead><tr><th>Proyecto</th><th>Cliente</th><th>Nº factura</th><th>Importe</th><th>Forma de pago</th><th style="text-align:center;">Emitida</th><th style="text-align:center;">Pagada</th></tr></thead>
+          <thead><tr><th>Proyecto</th><th>Cliente</th><th>Nº factura</th><th>Importe</th><th>Importe c/IVA</th><th>Forma de pago</th><th style="text-align:center;">Emitida</th><th style="text-align:center;">Pagada</th></tr></thead>
           <tbody>
             ${filasMes.map((f, i) => {
               const fp = FORMAS_PAGO[f.proyecto.forma_pago || "transferencia"];
-              const emitida = !!f.facturaEstado && f.facturaEstado !== "borrador";
-              const pagada = f.facturaEstado === "pagada";
+              const estado = estadoEfectivo(f);
+              const emitida = estado === "emitida" || estado === "pagada";
+              const pagada = estado === "pagada";
               return `<tr data-row="${idx}-${i}">
-                <td class="link-proyecto" data-proyecto-id="${f.proyecto.id}" style="cursor:pointer; color:var(--blue-fg, #3E6FE0);">${escapeHtml(f.proyecto.nombre)}</td>
+                <td class="link-proyecto" data-proyecto-id="${f.proyecto.id}" style="cursor:pointer; color:var(--blue);">${escapeHtml(f.proyecto.nombre)}</td>
                 <td>${escapeHtml(clientesMap[f.proyecto.cliente_id] || "—")}</td>
                 <td>${f.facturaNumero ? escapeHtml(f.facturaNumero) : `<button class="btn btn-ghost btn-generar-mini" data-proyecto-id="${f.proyecto.id}" style="font-size:11px; padding:2px 8px;">+ Generar</button>`}</td>
-                <td>${eur(f.importe)}</td>
+                <td>${eur(f.importeBase)}</td>
+                <td class="muted">${eur(conIva(f.importeBase))}</td>
                 <td><span class="badge" style="background:${fp.bg}; color:${fp.fg};">${fp.label}</span></td>
-                <td style="text-align:center;"><input type="checkbox" class="chk-emitida" data-factura-id="${f.facturaId||""}" ${emitida?"checked":""} ${!f.facturaId?"disabled":""}></td>
-                <td style="text-align:center;"><input type="checkbox" class="chk-pagada" data-factura-id="${f.facturaId||""}" ${pagada?"checked":""} ${!f.facturaId?"disabled":""}></td>
+                <td style="text-align:center;"><input type="checkbox" class="chk-emitida" data-proyecto-id="${f.proyecto.id}" data-factura-id="${f.facturaId||""}" ${emitida?"checked":""}></td>
+                <td style="text-align:center;"><input type="checkbox" class="chk-pagada" data-proyecto-id="${f.proyecto.id}" data-factura-id="${f.facturaId||""}" ${pagada?"checked":""}></td>
               </tr>`;
             }).join("")}
           </tbody>
@@ -113,29 +91,50 @@ export async function renderMensual(container) {
     $body.querySelectorAll(".btn-generar-mini").forEach(btn => {
       btn.addEventListener("click", (e) => { e.stopPropagation(); location.hash = `#/facturacion/nuevo-desde-proyecto:${btn.dataset.proyectoId}`; });
     });
+
+    async function setEstadoProyecto(proyectoId, nuevoEstado) {
+      await db.from("proyectos").update({ estado_facturacion: nuevoEstado }).eq("id", proyectoId).exec();
+      const p = (proyectos || []).find(x => x.id === proyectoId);
+      if (p) p.estado_facturacion = nuevoEstado;
+      pintar(anio);
+    }
+    async function setEstadoFactura(facturaId, nuevoEstado) {
+      await db.from("facturas").update({ estado: nuevoEstado }).eq("id", facturaId).exec();
+      (facturaProyectos || []).forEach(fp => { if (fp.factura_id === facturaId && fp.facturas) fp.facturas.estado = nuevoEstado; });
+      pintar(anio);
+    }
+
     $body.querySelectorAll(".chk-emitida").forEach(chk => {
       chk.addEventListener("click", async (e) => {
         e.preventDefault();
         const facturaId = chk.dataset.facturaId;
-        if (!facturaId) return;
-        const { data: f } = await db.from("facturas").select("estado").eq("id", facturaId).single().exec();
-        if (!f) return;
-        if (f.estado === "pagada") { alert("Esta factura ya está pagada. Cambia primero el estado de \"Pagada\" si quieres revertirla."); return; }
-        const nuevoEstado = f.estado === "borrador" ? "emitida" : "borrador";
-        await db.from("facturas").update({ estado: nuevoEstado }).eq("id", facturaId).exec();
-        pintar(anio);
+        if (facturaId) {
+          const { data: f } = await db.from("facturas").select("estado").eq("id", facturaId).single().exec();
+          if (!f) return;
+          if (f.estado === "pagada") { alert("Esta factura ya está pagada. Cambia primero \"Pagada\" si quieres revertirla."); return; }
+          await setEstadoFactura(facturaId, f.estado === "borrador" ? "emitida" : "borrador");
+        } else {
+          const proyectoId = chk.dataset.proyectoId;
+          const p = (proyectos || []).find(x => x.id === proyectoId);
+          if (p && p.estado_facturacion === "pagada") { alert("Este proyecto ya está marcado como pagado. Cambia primero \"Pagada\" si quieres revertirlo."); return; }
+          await setEstadoProyecto(proyectoId, (p?.estado_facturacion || "pendiente") === "pendiente" ? "emitida" : "pendiente");
+        }
       });
     });
     $body.querySelectorAll(".chk-pagada").forEach(chk => {
       chk.addEventListener("click", async (e) => {
         e.preventDefault();
         const facturaId = chk.dataset.facturaId;
-        if (!facturaId) return;
-        const { data: f } = await db.from("facturas").select("estado").eq("id", facturaId).single().exec();
-        if (!f) return;
-        const nuevoEstado = f.estado === "pagada" ? "emitida" : "pagada";
-        await db.from("facturas").update({ estado: nuevoEstado }).eq("id", facturaId).exec();
-        pintar(anio);
+        if (facturaId) {
+          const { data: f } = await db.from("facturas").select("estado").eq("id", facturaId).single().exec();
+          if (!f) return;
+          await setEstadoFactura(facturaId, f.estado === "pagada" ? "emitida" : "pagada");
+        } else {
+          const proyectoId = chk.dataset.proyectoId;
+          const p = (proyectos || []).find(x => x.id === proyectoId);
+          const actual = p?.estado_facturacion || "pendiente";
+          await setEstadoProyecto(proyectoId, actual === "pagada" ? "emitida" : "pagada");
+        }
       });
     });
   }
