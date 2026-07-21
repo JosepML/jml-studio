@@ -16,7 +16,7 @@ const ROUTES = {
   facturacion: { title: "Facturación", render: renderFacturacion },
   gastos: { title: "Gastos", render: renderGastos },
   financiero: { title: "Financiero", render: renderFinanciero },
-  asistente: { title: "Asistente IA", render: renderAsistente },
+  asistente: { title: "Asistente", render: renderAsistente },
 };
 
 const $loginScreen = document.getElementById("login-screen");
