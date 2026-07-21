@@ -37,12 +37,19 @@ body{
 .grid-4{grid-template-columns:repeat(4,1fr);}
 .grid-2{grid-template-columns:1fr 1fr;}
 @media(max-width:900px){.grid-4{grid-template-columns:repeat(2,1fr);} .grid-2{grid-template-columns:1fr;}}
-.card{background:#fff; border:1px solid var(--border); border-radius:10px; padding:18px;}
-.card h3{margin:0 0 12px; font-size:14px;}
-.kpi .label{color:var(--grey); font-size:12px; text-transform:uppercase; letter-spacing:.03em;}
-.kpi .value{font-size:26px; font-weight:700; margin:6px 0 4px;}
-.kpi.dark{background:var(--navy); color:#fff;}
+.card{background:#fff; border:1px solid var(--border); border-radius:12px; padding:18px; box-shadow:0 1px 2px rgba(31,42,68,.04); transition:box-shadow .15s ease;}
+.card h3{margin:0 0 12px; font-size:14px; font-weight:700; letter-spacing:.01em;}
+.kpi .label{color:var(--grey); font-size:11px; text-transform:uppercase; letter-spacing:.05em; font-weight:600;}
+.kpi .value{font-size:27px; font-weight:700; margin:8px 0 2px; letter-spacing:-.01em;}
+.kpi.dark{background:var(--navy); color:#fff; border-color:var(--navy);}
 .kpi.dark .label{color:#B9C0DA;}
+
+/* Chips de categoría (Gastos) */
+.chip-cat{border:none; border-radius:999px; padding:7px 14px; font-size:12px; font-weight:600; cursor:pointer; transition:opacity .15s ease;}
+.chip-cat:hover{opacity:.85;}
+
+/* Alertas del Asistente */
+.ai-banner{border-left:4px solid var(--purple-fg);}
 
 /* Badges */
 .badge{display:inline-block; padding:3px 10px; border-radius:10px; font-size:11px; font-weight:600;}
