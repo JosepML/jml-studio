@@ -4,13 +4,17 @@ import { renderClientes } from "./views/clientes.js";
 import { renderProyectos } from "./views/proyectos.js";
 import { renderFacturacion } from "./views/facturacion.js";
 import { renderFinanciero } from "./views/financiero.js";
+import { renderGastos } from "./views/gastos.js";
+import { renderMensual } from "./views/mensual.js";
 import { renderAsistente } from "./views/asistente.js";
 
 const ROUTES = {
   dashboard: { title: "Dashboard", render: renderDashboard },
+  mensual: { title: "Facturación mensual", render: renderMensual },
   proyectos: { title: "Proyectos", render: renderProyectos },
   clientes: { title: "Clientes", render: renderClientes },
   facturacion: { title: "Facturación", render: renderFacturacion },
+  gastos: { title: "Gastos", render: renderGastos },
   financiero: { title: "Financiero", render: renderFinanciero },
   asistente: { title: "Asistente IA", render: renderAsistente },
 };
