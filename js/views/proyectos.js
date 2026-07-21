@@ -1,5 +1,5 @@
 import { db } from "../supabase.js";
-import { ESTADOS_PROYECTO, ESTADOS_FACTURA, eur, dateEs, todayIso } from "../utils/format.js";
+import { ESTADOS_PROYECTO, ESTADOS_FACTURA, FORMAS_PAGO, eur, dateEs, todayIso } from "../utils/format.js";
 import { escapeHtml, escapeAttr } from "./clientes.js";
 
 export async function renderProyectos(container, param) {
@@ -50,16 +50,17 @@ export async function renderProyectos(container, param) {
 
 async function abrirFicha(container, proyecto, clientes) {
   const esNuevo = !proyecto;
-  proyecto = proyecto || { nombre: "", cliente_id: clientes[0]?.id || "", estado: "presupuestado", fecha_inicio: todayIso(), fecha_entrega: "", horas_invertidas: 0, coste_asociado: 0, precio_acordado: 0, entregables: [], notas: "" };
+  proyecto = proyecto || { nombre: "", cliente_id: clientes[0]?.id || "", estado: "presupuestado", fecha_inicio: todayIso(), fecha_entrega: "", horas_invertidas: 0, coste_asociado: 0, precio_acordado: 0, entregables: [], forma_pago: "transferencia", notas: "" };
   const $detalle = container.querySelector("#proyecto-detalle");
 
-  let gastos = [], facturas = [];
+  let gastos = [], facturasVinculadas = [];
   if (!esNuevo) {
-    const [g, f] = await Promise.all([
+    const [g, fp] = await Promise.all([
       db.from("gastos").select("*").eq("proyecto_id", proyecto.id).order("fecha", { ascending: false }).exec(),
-      db.from("facturas").select("*").eq("proyecto_id", proyecto.id).order("fecha", { ascending: false }).exec(),
+      db.from("factura_proyectos").select("importe,factura_id,facturas(numero,tipo,total,estado,fecha)").eq("proyecto_id", proyecto.id).exec(),
     ]);
-    gastos = g.data || []; facturas = f.data || [];
+    gastos = g.data || [];
+    facturasVinculadas = fp.data || [];
   }
   const margen = Number(proyecto.precio_acordado || 0) - Number(proyecto.coste_asociado || 0);
 
@@ -91,6 +92,11 @@ async function abrirFicha(container, proyecto, clientes) {
         <div class="field"><label>Horas invertidas</label><input type="number" step="0.5" id="f-horas" value="${proyecto.horas_invertidas || 0}"></div>
         <div class="field"><label>Coste asociado (€)</label><input type="number" step="0.01" id="f-coste" value="${proyecto.coste_asociado || 0}"></div>
         <div class="field"><label>Precio acordado (€)</label><input type="number" step="0.01" id="f-precio" value="${proyecto.precio_acordado || 0}"></div>
+        <div class="field"><label>Forma de pago</label>
+          <select id="f-forma-pago">
+            ${Object.entries(FORMAS_PAGO).map(([k,v]) => `<option value="${k}" ${k===(proyecto.forma_pago||"transferencia")?"selected":""}>${v.label}</option>`).join("")}
+          </select>
+        </div>
       </div>
       ${esNuevo ? "" : `<p class="muted">Margen estimado: <strong style="color:var(--green-fg)">${eur(margen)}</strong></p>`}
       <div class="field"><label>Entregables (uno por línea)</label><textarea id="f-entregables" rows="3">${(Array.isArray(proyecto.entregables) ? proyecto.entregables : []).join("\n")}</textarea></div>
@@ -112,8 +118,9 @@ async function abrirFicha(container, proyecto, clientes) {
       <tbody>${gastos.map(g => `<tr><td>${escapeHtml(g.concepto)}</td><td>${eur(g.importe)}</td><td>${g.tipo}</td><td>${dateEs(g.fecha)}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">Sin gastos registrados</td></tr>`}</tbody></table>
 
       <h3 style="margin-top:20px;">Facturas y presupuestos vinculados</h3>
-      <table><thead><tr><th>Nº</th><th>Tipo</th><th>Importe</th><th>Estado</th></tr></thead>
-      <tbody>${facturas.map(f => `<tr><td>${escapeHtml(f.numero)}</td><td>${f.tipo}</td><td>${eur(f.total)}</td><td><span class="badge" style="background:${ESTADOS_FACTURA[f.estado].bg}; color:${ESTADOS_FACTURA[f.estado].fg}">${ESTADOS_FACTURA[f.estado].label}</span></td></tr>`).join("") || `<tr><td colspan="4" class="muted">Sin facturas todavía</td></tr>`}</tbody></table>
+      <p class="muted" style="font-size:12px; margin-top:-6px;">Una factura puede cubrir varios proyectos: aquí solo se muestra la parte (importe) que corresponde a este proyecto.</p>
+      <table><thead><tr><th>Nº</th><th>Tipo</th><th>Importe de este proyecto</th><th>Total factura</th><th>Estado</th></tr></thead>
+      <tbody>${facturasVinculadas.map(fp => { const f = fp.facturas; if (!f) return ""; return `<tr class="clickable" data-factura-id="${fp.factura_id}"><td>${escapeHtml(f.numero)}</td><td>${f.tipo}</td><td>${eur(fp.importe)}</td><td>${eur(f.total)}</td><td><span class="badge" style="background:${ESTADOS_FACTURA[f.estado].bg}; color:${ESTADOS_FACTURA[f.estado].fg}">${ESTADOS_FACTURA[f.estado].label}</span></td></tr>`; }).join("") || `<tr><td colspan="5" class="muted">Sin facturas todavía</td></tr>`}</tbody></table>
       `}
     </div>`;
 
@@ -127,6 +134,7 @@ async function abrirFicha(container, proyecto, clientes) {
       horas_invertidas: Number($detalle.querySelector("#f-horas").value || 0),
       coste_asociado: Number($detalle.querySelector("#f-coste").value || 0),
       precio_acordado: Number($detalle.querySelector("#f-precio").value || 0),
+      forma_pago: $detalle.querySelector("#f-forma-pago").value,
       entregables: $detalle.querySelector("#f-entregables").value.split("\n").map(s => s.trim()).filter(Boolean),
       notas: $detalle.querySelector("#f-notas").value.trim(),
     };
@@ -148,6 +156,10 @@ async function abrirFicha(container, proyecto, clientes) {
 
     $detalle.querySelector("#btn-generar-factura").addEventListener("click", () => {
       location.hash = `#/facturacion/nuevo-desde-proyecto:${proyecto.id}`;
+    });
+
+    $detalle.querySelectorAll("tr[data-factura-id]").forEach(tr => {
+      tr.addEventListener("click", () => { location.hash = `#/facturacion/${tr.dataset.facturaId}`; });
     });
 
     $detalle.querySelector("#btn-add-gasto").addEventListener("click", () => {

@@ -1,12 +1,27 @@
 import { db } from "../supabase.js";
 import { eur, quarterOf } from "../utils/format.js";
-import { calcularModelo130, round2, PLAZOS_MODELO_130_2026 } from "../utils/invoice-calc.js";
+import { calcularModelo130, round2, PLAZOS_MODELO_130_2026, sumaGastosDeduciblesEnRango } from "../utils/invoice-calc.js";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+function rangoMes(anio, mesIdx) {
+  const desde = `${anio}-${String(mesIdx+1).padStart(2,"0")}-01`;
+  const ultimoDia = new Date(anio, mesIdx+1, 0).getDate();
+  const hasta = `${anio}-${String(mesIdx+1).padStart(2,"0")}-${String(ultimoDia).padStart(2,"0")}`;
+  return { desde, hasta };
+}
+function rangoTrimestre(anio, q) {
+  const mesInicio = (q-1)*3;
+  const { desde } = rangoMes(anio, mesInicio);
+  const { hasta } = rangoMes(anio, mesInicio+2);
+  return { desde, hasta };
+}
 
 export async function renderFinanciero(container) {
   container.innerHTML = `<div class="empty-state">Cargando datos financieros…</div>`;
 
+  // Traemos TODOS los gastos (no solo los del año) porque un bien amortizable
+  // comprado en un año puede seguir generando cuota deducible en años siguientes.
   const [{ data: facturas, error: e1 }, { data: gastos, error: e2 }] = await Promise.all([
     db.from("facturas").select("*").exec(),
     db.from("gastos").select("*").exec(),
@@ -15,58 +30,30 @@ export async function renderFinanciero(container) {
 
   const anioActual = new Date().getFullYear();
   const anios = Array.from(new Set([...(facturas||[]).map(f=>new Date(f.fecha).getFullYear()), anioActual])).sort();
-  let anioSeleccionado = anioActual;
 
   container.innerHTML = `
     <div style="display:flex; justify-content:space-between; margin-bottom:14px; gap:8px; align-items:center;">
-      <button class="btn btn-ghost" id="btn-add-gasto-general">+ Añadir gasto</button>
+      <a href="#/gastos" class="btn btn-ghost">Ir al módulo de Gastos →</a>
       <div style="display:flex; gap:8px; align-items:center;">
         <label style="margin:0;">Año</label>
         <select id="sel-anio" style="width:auto;">${anios.map(a => `<option value="${a}" ${a===anioActual?"selected":""}>${a}</option>`).join("")}</select>
       </div>
     </div>
-    <div id="gasto-general-form"></div>
     <div id="financiero-body"></div>`;
 
   container.querySelector("#sel-anio").addEventListener("change", e => pintar(Number(e.target.value)));
-  container.querySelector("#btn-add-gasto-general").addEventListener("click", () => {
-    const $wrap = container.querySelector("#gasto-general-form");
-    $wrap.innerHTML = `
-      <div class="card" style="margin-bottom:14px;">
-        <div class="row" style="align-items:flex-end;">
-          <div class="field"><label>Concepto</label><input id="gg-concepto" placeholder="Ej. Software, seguro, alquiler estudio..."></div>
-          <div class="field"><label>Importe (€)</label><input id="gg-importe" type="number" step="0.01"></div>
-          <div class="field"><label>Tipo</label><select id="gg-tipo"><option value="fijo">Fijo</option><option value="variable">Variable</option></select></div>
-          <div class="field"><label>Fecha</label><input id="gg-fecha" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
-          <div class="field" style="flex:0"><button class="btn btn-primary" id="btn-guardar-gasto-general" type="button">Guardar</button></div>
-        </div>
-      </div>`;
-    $wrap.querySelector("#btn-guardar-gasto-general").addEventListener("click", async () => {
-      const payload = {
-        concepto: $wrap.querySelector("#gg-concepto").value.trim(),
-        importe: Number($wrap.querySelector("#gg-importe").value || 0),
-        tipo: $wrap.querySelector("#gg-tipo").value,
-        fecha: $wrap.querySelector("#gg-fecha").value,
-      };
-      if (!payload.concepto) { alert("Falta el concepto del gasto."); return; }
-      const { error } = await db.from("gastos").insert(payload).exec();
-      if (error) { alert("Error guardando: " + error); return; }
-      renderFinanciero(container);
-    });
-  });
   pintar(anioActual);
 
   function pintar(anio) {
     const facturasAnio = (facturas||[]).filter(f => new Date(f.fecha).getFullYear() === anio && f.tipo === "factura");
-    const gastosAnio = (gastos||[]).filter(g => new Date(g.fecha).getFullYear() === anio);
 
     // --- Mensual ---
     const porMes = MESES.map((_, i) => {
+      const { desde, hasta } = rangoMes(anio, i);
       const facMes = facturasAnio.filter(f => new Date(f.fecha).getMonth() === i);
-      const gasMes = gastosAnio.filter(g => new Date(g.fecha).getMonth() === i);
       return {
         facturado: round2(facMes.reduce((s,f)=>s+Number(f.total||0),0)),
-        gastos: round2(gasMes.reduce((s,g)=>s+Number(g.importe||0),0)),
+        gastosDeducibles: sumaGastosDeduciblesEnRango(gastos, desde, hasta),
       };
     });
     const maxFacturado = Math.max(1, ...porMes.map(m=>m.facturado));
@@ -74,11 +61,11 @@ export async function renderFinanciero(container) {
     // --- Trimestral (Modelo 130) ---
     let acumuladoPagado = 0;
     const trimestres = [1,2,3,4].map(q => {
+      const { desde, hasta } = rangoTrimestre(anio, q);
       const facQ = facturasAnio.filter(f => quarterOf(f.fecha) === q);
-      const gasQ = gastosAnio.filter(g => quarterOf(g.fecha) === q);
       const ingresosBase = round2(facQ.reduce((s,f)=>s+Number(f.base_imponible||0),0));
       const retenciones = round2(facQ.reduce((s,f)=>s+Number(f.retencion_importe||0),0));
-      const gastosQ = round2(gasQ.reduce((s,g)=>s+Number(g.importe||0),0));
+      const gastosQ = sumaGastosDeduciblesEnRango(gastos, desde, hasta);
       const r = calcularModelo130({ ingresosBaseTrimestre: ingresosBase, gastosTrimestre: gastosQ, retencionesSoportadasTrimestre: retenciones, pagosPreviosAnio: acumuladoPagado });
       acumuladoPagado += r.aIngresar;
       const plazo = PLAZOS_MODELO_130_2026[q-1];
@@ -88,8 +75,8 @@ export async function renderFinanciero(container) {
     // --- Anual ---
     const totalFacturado = round2(facturasAnio.reduce((s,f)=>s+Number(f.total||0),0));
     const totalBase = round2(facturasAnio.reduce((s,f)=>s+Number(f.base_imponible||0),0));
-    const totalGastos = round2(gastosAnio.reduce((s,g)=>s+Number(g.importe||0),0));
-    const beneficioNeto = round2(totalBase - totalGastos);
+    const totalGastosDeducibles = round2(sumaGastosDeduciblesEnRango(gastos, `${anio}-01-01`, `${anio}-12-31`));
+    const beneficioNeto = round2(totalBase - totalGastosDeducibles);
 
     const trimestreActual = quarterOf(new Date().toISOString().slice(0,10));
     const proximoTrimestre = trimestres[trimestreActual - 1] || trimestres[0];
@@ -97,7 +84,7 @@ export async function renderFinanciero(container) {
     container.querySelector("#financiero-body").innerHTML = `
       <div class="grid grid-4" style="margin-bottom:20px;">
         <div class="card kpi"><div class="label">Facturado ${anio}</div><div class="value">${eur(totalFacturado)}</div></div>
-        <div class="card kpi"><div class="label">Gastos ${anio}</div><div class="value">${eur(totalGastos)}</div></div>
+        <div class="card kpi"><div class="label">Gastos deducibles ${anio}</div><div class="value">${eur(totalGastosDeducibles)}</div></div>
         <div class="card kpi"><div class="label">Beneficio neto</div><div class="value" style="color:var(--green-fg)">${eur(beneficioNeto)}</div></div>
         <div class="card kpi dark"><div class="label">Próx. pago Modelo 130 (T${trimestreActual})</div><div class="value">${eur(proximoTrimestre.aIngresar)}</div><div style="font-size:11px;color:#8FD6B3;">Vence ${proximoTrimestre.plazo.fin}</div></div>
       </div>
@@ -116,15 +103,15 @@ export async function renderFinanciero(container) {
       <div class="card" style="margin-bottom:20px;">
         <h3>Modelo 130 — cierre trimestral (estimación)</h3>
         <table>
-          <thead><tr><th>Trimestre</th><th>Rendimiento neto</th><th>Pago fraccionado (20%)</th><th>A ingresar</th><th>Plazo</th></tr></thead>
+          <thead><tr><th>Trimestre</th><th>Ingresos (base)</th><th>Gastos deducibles</th><th>Rendimiento neto</th><th>Pago fraccionado (20%)</th><th>A ingresar</th><th>Plazo</th></tr></thead>
           <tbody>
             ${trimestres.map(t => `<tr>
-              <td>T${t.q}</td><td>${eur(t.rendimientoNeto)}</td><td>${eur(t.pagoBruto)}</td>
+              <td>T${t.q}</td><td>${eur(t.ingresosBase)}</td><td>${eur(t.gastosQ)}</td><td>${eur(t.rendimientoNeto)}</td><td>${eur(t.pagoBruto)}</td>
               <td><strong>${eur(t.aIngresar)}</strong></td><td>${t.plazo.inicio.slice(8,10)}–${t.plazo.fin.slice(8,10)} ${t.plazo.fin.slice(5,7)}/${t.plazo.fin.slice(0,4)}</td>
             </tr>`).join("")}
           </tbody>
         </table>
-        <p class="muted" style="font-size:12px; margin-top:10px;">Estimación orientativa (20% del rendimiento neto acumulado, menos retenciones e ingresos previos del año). Confírmalo con tu gestor/a antes de presentar el modelo oficial.</p>
+        <p class="muted" style="font-size:12px; margin-top:10px;">Estimación orientativa (20% del rendimiento neto acumulado, menos retenciones e ingresos previos del año). Los gastos deducibles ya tienen en cuenta el IVA no recuperable de combustible y el prorrateo mensual de bienes amortizables. Confírmalo con tu gestor/a antes de presentar el modelo oficial.</p>
       </div>
     `;
   }

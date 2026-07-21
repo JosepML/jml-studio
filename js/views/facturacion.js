@@ -44,6 +44,22 @@ async function renderLista(container) {
   $list.querySelectorAll("tr[data-id]").forEach(tr => tr.addEventListener("click", () => location.hash = `#/facturacion/${tr.dataset.id}`));
 }
 
+// Mantiene factura_proyectos en sincronía con las líneas de la factura: cada
+// línea puede estar (opcionalmente) asignada a un proyecto; agrupamos por
+// proyecto y guardamos el importe correspondiente. Esto permite que una sola
+// factura cubra varios proyectos (cada uno con su parte proporcional).
+async function sincronizarFacturaProyectos(facturaId, lineas) {
+  await db.from("factura_proyectos").delete().eq("factura_id", facturaId).exec();
+  const porProyecto = {};
+  for (const l of lineas) {
+    if (!l.proyecto_id) continue;
+    const importe = Number(l.cantidad || 1) * Number(l.precio || 0);
+    porProyecto[l.proyecto_id] = round2((porProyecto[l.proyecto_id] || 0) + importe);
+  }
+  const filas = Object.entries(porProyecto).map(([proyecto_id, importe]) => ({ factura_id: facturaId, proyecto_id, importe }));
+  if (filas.length) await db.from("factura_proyectos").insert(filas).exec();
+}
+
 async function nextNumero() {
   const year = new Date().getFullYear();
   const { data } = await db.from("facturas").select("id").gte("fecha", `${year}-01-01`).lte("fecha", `${year}-12-31`).exec();
@@ -52,19 +68,22 @@ async function nextNumero() {
 }
 
 async function renderEditor(container, { proyectoId, facturaId }) {
-  const { data: clientes } = await db.from("clientes").select("*").order("nombre").exec();
-  let draft = { numero: "", tipo: "factura", fecha: todayIso(), fecha_vencimiento: "", cliente_id: clientes?.[0]?.id || "", proyecto_id: null, lineas: [{ concepto: "", cantidad: 1, precio: 0 }], iva_pct: 21, retencion_pct: 0, estado: "borrador" };
+  const [{ data: clientes }, { data: proyectosDisponibles }] = await Promise.all([
+    db.from("clientes").select("*").order("nombre").exec(),
+    db.from("proyectos").select("id,nombre").order("nombre").exec(),
+  ]);
+  let draft = { numero: "", tipo: "factura", fecha: todayIso(), fecha_vencimiento: "", cliente_id: clientes?.[0]?.id || "", proyecto_id: null, lineas: [{ concepto: "", cantidad: 1, precio: 0, proyecto_id: "" }], iva_pct: 21, retencion_pct: 0, estado: "borrador" };
   let origenProyectoTexto = "";
 
   if (facturaId) {
     const { data } = await db.from("facturas").select("*").eq("id", facturaId).single().exec();
-    if (data) draft = { ...data, lineas: data.lineas?.length ? data.lineas : [{ concepto: "", cantidad: 1, precio: 0 }] };
+    if (data) draft = { ...data, lineas: data.lineas?.length ? data.lineas.map(l => ({ proyecto_id: "", ...l })) : [{ concepto: "", cantidad: 1, precio: 0, proyecto_id: "" }] };
   } else if (proyectoId) {
     const { data: proyecto } = await db.from("proyectos").select("*").eq("id", proyectoId).single().exec();
     if (proyecto) {
       draft.proyecto_id = proyecto.id;
       draft.cliente_id = proyecto.cliente_id;
-      draft.lineas = [{ concepto: proyecto.nombre, cantidad: 1, precio: Number(proyecto.precio_acordado || 0) }];
+      draft.lineas = [{ concepto: proyecto.nombre, cantidad: 1, precio: Number(proyecto.precio_acordado || 0), proyecto_id: proyecto.id }];
       origenProyectoTexto = proyecto.nombre;
     }
     draft.numero = await nextNumero();
@@ -122,18 +141,27 @@ async function renderEditor(container, { proyectoId, facturaId }) {
 
   const $lineasWrap = container.querySelector("#lineas-wrap");
   function pintarLineas() {
-    $lineasWrap.innerHTML = draft.lineas.map((l, i) => `
+    $lineasWrap.innerHTML = `
+      <p class="muted" style="font-size:12px; margin:-4px 0 8px;">Si una factura cubre varios proyectos, asigna cada línea a su proyecto: así aparecerá repartida correctamente en cada ficha de proyecto y en la vista mensual.</p>
+      ${draft.lineas.map((l, i) => `
       <div class="row" data-idx="${i}" style="margin-bottom:8px; align-items:flex-end;">
         <div style="flex:3"><input class="linea-concepto" placeholder="Concepto" value="${escapeAttr(l.concepto)}"></div>
         <div style="flex:1"><input class="linea-cantidad" type="number" step="1" value="${l.cantidad}" placeholder="Uds."></div>
         <div style="flex:1"><input class="linea-precio" type="number" step="0.01" value="${l.precio}" placeholder="Precio"></div>
+        <div style="flex:2">
+          <select class="linea-proyecto">
+            <option value="">(sin proyecto)</option>
+            ${(proyectosDisponibles || []).map(p => `<option value="${p.id}" ${p.id === l.proyecto_id ? "selected" : ""}>${escapeHtml(p.nombre)}</option>`).join("")}
+          </select>
+        </div>
         <div style="flex:0"><button class="btn btn-ghost btn-quitar-linea" type="button">✕</button></div>
-      </div>`).join("");
+      </div>`).join("")}`;
     $lineasWrap.querySelectorAll("[data-idx]").forEach(row => {
       const idx = Number(row.dataset.idx);
       row.querySelector(".linea-concepto").addEventListener("input", e => { draft.lineas[idx].concepto = e.target.value; actualizar(); });
       row.querySelector(".linea-cantidad").addEventListener("input", e => { draft.lineas[idx].cantidad = Number(e.target.value || 0); actualizar(); });
       row.querySelector(".linea-precio").addEventListener("input", e => { draft.lineas[idx].precio = Number(e.target.value || 0); actualizar(); });
+      row.querySelector(".linea-proyecto").addEventListener("change", e => { draft.lineas[idx].proyecto_id = e.target.value; });
       row.querySelector(".btn-quitar-linea").addEventListener("click", () => { draft.lineas.splice(idx, 1); pintarLineas(); actualizar(); });
     });
   }
@@ -165,7 +193,7 @@ async function renderEditor(container, { proyectoId, facturaId }) {
 
   pintarLineas();
   actualizar();
-  container.querySelector("#btn-add-linea").addEventListener("click", () => { draft.lineas.push({ concepto: "", cantidad: 1, precio: 0 }); pintarLineas(); actualizar(); });
+  container.querySelector("#btn-add-linea").addEventListener("click", () => { draft.lineas.push({ concepto: "", cantidad: 1, precio: 0, proyecto_id: "" }); pintarLineas(); actualizar(); });
   ["#f-iva", "#f-retencion", "#f-cliente", "#f-numero", "#f-tipo"].forEach(sel => container.querySelector(sel).addEventListener("input", actualizar));
 
   container.querySelector("#btn-guardar").addEventListener("click", async () => {
@@ -181,10 +209,12 @@ async function renderEditor(container, { proyectoId, facturaId }) {
       estado: container.querySelector("#f-estado").value,
       ...calc,
     };
-    const { error } = facturaId
+    const { data, error } = facturaId
       ? await db.from("facturas").update(payload).eq("id", facturaId).exec()
       : await db.from("facturas").insert(payload).exec();
     if (error) { alert("Error guardando: " + error); return; }
+    const idGuardada = facturaId || (Array.isArray(data) ? data[0]?.id : data?.id);
+    if (idGuardada) await sincronizarFacturaProyectos(idGuardada, draft.lineas);
     location.hash = "#/facturacion";
   });
 
