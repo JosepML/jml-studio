@@ -26,3 +26,17 @@ export const ESTADOS_FACTURA = {
   pagada:   { label: "Pagada",   bg: "#E3F1EA", fg: "#2E7D53" },
   vencida:  { label: "Vencida",  bg: "#FDEBD8", fg: "#B4571C" },
 };
+export const CATEGORIAS_GASTO = {
+  combustible:          { label: "Combustible",              bg: "#FDEBD8", fg: "#B4571C", ivaDeduciblePctDefecto: 50 },
+  material_amortizable: { label: "Material amortizable",     bg: "#E7ECFB", fg: "#33499E", ivaDeduciblePctDefecto: 100 },
+  material_fungible:    { label: "Material fungible",        bg: "#E3F1EA", fg: "#2E7D53", ivaDeduciblePctDefecto: 100 },
+  servicios:            { label: "Servicios / software",     bg: "#F0E7FB", fg: "#6B3FA0", ivaDeduciblePctDefecto: 100 },
+  dietas:               { label: "Dietas y manutención",     bg: "#FFF3D6", fg: "#8A6A10", ivaDeduciblePctDefecto: 100 },
+  fijo:                 { label: "Gasto fijo",                bg: "#F0F1F4", fg: "#5B6478", ivaDeduciblePctDefecto: 100 },
+  otros:                { label: "Otros",                     bg: "#F0F1F4", fg: "#5B6478", ivaDeduciblePctDefecto: 100 },
+};
+export const FORMAS_PAGO = {
+  transferencia: { label: "Transferencia", bg: "#E7ECFB", fg: "#33499E" },
+  efectivo:      { label: "Efectivo",       bg: "#FFF3D6", fg: "#8A6A10" },
+  mixto:         { label: "Mixto",          bg: "#F0E7FB", fg: "#6B3FA0" },
+};
