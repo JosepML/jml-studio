@@ -1,6 +1,6 @@
 import { db } from "../supabase.js";
 
-export async function renderClientes(container) {
+export async function renderClientes(container, param) {
   container.innerHTML = `
     <div style="display:flex; justify-content:flex-end; margin-bottom:14px;">
       <button class="btn btn-primary" id="btn-nuevo-cliente">+ Nuevo cliente</button>
@@ -10,6 +10,7 @@ export async function renderClientes(container) {
   `;
 
   container.querySelector("#btn-nuevo-cliente").addEventListener("click", () => abrirFicha(container, null));
+  if (param === "nuevo") abrirFicha(container, null);
 
   const { data, error } = await db.from("clientes").select("*").order("nombre").exec();
   const $list = container.querySelector("#clientes-list");
