@@ -102,6 +102,16 @@ export function resumenPeriodo(ledger, gastos, desde, hasta) {
   const efectivo = round2(filas.filter(f => f.formaPago !== "transferencia").reduce((s, f) => s + f.importeBase, 0));
   const totalBase = round2(transferencia + efectivo);
 
+  // Solo lo marcado como "pagada" en las casillas de Facturación mensual —
+  // usado por Financiero, que debe contar cobros reales, no lo simplemente
+  // facturado/emitido.
+  const pagadas = filas.filter(f => estadoEfectivo(f) === "pagada");
+  const transferenciaPagada = round2(pagadas.filter(f => f.formaPago === "transferencia").reduce((s, f) => s + f.importeBase, 0));
+  const efectivoPagada = round2(pagadas.filter(f => f.formaPago !== "transferencia").reduce((s, f) => s + f.importeBase, 0));
+  const transferenciaNoPagada = round2(transferencia - transferenciaPagada);
+  const efectivoNoPagada = round2(efectivo - efectivoPagada);
+  const noPagado = round2(transferenciaNoPagada + efectivoNoPagada);
+
   const gastosLista = gastos || [];
   const deducibles = gastosLista.filter(g => g.deducible !== false);
   const noDeducibles = gastosLista.filter(g => g.deducible === false);
@@ -114,11 +124,14 @@ export function resumenPeriodo(ledger, gastos, desde, hasta) {
   return {
     filas,
     transferencia, efectivo, totalBase,
+    transferenciaPagada, efectivoPagada, transferenciaNoPagada, efectivoNoPagada, noPagado,
     totalConIva: conIva(totalBase),
     gastosDeducibles, gastosNoDeducibles,
     gastosTotales: round2(gastosDeducibles + gastosNoDeducibles),
     beneficioFiscal: round2(transferencia - gastosDeducibles),
+    beneficioFiscalPagado: round2(transferenciaPagada - gastosDeducibles),
     beneficioReal: round2(totalBase - gastosDeducibles - gastosNoDeducibles),
+    beneficioRealPagado: round2(transferenciaPagada + efectivoPagada - gastosDeducibles - gastosNoDeducibles),
   };
 }
 
