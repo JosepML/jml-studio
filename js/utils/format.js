@@ -20,6 +20,14 @@ export const ESTADOS_PROYECTO = {
   en_revision:   { label: "En revisión",   fg: "#33499E", bg: "#E7ECFB" },
   cobrado:       { label: "Cobrado",       bg: "#E3F1EA", fg: "#2E7D53" },
 };
+// Estado de cobro real (independiente de la factura/proyecto kanban): se usa
+// en Dashboard, Proyectos y Mensual para que todas las vistas hablen el mismo
+// idioma sobre si algo está sin facturar, facturado o ya cobrado.
+export const ESTADOS_COBRO = {
+  pendiente: { label: "Sin facturar",          bg: "#F0F1F4", fg: "#5B6478" },
+  emitida:   { label: "Facturado, sin cobrar", bg: "#FFF3D6", fg: "#8A6A10" },
+  pagada:    { label: "Cobrado",               bg: "#E3F1EA", fg: "#2E7D53" },
+};
 export const ESTADOS_FACTURA = {
   borrador: { label: "Borrador", bg: "#F0F1F4", fg: "#5B6478" },
   emitida:  { label: "Emitida",  bg: "#FFF3D6", fg: "#8A6A10" },
