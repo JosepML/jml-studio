@@ -41,12 +41,19 @@ export async function renderDashboard(container) {
   const tActual = resumenTrimestre(ledger, facturas, gastos, anio, qActual);
   const provision = calcularModelo130({ ingresosBaseTrimestre: tActual.transferencia, gastosTrimestre: tActual.gastosDeducibles, retencionesSoportadasTrimestre: tActual.retenciones, pagosPreviosAnio: acumulado });
 
-  // Pendiente de cobro: filas ya emitidas pero no pagadas (con IVA, que es lo que se cobra)
-  const pendientes = ledger.filter(f => estadoEfectivo(f) === "emitida");
+  // Pendiente de cobro: cualquier fila no marcada como pagada (con IVA, que es lo que se cobra)
+  const pendientes = ledger.filter(f => estadoEfectivo(f) !== "pagada");
   const pendienteTotal = pendientes.reduce((s,f)=>s+conIva(f.importeBase),0);
 
   const enCurso = (proyectos||[]).filter(p => p.estado !== "cobrado").slice(0, 6);
-  const porEstado = Object.keys(ESTADOS_PROYECTO).map(k => ({ key: k, label: ESTADOS_PROYECTO[k].label, count: (proyectos||[]).filter(p=>p.estado===k).length }));
+  // "Proyectos por estado" se basa en el estado de cobro real (ledger), no en
+  // el campo kanban `proyectos.estado`, que no refleja si ya se ha cobrado.
+  const ESTADOS_COBRO = {
+    pendiente: { label: "Sin facturar", fg: "#5B6478" },
+    emitida:   { label: "Facturado, sin cobrar", fg: "#8A6A10" },
+    pagada:    { label: "Cobrado", fg: "#2E7D53" },
+  };
+  const porEstado = Object.keys(ESTADOS_COBRO).map(k => ({ key: k, label: ESTADOS_COBRO[k].label, count: ledger.filter(f=>estadoEfectivo(f)===k).length }));
 
   container.innerHTML = `
     <div class="grid grid-4" style="margin-bottom:20px;">
@@ -114,7 +121,7 @@ export async function renderDashboard(container) {
       type: "doughnut",
       data: {
         labels: conDatos.map(e=>e.label),
-        datasets: [{ data: conDatos.map(e=>e.count), backgroundColor: conDatos.map(e=>ESTADOS_PROYECTO[e.key].fg), borderWidth: 0 }],
+        datasets: [{ data: conDatos.map(e=>e.count), backgroundColor: conDatos.map(e=>e.fg), borderWidth: 0 }],
       },
       options: { maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } } } },
     });
