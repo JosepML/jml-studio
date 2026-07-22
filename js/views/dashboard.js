@@ -31,15 +31,16 @@ export async function renderDashboard(container) {
 
   const porMes = MESES.map((_, i) => resumenPeriodo(ledger, gastos, rangoMes(anio,i).desde, rangoMes(anio,i).hasta));
 
-  // Provisión Modelo 130 del trimestre en curso
+  // Provisión Modelo 130 del trimestre en curso — solo lo ya cobrado, igual
+  // que en Financiero, para que ambas pantallas coincidan siempre.
   let acumulado = 0;
   for (let q = 1; q < qActual; q++) {
     const t = resumenTrimestre(ledger, facturas, gastos, anio, q);
-    const r = calcularModelo130({ ingresosBaseTrimestre: t.transferencia, gastosTrimestre: t.gastosDeducibles, retencionesSoportadasTrimestre: t.retenciones, pagosPreviosAnio: acumulado });
+    const r = calcularModelo130({ ingresosBaseTrimestre: t.transferenciaPagada, gastosTrimestre: t.gastosDeducibles, retencionesSoportadasTrimestre: t.retenciones, pagosPreviosAnio: acumulado });
     acumulado += r.aIngresar;
   }
   const tActual = resumenTrimestre(ledger, facturas, gastos, anio, qActual);
-  const provision = calcularModelo130({ ingresosBaseTrimestre: tActual.transferencia, gastosTrimestre: tActual.gastosDeducibles, retencionesSoportadasTrimestre: tActual.retenciones, pagosPreviosAnio: acumulado });
+  const provision = calcularModelo130({ ingresosBaseTrimestre: tActual.transferenciaPagada, gastosTrimestre: tActual.gastosDeducibles, retencionesSoportadasTrimestre: tActual.retenciones, pagosPreviosAnio: acumulado });
 
   // Pendiente de cobro: cualquier fila no marcada como pagada (con IVA, que es lo que se cobra)
   const pendientes = ledger.filter(f => estadoEfectivo(f) !== "pagada");
@@ -59,7 +60,7 @@ export async function renderDashboard(container) {
     <div class="grid grid-4" style="margin-bottom:20px;">
       <div class="card kpi"><div class="label">Facturado este mes</div><div class="value">${eur(resumenMes.transferencia + resumenMes.efectivo)}</div></div>
       <div class="card kpi"><div class="label">Pendiente de cobro</div><div class="value">${eur(pendienteTotal)}</div><div class="muted" style="font-size:12px;">${pendientes.length} proyecto(s) emitido(s)</div></div>
-      <div class="card kpi"><div class="label">Beneficio fiscal (año)</div><div class="value" style="color:var(--green-fg)">${eur(resumenAnual.beneficioFiscal)}</div></div>
+      <div class="card kpi"><div class="label">Beneficio fiscal (cobrado, año)</div><div class="value" style="color:var(--green-fg)">${eur(resumenAnual.beneficioFiscalPagado)}</div></div>
       <div class="card kpi dark"><div class="label">Provisión Modelo 130 (T${qActual})</div><div class="value">${eur(provision.aIngresar)}</div></div>
     </div>
 
