@@ -40,6 +40,12 @@ export async function renderMensual(container) {
     <div id="meses-body"></div>
   `;
 
+  // Qué meses están desplegados. Se recalcula el HTML entero cada vez que se
+  // edita algo (checkbox, desplegable, etc.), así que sin esto cada edición
+  // volvería a colapsar el panel del mes — dando la sensación de que el clic
+  // en la casilla "cierra" el mes en vez de marcar la casilla.
+  const mesesAbiertos = new Set([new Date().getMonth()]);
+
   container.querySelector("#sel-anio").addEventListener("change", e => pintar(Number(e.target.value)));
   pintar(anioActual);
 
@@ -79,11 +85,12 @@ export async function renderMensual(container) {
           <span>${nombreMes} — ${eur(totalMes)} ${filasMes.length ? `<span class="muted" style="font-weight:400;">(${filasMes.length} proyecto${filasMes.length===1?"":"s"})</span>` : ""}</span>
           <button class="btn btn-ghost btn-add-mes" data-mes="${idx}" style="font-size:12px; padding:4px 10px;" onclick="event.stopPropagation();">+ Añadir proyecto</button>
         </summary>`;
+      const abierto = mesesAbiertos.has(idx) ? "open" : "";
       if (!filasMes.length) {
-        return `<details class="card" style="margin-bottom:10px;">${cabecera}<div class="add-proyecto-mes" data-mes="${idx}"></div><p class="muted" style="margin-top:10px;">Sin proyectos este mes.</p></details>`;
+        return `<details class="card" data-mes="${idx}" style="margin-bottom:10px;" ${abierto}>${cabecera}<div class="add-proyecto-mes" data-mes="${idx}"></div><p class="muted" style="margin-top:10px;">Sin proyectos este mes.</p></details>`;
       }
       return `
-      <details class="card" style="margin-bottom:10px;" ${idx === new Date().getMonth() && anio === anioActual ? "open" : ""}>
+      <details class="card" data-mes="${idx}" style="margin-bottom:10px;" ${abierto}>
         ${cabecera}
         <div class="add-proyecto-mes" data-mes="${idx}"></div>
         <table style="margin-top:10px;">
@@ -127,6 +134,15 @@ export async function renderMensual(container) {
         </table>
       </details>`;
     }).join("");
+
+    // Recuerda qué meses abre/cierra el usuario a mano, para que sobrevivan a
+    // los repintados tras cada edición inline (ver comentario en mesesAbiertos).
+    $body.querySelectorAll("details[data-mes]").forEach(det => {
+      det.addEventListener("toggle", () => {
+        const mes = Number(det.dataset.mes);
+        if (det.open) mesesAbiertos.add(mes); else mesesAbiertos.delete(mes);
+      });
+    });
 
     $body.querySelectorAll(".link-proyecto").forEach(td => {
       td.addEventListener("click", () => { location.hash = `#/proyectos/${td.dataset.proyectoId}`; });
