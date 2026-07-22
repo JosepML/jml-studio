@@ -1,56 +1,173 @@
 import { db } from "../supabase.js";
-import { ESTADOS_PROYECTO, ESTADOS_FACTURA, FORMAS_PAGO, eur, dateEs, todayIso } from "../utils/format.js";
+import { ESTADOS_FACTURA, ESTADOS_COBRO, FORMAS_PAGO, eur, dateEs, todayIso } from "../utils/format.js";
+import { construirLedger, conIva, estadoEfectivo, rangoAnio, resumenPeriodo } from "../utils/resumen.js";
 import { escapeHtml, escapeAttr } from "./clientes.js";
 
 export async function renderProyectos(container, param) {
-  const { data: clientes } = await db.from("clientes").select("id,nombre").order("nombre").exec();
-  const { data: proyectos, error } = await db.from("proyectos").select("*").order("created_at", { ascending: false }).exec();
+  container.innerHTML = `<div class="empty-state">Cargando proyectos…</div>`;
+
+  const [{ data: clientes }, { data: proyectos, error }, { data: facturaProyectos }, { data: gastos }] = await Promise.all([
+    db.from("clientes").select("id,nombre").order("nombre").exec(),
+    db.from("proyectos").select("*").order("created_at", { ascending: false }).exec(),
+    db.from("factura_proyectos").select("importe,factura_id,proyecto_id,facturas(numero,estado,fecha,tipo)").exec(),
+    db.from("gastos").select("id,proyecto_id").exec(),
+  ]);
+  if (error) { container.innerHTML = `<p class="muted">Error cargando proyectos: ${error}</p>`; return; }
+
+  const clientesMap = Object.fromEntries((clientes || []).map(c => [c.id, c.nombre]));
+  const ledger = construirLedger(proyectos, facturaProyectos);
+  const ledgerPorProyecto = Object.fromEntries(ledger.map(f => [f.proyecto.id, f]));
+  const anioActual = new Date().getFullYear();
+  const { desde, hasta } = rangoAnio(anioActual);
+  const resumenAnual = resumenPeriodo(ledger, gastos, desde, hasta);
 
   container.innerHTML = `
-    <div style="display:flex; justify-content:flex-end; margin-bottom:14px;">
+    <div class="grid grid-4" style="margin-bottom:20px;">
+      <div class="card kpi"><div class="label">Proyectos totales</div><div class="value">${(proyectos||[]).length}</div></div>
+      <div class="card kpi"><div class="label">Sin cobrar</div><div class="value" style="color:var(--amber-fg,#8A6A10)">${ledger.filter(f=>estadoEfectivo(f)!=="pagada").length}</div></div>
+      <div class="card kpi"><div class="label">Cobrado ${anioActual}</div><div class="value" style="color:var(--green-fg)">${eur(resumenAnual.transferenciaPagada + resumenAnual.efectivoPagada)}</div></div>
+      <div class="card kpi dark"><div class="label">Facturado ${anioActual}</div><div class="value">${eur(resumenAnual.totalBase)}</div></div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center;">
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <input id="filtro-buscar" placeholder="Buscar proyecto o cliente…" style="width:220px;">
+        <select id="filtro-cliente" style="width:auto;">
+          <option value="">Todos los clientes</option>
+          ${(clientes||[]).map(c=>`<option value="${c.id}">${escapeHtml(c.nombre)}</option>`).join("")}
+        </select>
+      </div>
       <button class="btn btn-primary" id="btn-nuevo-proyecto">+ Nuevo proyecto</button>
     </div>
-    <div id="kanban-wrap"></div>
+    <div id="filtro-chips" style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;"></div>
+
+    <div class="card" style="padding:0; overflow-x:auto;">
+      <table>
+        <thead><tr>
+          <th style="padding-left:18px;">Proyecto</th><th>Cliente</th><th>Fecha</th><th>Importe c/IVA</th>
+          <th>Forma de pago</th><th>Estado</th><th style="padding-right:18px;"></th>
+        </tr></thead>
+        <tbody id="tbl-proyectos"></tbody>
+      </table>
+    </div>
     <div id="proyecto-detalle"></div>
   `;
 
-  const clientesMap = Object.fromEntries((clientes || []).map(c => [c.id, c.nombre]));
-  const $kanban = container.querySelector("#kanban-wrap");
+  container.querySelector("#btn-nuevo-proyecto").addEventListener("click", () => abrirFicha(container, null, clientes || [], recargarYPintar));
 
-  if (error) { $kanban.innerHTML = `<p class="muted">Error: ${error}</p>`; }
-  else {
-    const cols = Object.keys(ESTADOS_PROYECTO);
-    $kanban.innerHTML = `<div class="kanban">
-      ${cols.map(estado => `
-        <div class="kanban-col">
-          <h4>${ESTADOS_PROYECTO[estado].label}</h4>
-          ${(proyectos || []).filter(p => p.estado === estado).map(p => `
-            <div class="kanban-card" data-id="${p.id}">
-              <div class="name">${escapeHtml(p.nombre)}</div>
-              <div class="client">${escapeHtml(clientesMap[p.cliente_id] || "Sin cliente")}</div>
-            </div>`).join("") || `<p class="muted" style="font-size:12px;">Vacío</p>`}
-        </div>`).join("")}
-    </div>`;
+  let filtroEstado = "";
+  const $chips = container.querySelector("#filtro-chips");
+  function pintarChips() {
+    const opciones = [["", "Todos"], ...Object.entries(ESTADOS_COBRO).map(([k,v])=>[k,v.label])];
+    $chips.innerHTML = opciones.map(([k,label]) => {
+      const activo = filtroEstado === k;
+      const cat = k ? ESTADOS_COBRO[k] : { bg: "var(--navy)", fg: "#fff" };
+      return `<button class="chip-cat" data-estado="${k}" style="background:${activo?(k?cat.fg:"var(--navy)"):"var(--light)"}; color:${activo?"#fff":"var(--text)"};">${label}</button>`;
+    }).join("");
+    $chips.querySelectorAll("button").forEach(btn => btn.addEventListener("click", () => { filtroEstado = btn.dataset.estado; pintarChips(); pintarTabla(); }));
+  }
+  pintarChips();
 
-    $kanban.querySelectorAll(".kanban-card").forEach(card => {
-      card.addEventListener("click", () => {
-        const p = proyectos.find(x => x.id === card.dataset.id);
-        abrirFicha(container, p, clientes || []);
+  const $buscar = container.querySelector("#filtro-buscar");
+  const $filtroCliente = container.querySelector("#filtro-cliente");
+  $buscar.addEventListener("input", pintarTabla);
+  $filtroCliente.addEventListener("change", pintarTabla);
+
+  function pintarTabla() {
+    const q = $buscar.value.trim().toLowerCase();
+    const clienteId = $filtroCliente.value;
+    let lista = (proyectos || []).slice();
+    if (q) lista = lista.filter(p => (p.nombre||"").toLowerCase().includes(q) || (clientesMap[p.cliente_id]||"").toLowerCase().includes(q));
+    if (clienteId) lista = lista.filter(p => p.cliente_id === clienteId);
+    if (filtroEstado) lista = lista.filter(p => { const f = ledgerPorProyecto[p.id]; return f && estadoEfectivo(f) === filtroEstado; });
+    lista.sort((a,b) => (b.fecha_entrega||b.fecha_inicio||"").localeCompare(a.fecha_entrega||a.fecha_inicio||""));
+
+    const $tbl = container.querySelector("#tbl-proyectos");
+    if (!lista.length) { $tbl.innerHTML = `<tr><td colspan="7" class="muted" style="padding:20px; text-align:center;">Sin proyectos con ese filtro.</td></tr>`; return; }
+
+    $tbl.innerHTML = lista.map(p => {
+      const f = ledgerPorProyecto[p.id];
+      const estado = f ? estadoEfectivo(f) : "pendiente";
+      const cat = ESTADOS_COBRO[estado];
+      const importeConIva = f ? conIva(f.importeBase) : conIva(p.precio_acordado);
+      const nGastos = (gastos||[]).filter(g => g.proyecto_id === p.id).length;
+      return `<tr>
+        <td class="link-proyecto" data-id="${p.id}" style="padding-left:18px; cursor:pointer; color:var(--blue); font-weight:600;">${escapeHtml(p.nombre)}${nGastos?` <span class="muted" style="font-weight:400; font-size:11px;">· ${nGastos} gasto${nGastos===1?"":"s"}</span>`:""}</td>
+        <td>${escapeHtml(clientesMap[p.cliente_id] || "Sin cliente")}</td>
+        <td class="muted">${dateEs(p.fecha_entrega || p.fecha_inicio)}</td>
+        <td>${eur(importeConIva)}</td>
+        <td>
+          <select class="sel-forma" data-id="${p.id}">
+            <option value="transferencia" ${p.forma_pago!=="efectivo"?"selected":""}>Transferencia</option>
+            <option value="efectivo" ${p.forma_pago==="efectivo"?"selected":""}>Efectivo</option>
+          </select>
+        </td>
+        <td>
+          <select class="sel-estado" data-id="${p.id}" data-factura-id="${f?.facturaId||""}" style="background:${cat.bg}; color:${cat.fg}; border:none; font-weight:600;">
+            ${Object.entries(ESTADOS_COBRO).map(([k,v])=>`<option value="${k}" ${k===estado?"selected":""}>${v.label}</option>`).join("")}
+          </select>
+        </td>
+        <td style="padding-right:18px; text-align:right;"><button class="btn btn-ghost btn-editar" data-id="${p.id}" style="font-size:12px; padding:4px 10px;">Editar</button></td>
+      </tr>`;
+    }).join("");
+
+    $tbl.querySelectorAll(".link-proyecto, .btn-editar").forEach(el => {
+      el.addEventListener("click", () => {
+        const p = proyectos.find(x => x.id === el.dataset.id);
+        abrirFicha(container, p, clientes || [], recargarYPintar);
+      });
+    });
+    $tbl.querySelectorAll(".sel-forma").forEach(sel => {
+      sel.addEventListener("change", async () => {
+        await db.from("proyectos").update({ forma_pago: sel.value }).eq("id", sel.dataset.id).exec();
+        const p = proyectos.find(x => x.id === sel.dataset.id);
+        if (p) p.forma_pago = sel.value;
+      });
+    });
+    $tbl.querySelectorAll(".sel-estado").forEach(sel => {
+      sel.addEventListener("change", async () => {
+        const nuevo = sel.value;
+        const facturaId = sel.dataset.facturaId;
+        if (facturaId) {
+          const mapa = { pendiente: "borrador", emitida: "emitida", pagada: "pagada" };
+          await db.from("facturas").update({ estado: mapa[nuevo] }).eq("id", facturaId).exec();
+          (facturaProyectos || []).forEach(fp => { if (fp.factura_id === facturaId && fp.facturas) fp.facturas.estado = mapa[nuevo]; });
+        } else {
+          await db.from("proyectos").update({ estado_facturacion: nuevo }).eq("id", sel.dataset.id).exec();
+          const p = proyectos.find(x => x.id === sel.dataset.id);
+          if (p) p.estado_facturacion = nuevo;
+        }
+        await recargarYPintar();
       });
     });
   }
 
-  container.querySelector("#btn-nuevo-proyecto").addEventListener("click", () => abrirFicha(container, null, clientes || []));
+  async function recargarYPintar() {
+    const [{ data: p2 }, { data: fp2 }, { data: g2 }] = await Promise.all([
+      db.from("proyectos").select("*").order("created_at", { ascending: false }).exec(),
+      db.from("factura_proyectos").select("importe,factura_id,proyecto_id,facturas(numero,estado,fecha,tipo)").exec(),
+      db.from("gastos").select("id,proyecto_id").exec(),
+    ]);
+    proyectos.length = 0; proyectos.push(...(p2 || []));
+    facturaProyectos.length = 0; facturaProyectos.push(...(fp2 || []));
+    gastos.length = 0; gastos.push(...(g2 || []));
+    const ledger2 = construirLedger(proyectos, facturaProyectos);
+    Object.keys(ledgerPorProyecto).forEach(k => delete ledgerPorProyecto[k]);
+    ledger2.forEach(f => { ledgerPorProyecto[f.proyecto.id] = f; });
+    pintarTabla();
+  }
+
+  pintarTabla();
 
   if (param && proyectos) {
     const p = proyectos.find(x => x.id === param);
-    if (p) abrirFicha(container, p, clientes || []);
+    if (p) abrirFicha(container, p, clientes || [], recargarYPintar);
   }
 }
 
-async function abrirFicha(container, proyecto, clientes) {
+async function abrirFicha(container, proyecto, clientes, onGuardado) {
   const esNuevo = !proyecto;
-  proyecto = proyecto || { nombre: "", cliente_id: clientes[0]?.id || "", estado: "presupuestado", fecha_inicio: todayIso(), fecha_entrega: "", horas_invertidas: 0, coste_asociado: 0, precio_acordado: 0, entregables: [], forma_pago: "transferencia", notas: "" };
+  proyecto = proyecto || { nombre: "", cliente_id: clientes[0]?.id || "", estado: "en_curso", fecha_inicio: todayIso(), fecha_entrega: "", horas_invertidas: 0, coste_asociado: 0, precio_acordado: 0, entregables: [], forma_pago: "transferencia", estado_facturacion: "pendiente", notas: "" };
   const $detalle = container.querySelector("#proyecto-detalle");
 
   let gastos = [], facturasVinculadas = [];
@@ -68,19 +185,23 @@ async function abrirFicha(container, proyecto, clientes) {
     <div class="card" style="margin-top:16px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <h3>${esNuevo ? "Nuevo proyecto" : escapeHtml(proyecto.nombre)}</h3>
-        ${esNuevo ? "" : `<button class="btn btn-dark" id="btn-generar-factura">Generar factura</button>`}
+        <div style="display:flex; gap:8px;">
+          ${esNuevo ? "" : `<button class="btn btn-dark" id="btn-generar-factura">Generar factura</button>`}
+          <button class="btn btn-ghost" id="btn-cerrar-ficha" type="button">Cerrar</button>
+        </div>
       </div>
 
       <div class="row">
         <div class="field"><label>Nombre del proyecto</label><input id="f-nombre" value="${escapeAttr(proyecto.nombre)}"></div>
         <div class="field"><label>Cliente</label>
           <select id="f-cliente">
-            ${clientes.map(c => `<option value="${c.id}" ${c.id === proyecto.cliente_id ? "selected" : ""}>${escapeHtml(c.nombre)}</option>`).join("") || `<option value="">Crea antes un cliente</option>`}
+            <option value="">— Sin cliente —</option>
+            ${clientes.map(c => `<option value="${c.id}" ${c.id === proyecto.cliente_id ? "selected" : ""}>${escapeHtml(c.nombre)}</option>`).join("")}
           </select>
         </div>
-        <div class="field"><label>Estado</label>
-          <select id="f-estado">
-            ${Object.entries(ESTADOS_PROYECTO).map(([k, v]) => `<option value="${k}" ${k === proyecto.estado ? "selected" : ""}>${v.label}</option>`).join("")}
+        <div class="field"><label>Estado de cobro</label>
+          <select id="f-estado-cobro">
+            ${Object.entries(ESTADOS_COBRO).map(([k, v]) => `<option value="${k}" ${k === (proyecto.estado_facturacion||"pendiente") ? "selected" : ""}>${v.label}</option>`).join("")}
           </select>
         </div>
       </div>
@@ -91,7 +212,7 @@ async function abrirFicha(container, proyecto, clientes) {
       <div class="row">
         <div class="field"><label>Horas invertidas</label><input type="number" step="0.5" id="f-horas" value="${proyecto.horas_invertidas || 0}"></div>
         <div class="field"><label>Coste asociado (€)</label><input type="number" step="0.01" id="f-coste" value="${proyecto.coste_asociado || 0}"></div>
-        <div class="field"><label>Precio acordado (€)</label><input type="number" step="0.01" id="f-precio" value="${proyecto.precio_acordado || 0}"></div>
+        <div class="field"><label>Precio acordado (€, sin IVA)</label><input type="number" step="0.01" id="f-precio" value="${proyecto.precio_acordado || 0}"></div>
         <div class="field"><label>Forma de pago</label>
           <select id="f-forma-pago">
             ${Object.entries(FORMAS_PAGO).map(([k,v]) => `<option value="${k}" ${k===(proyecto.forma_pago||"transferencia")?"selected":""}>${v.label}</option>`).join("")}
@@ -124,17 +245,21 @@ async function abrirFicha(container, proyecto, clientes) {
       `}
     </div>`;
 
+  $detalle.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  $detalle.querySelector("#btn-cerrar-ficha").addEventListener("click", () => { $detalle.innerHTML = ""; });
+
   $detalle.querySelector("#btn-guardar-proyecto").addEventListener("click", async () => {
     const payload = {
       nombre: $detalle.querySelector("#f-nombre").value.trim(),
       cliente_id: $detalle.querySelector("#f-cliente").value || null,
-      estado: $detalle.querySelector("#f-estado").value,
       fecha_inicio: $detalle.querySelector("#f-inicio").value || null,
       fecha_entrega: $detalle.querySelector("#f-entrega").value || null,
       horas_invertidas: Number($detalle.querySelector("#f-horas").value || 0),
       coste_asociado: Number($detalle.querySelector("#f-coste").value || 0),
       precio_acordado: Number($detalle.querySelector("#f-precio").value || 0),
       forma_pago: $detalle.querySelector("#f-forma-pago").value,
+      estado_facturacion: $detalle.querySelector("#f-estado-cobro").value,
       entregables: $detalle.querySelector("#f-entregables").value.split("\n").map(s => s.trim()).filter(Boolean),
       notas: $detalle.querySelector("#f-notas").value.trim(),
     };
@@ -143,7 +268,8 @@ async function abrirFicha(container, proyecto, clientes) {
       ? await db.from("proyectos").insert(payload).exec()
       : await db.from("proyectos").update(payload).eq("id", proyecto.id).exec();
     if (error) { alert("Error guardando: " + error); return; }
-    await renderProyectos(container);
+    $detalle.innerHTML = "";
+    await onGuardado();
   });
 
   if (!esNuevo) {
@@ -151,7 +277,8 @@ async function abrirFicha(container, proyecto, clientes) {
       if (!confirm("¿Eliminar este proyecto?")) return;
       const { error } = await db.from("proyectos").delete().eq("id", proyecto.id).exec();
       if (error) { alert("Error eliminando: " + error); return; }
-      await renderProyectos(container);
+      $detalle.innerHTML = "";
+      await onGuardado();
     });
 
     $detalle.querySelector("#btn-generar-factura").addEventListener("click", () => {
@@ -183,7 +310,7 @@ async function abrirFicha(container, proyecto, clientes) {
         if (!payload.concepto) { alert("Falta el concepto del gasto."); return; }
         const { error } = await db.from("gastos").insert(payload).exec();
         if (error) { alert("Error guardando el gasto: " + error); return; }
-        await abrirFicha(container, proyecto, clientes);
+        await abrirFicha(container, proyecto, clientes, onGuardado);
       });
     });
   }

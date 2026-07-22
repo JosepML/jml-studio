@@ -1,5 +1,5 @@
 import { db } from "../supabase.js";
-import { eur, ESTADOS_PROYECTO } from "../utils/format.js";
+import { eur, ESTADOS_PROYECTO, ESTADOS_COBRO } from "../utils/format.js";
 import { calcularModelo130 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, resumenTrimestre, rangoMes, rangoAnio, conIva, estadoEfectivo } from "../utils/resumen.js";
 import { escapeHtml } from "./clientes.js";
@@ -49,12 +49,7 @@ export async function renderDashboard(container) {
   const enCurso = (proyectos||[]).filter(p => p.estado !== "cobrado").slice(0, 6);
   // "Proyectos por estado" se basa en el estado de cobro real (ledger), no en
   // el campo kanban `proyectos.estado`, que no refleja si ya se ha cobrado.
-  const ESTADOS_COBRO = {
-    pendiente: { label: "Sin facturar", fg: "#5B6478" },
-    emitida:   { label: "Facturado, sin cobrar", fg: "#8A6A10" },
-    pagada:    { label: "Cobrado", fg: "#2E7D53" },
-  };
-  const porEstado = Object.keys(ESTADOS_COBRO).map(k => ({ key: k, label: ESTADOS_COBRO[k].label, count: ledger.filter(f=>estadoEfectivo(f)===k).length }));
+  const porEstado = Object.keys(ESTADOS_COBRO).map(k => ({ key: k, label: ESTADOS_COBRO[k].label, fg: ESTADOS_COBRO[k].fg, count: ledger.filter(f=>estadoEfectivo(f)===k).length }));
 
   container.innerHTML = `
     <div class="grid grid-4" style="margin-bottom:20px;">
