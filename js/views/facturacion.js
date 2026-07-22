@@ -2,8 +2,10 @@ import { db } from "../supabase.js";
 import { calcularFactura, round2 } from "../utils/invoice-calc.js";
 import { ESTADOS_FACTURA, eur, dateEs, todayIso } from "../utils/format.js";
 import { escapeHtml, escapeAttr } from "./clientes.js";
+import { CONFIG_NEGOCIO } from "../utils/config-negocio.js";
+import { crearFacturaPdf, crearPresupuestoPdf, cargarLogoDataUrl } from "../utils/pdf-documentos.js";
 
-const EMISOR = { nombre: "Josep Mira Lozano", actividad: "Producción Audiovisual", nif: "—", email: "josep.mira@gmail.com" };
+const EMISOR = CONFIG_NEGOCIO.emisor;
 
 export async function renderFacturacion(container, param) {
   if (param && param.startsWith("nuevo-desde-proyecto:")) return renderEditor(container, { proyectoId: param.split(":")[1] });
@@ -13,35 +15,89 @@ export async function renderFacturacion(container, param) {
 }
 
 async function renderLista(container) {
-  container.innerHTML = `
-    <div style="display:flex; justify-content:flex-end; margin-bottom:14px;">
-      <button class="btn btn-primary" id="btn-nueva">+ Nueva factura</button>
-    </div>
-    <div class="card"><div id="facturas-list">Cargando…</div></div>`;
-  container.querySelector("#btn-nueva").addEventListener("click", () => location.hash = "#/facturacion/nuevo");
-
   const [{ data: facturas, error }, { data: clientes }] = await Promise.all([
     db.from("facturas").select("*").order("fecha", { ascending: false }).exec(),
     db.from("clientes").select("id,nombre").exec(),
   ]);
+  if (error) { container.innerHTML = `<p class="muted">Error: ${error}</p>`; return; }
   const clientesMap = Object.fromEntries((clientes || []).map(c => [c.id, c.nombre]));
+
+  const anio = new Date().getFullYear();
+  const facturasReales = (facturas || []).filter(f => f.tipo === "factura");
+  const totalFacturadoAnio = facturasReales.filter(f => (f.fecha || "").startsWith(String(anio))).reduce((s, f) => s + Number(f.total || 0), 0);
+  const pendientesCobro = facturasReales.filter(f => f.estado !== "pagada").length;
+  const presupuestosAbiertos = (facturas || []).filter(f => f.tipo === "presupuesto" && f.estado !== "pagada").length;
+
+  container.innerHTML = `
+    <div class="grid grid-4" style="margin-bottom:20px;">
+      <div class="card kpi"><div class="label">Documentos</div><div class="value">${(facturas || []).length}</div></div>
+      <div class="card kpi"><div class="label">Facturado ${anio}</div><div class="value">${eur(totalFacturadoAnio)}</div></div>
+      <div class="card kpi"><div class="label">Facturas sin cobrar</div><div class="value">${pendientesCobro}</div></div>
+      <div class="card kpi"><div class="label">Presupuestos abiertos</div><div class="value">${presupuestosAbiertos}</div></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+        <input id="f-buscar" type="text" placeholder="Buscar por número o cliente…" style="flex:1; min-width:220px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <select id="f-tipo-filtro">
+            <option value="">Todos los tipos</option>
+            <option value="factura">Facturas</option>
+            <option value="presupuesto">Presupuestos</option>
+          </select>
+          <select id="f-estado-filtro">
+            <option value="">Todos los estados</option>
+            ${Object.entries(ESTADOS_FACTURA).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("")}
+          </select>
+          <button class="btn btn-primary" id="btn-nueva">+ Nuevo documento</button>
+        </div>
+      </div>
+      <div id="facturas-list">Cargando…</div>
+    </div>`;
+
+  container.querySelector("#btn-nueva").addEventListener("click", () => location.hash = "#/facturacion/nuevo");
+
   const $list = container.querySelector("#facturas-list");
-  if (error) { $list.innerHTML = `<p class="muted">Error: ${error}</p>`; return; }
-  if (!facturas || !facturas.length) { $list.innerHTML = `<div class="empty-state">Todavía no hay facturas. Créala desde aquí o pulsa "Generar factura" en la ficha de un proyecto.</div>`; return; }
+  const $buscar = container.querySelector("#f-buscar");
+  const $tipoFiltro = container.querySelector("#f-tipo-filtro");
+  const $estadoFiltro = container.querySelector("#f-estado-filtro");
 
-  $list.innerHTML = `<table>
-    <thead><tr><th>Nº</th><th>Cliente</th><th>Tipo</th><th>Fecha</th><th>Total</th><th>Estado</th></tr></thead>
-    <tbody>${facturas.map(f => `
-      <tr class="clickable" data-id="${f.id}">
-        <td>${escapeHtml(f.numero)}</td>
-        <td>${escapeHtml(clientesMap[f.cliente_id] || "—")}</td>
-        <td>${f.tipo}</td>
-        <td>${dateEs(f.fecha)}</td>
-        <td>${eur(f.total)}</td>
-        <td><span class="badge" style="background:${ESTADOS_FACTURA[f.estado].bg};color:${ESTADOS_FACTURA[f.estado].fg}">${ESTADOS_FACTURA[f.estado].label}</span></td>
-      </tr>`).join("")}</tbody></table>`;
+  function pintar() {
+    const q = $buscar.value.trim().toLowerCase();
+    const tipoSel = $tipoFiltro.value;
+    const estadoSel = $estadoFiltro.value;
+    const filtradas = (facturas || []).filter(f => {
+      if (tipoSel && f.tipo !== tipoSel) return false;
+      if (estadoSel && f.estado !== estadoSel) return false;
+      if (q) {
+        const cliente = (clientesMap[f.cliente_id] || "").toLowerCase();
+        if (!f.numero.toLowerCase().includes(q) && !cliente.includes(q)) return false;
+      }
+      return true;
+    });
 
-  $list.querySelectorAll("tr[data-id]").forEach(tr => tr.addEventListener("click", () => location.hash = `#/facturacion/${tr.dataset.id}`));
+    if (!facturas || !facturas.length) { $list.innerHTML = `<div class="empty-state">Todavía no hay facturas ni presupuestos. Créalo desde aquí o pulsa "Generar factura" en la ficha de un proyecto.</div>`; return; }
+    if (!filtradas.length) { $list.innerHTML = `<div class="empty-state">Ningún documento coincide con la búsqueda.</div>`; return; }
+
+    $list.innerHTML = `<table>
+      <thead><tr><th>Nº</th><th>Cliente</th><th>Tipo</th><th>Fecha</th><th>Total</th><th>Estado</th></tr></thead>
+      <tbody>${filtradas.map(f => `
+        <tr class="clickable" data-id="${f.id}">
+          <td><strong>${escapeHtml(f.numero)}</strong></td>
+          <td>${escapeHtml(clientesMap[f.cliente_id] || "—")}</td>
+          <td>${f.tipo === "presupuesto" ? "Presupuesto" : "Factura"}</td>
+          <td>${dateEs(f.fecha)}</td>
+          <td>${eur(f.total)}</td>
+          <td><span class="badge" style="background:${ESTADOS_FACTURA[f.estado].bg};color:${ESTADOS_FACTURA[f.estado].fg}">${ESTADOS_FACTURA[f.estado].label}</span></td>
+        </tr>`).join("")}</tbody></table>`;
+
+    $list.querySelectorAll("tr[data-id]").forEach(tr => tr.addEventListener("click", () => location.hash = `#/facturacion/${tr.dataset.id}`));
+  }
+
+  $buscar.addEventListener("input", pintar);
+  $tipoFiltro.addEventListener("change", pintar);
+  $estadoFiltro.addEventListener("change", pintar);
+  pintar();
 }
 
 // Mantiene factura_proyectos en sincronía con las líneas de la factura: cada
@@ -218,7 +274,7 @@ async function renderEditor(container, { proyectoId, facturaId }) {
     location.hash = "#/facturacion";
   });
 
-  container.querySelector("#btn-pdf").addEventListener("click", () => generarPdf(draft, actualizar(), container));
+  container.querySelector("#btn-pdf").addEventListener("click", () => generarPdf(draft, actualizar(), container, clientes, proyectosDisponibles));
 }
 
 function cargarJsPdf() {
@@ -232,34 +288,38 @@ function cargarJsPdf() {
   });
 }
 
-async function generarPdf(draft, calc, container) {
+async function generarPdf(draft, calc, container, clientes, proyectosDisponibles) {
   let jspdfNs;
   try { jspdfNs = await cargarJsPdf(); } catch (e) { alert(e.message); return; }
   const { jsPDF } = jspdfNs;
-  const doc = new jsPDF();
-  const numero = container.querySelector("#f-numero").value;
-  const tipo = container.querySelector("#f-tipo").value === "presupuesto" ? "PRESUPUESTO" : "FACTURA";
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
 
-  doc.setFontSize(16); doc.text(`${tipo} Nº ${numero}`, 14, 20);
-  doc.setFontSize(10); doc.text(`${EMISOR.nombre} — ${EMISOR.actividad}`, 14, 27);
-  doc.text(`Fecha: ${container.querySelector("#f-fecha").value}`, 14, 33);
+  const numero = container.querySelector("#f-numero").value.trim();
+  const esPresupuesto = container.querySelector("#f-tipo").value === "presupuesto";
+  const fechaStr = dateEs(container.querySelector("#f-fecha").value);
+  const cliente = (clientes || []).find(c => c.id === container.querySelector("#f-cliente").value) || { nombre: "Cliente" };
+  const lineas = draft.lineas.filter(l => (l.concepto || "").trim() || Number(l.precio || 0));
 
-  let y = 45;
-  doc.setFontSize(11); doc.text("Concepto", 14, y); doc.text("Uds.", 130, y); doc.text("Precio", 150, y); doc.text("Importe", 175, y);
-  y += 6;
-  draft.lineas.forEach(l => {
-    doc.setFontSize(10);
-    doc.text(String(l.concepto || "—"), 14, y);
-    doc.text(String(l.cantidad || 1), 130, y);
-    doc.text(eur(l.precio), 150, y);
-    doc.text(eur((l.cantidad || 1) * (l.precio || 0)), 175, y);
-    y += 6;
-  });
-  y += 6;
-  doc.text(`Base imponible: ${eur(calc.base_imponible)}`, 14, y); y += 6;
-  doc.text(`IVA (${calc.iva_pct}%): ${eur(calc.iva_importe)}`, 14, y); y += 6;
-  doc.text(`Retención IRPF (${calc.retencion_pct}%): -${eur(calc.retencion_importe)}`, 14, y); y += 8;
-  doc.setFontSize(13); doc.text(`TOTAL: ${eur(calc.total)}`, 14, y);
+  try {
+    if (esPresupuesto) {
+      const proyectoRef = (proyectosDisponibles || []).find(p => p.id === lineas[0]?.proyecto_id);
+      const proyectoNombre = proyectoRef?.nombre || lineas[0]?.concepto || "Proyecto";
+      const lineasPresupuesto = lineas.map(l => ({
+        concepto: l.concepto || "—",
+        descripcion: "",
+        importe: Number(l.cantidad || 1) * Number(l.precio || 0),
+      }));
+      const logo = await cargarLogoDataUrl();
+      crearPresupuestoPdf(doc, CONFIG_NEGOCIO, numero, fechaStr, proyectoNombre, lineasPresupuesto, logo);
+    } else {
+      const clienteFactura = { nombre: cliente.nombre, nif: cliente.nif || "", direccion: cliente.direccion || "" };
+      const lineasFactura = lineas.map(l => ({ concepto: l.concepto || "—", cantidad: Number(l.cantidad || 1), precio: Number(l.precio || 0) }));
+      crearFacturaPdf(doc, CONFIG_NEGOCIO, numero, fechaStr, clienteFactura, lineasFactura, "");
+    }
+  } catch (e) {
+    alert("Error generando el PDF: " + e.message);
+    return;
+  }
 
-  doc.save(`${tipo.toLowerCase()}-${numero}.pdf`);
+  doc.save(`${esPresupuesto ? "presupuesto" : "factura"}-${numero}.pdf`);
 }
