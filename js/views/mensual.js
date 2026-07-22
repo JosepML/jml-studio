@@ -236,7 +236,10 @@ export async function renderMensual(container) {
     $body.querySelectorAll(".chk-emitida").forEach(chk => {
       chk.addEventListener("click", async (e) => {
         e.preventDefault();
-        const marcando = !chk.checked; // antes de que el navegador cambie el valor
+        // El navegador ya ha cambiado chk.checked al nuevo valor antes de disparar
+        // este evento "click" (aunque luego preventDefault() lo revierta visualmente),
+        // así que chk.checked YA es la intención del usuario: no hay que negarlo.
+        const marcando = chk.checked;
         const facturaId = chk.dataset.facturaId;
         if (facturaId) {
           await setEstadoFactura(facturaId, marcando ? "emitida" : "borrador");
@@ -248,7 +251,7 @@ export async function renderMensual(container) {
     $body.querySelectorAll(".chk-pagada").forEach(chk => {
       chk.addEventListener("click", async (e) => {
         e.preventDefault();
-        const marcando = !chk.checked;
+        const marcando = chk.checked;
         const facturaId = chk.dataset.facturaId;
         if (facturaId) {
           await setEstadoFactura(facturaId, marcando ? "pagada" : "emitida");
