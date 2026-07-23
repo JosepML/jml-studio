@@ -161,7 +161,11 @@ export async function renderMensual(container) {
         // clic viene de un elemento interactivo anidado (este botón) dentro del
         // summary, sobre todo tras el stopPropagation() del onclick inline.
         const $details = $body.querySelector(`details[data-mes="${mes}"]`);
-        if ($details && !$details.open) { $details.open = true; mesesAbiertos.add(mes); }
+        // Se fuerza en un tick posterior (setTimeout 0): el navegador procesa el
+        // toggle nativo del <summary> justo después de que termine de repartir
+        // este evento de clic, así que si lo hacemos aquí mismo (síncrono) el
+        // toggle nativo lo pisa a continuación y el mes se queda cerrado.
+        setTimeout(() => { if ($details && !$details.open) { $details.open = true; mesesAbiertos.add(mes); } }, 0);
         const $slot = $body.querySelector(`.add-proyecto-mes[data-mes="${mes}"]`);
         if ($slot.innerHTML) { $slot.innerHTML = ""; return; }
         $slot.innerHTML = `
