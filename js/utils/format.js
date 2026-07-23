@@ -55,7 +55,7 @@ export const FORMAS_PAGO = {
 export const CATEGORIAS_SERVICIO = {
   grabacion:   { label: "Grabación",              bg: "#E7ECFB", fg: "#33499E" },
   edicion:     { label: "Edición / Postproducción", bg: "#F0E7FB", fg: "#6B3FA0" },
-  evento:      { label: "Evento",                 bg: "#FFF3D6", fg: "8A6A10" },
+  evento:      { label: "Evento",                 bg: "#FFF3D6", fg: "#8A6A10" },
   boda:        { label: "Boda",                   bg: "#FBE7F0", fg: "#A03F6B" },
   videoclip:   { label: "Videoclip",               bg: "#E3F1EA", fg: "#2E7D53" },
   deporte:     { label: "Deporte",                 bg: "#FDEBD8", fg: "#B4571C" },
