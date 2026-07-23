@@ -3,6 +3,7 @@ import { eur, FORMAS_PAGO } from "../utils/format.js";
 import { round2 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, rangoAnio, conIva, estadoEfectivo } from "../utils/resumen.js";
 import { escapeHtml } from "./clientes.js";
+import { nextNumero } from "./facturacion.js";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
@@ -222,7 +223,30 @@ export async function renderMensual(container) {
     $body.querySelectorAll(".sel-factura").forEach(sel => {
       sel.addEventListener("change", async () => {
         const proyectoId = sel.dataset.proyectoId;
-        if (sel.value === "__nueva__") { location.hash = `#/facturacion/nuevo-desde-proyecto:${proyectoId}`; return; }
+        if (sel.value === "__nueva__") {
+          // Asigna un número de factura nuevo sin salir de Facturación mensual.
+          // La factura se crea "vacía" (sin líneas propias); cuando el usuario
+          // la abra para emitirla, el editor construye las líneas a partir de
+          // TODOS los proyectos vinculados a este mismo número (ver
+          // facturacion.js renderEditor), así que basta con repetir el mismo
+          // número en varios proyectos para agruparlos en un solo documento.
+          const p = proyectos.find(x => x.id === proyectoId);
+          const sugerido = await nextNumero();
+          const numero = prompt("Número para la nueva factura:", sugerido);
+          if (!numero || !numero.trim()) { pintar(anio); return; }
+          const { data, error } = await db.from("facturas").insert({
+            numero: numero.trim(),
+            cliente_id: p?.cliente_id || null,
+            tipo: "factura",
+          }).exec();
+          if (error) { alert("Error creando la factura: " + error); pintar(anio); return; }
+          const nuevaFacturaId = Array.isArray(data) ? data[0]?.id : data?.id;
+          await db.from("factura_proyectos").delete().eq("proyecto_id", proyectoId).exec();
+          await db.from("factura_proyectos").insert({ factura_id: nuevaFacturaId, proyecto_id: proyectoId, importe: Number(p?.precio_acordado || 0) }).exec();
+          await recargarDatos();
+          pintar(anio);
+          return;
+        }
         // Quita cualquier vínculo anterior de este proyecto con una factura real.
         await db.from("factura_proyectos").delete().eq("proyecto_id", proyectoId).exec();
         if (sel.value) {

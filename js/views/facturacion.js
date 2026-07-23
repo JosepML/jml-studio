@@ -116,9 +116,9 @@ async function sincronizarFacturaProyectos(facturaId, lineas) {
   if (filas.length) await db.from("factura_proyectos").insert(filas).exec();
 }
 
-async function nextNumero() {
+export async function nextNumero() {
   const year = new Date().getFullYear();
-  const { data } = await db.from("facturas").select("id").gte("fecha", `${year}-01-01`).lte("fecha", `${year}-12-31`).exec();
+  const { data } = await db.from("facturas").select("id").eq("tipo", "factura").gte("fecha", `${year}-01-01`).lte("fecha", `${year}-12-31`).exec();
   const n = (data?.length || 0) + 1;
   return `${String(n).padStart(2, "0")}-${year}`;
 }
@@ -132,15 +132,32 @@ async function renderEditor(container, { proyectoId, facturaId }) {
   let origenProyectoTexto = "";
 
   if (facturaId) {
-    const { data } = await db.from("facturas").select("*").eq("id", facturaId).single().exec();
-    if (data) draft = { ...data, lineas: data.lineas?.length ? data.lineas.map(l => ({ proyecto_id: "", ...l })) : [{ concepto: "", cantidad: 1, precio: 0, proyecto_id: "" }] };
+    const [{ data }, { data: vinculos }] = await Promise.all([
+      db.from("facturas").select("*").eq("id", facturaId).single().exec(),
+      db.from("factura_proyectos").select("importe,proyecto_id,proyectos(nombre)").eq("factura_id", facturaId).exec(),
+    ]);
+    if (data) {
+      // Si esta factura tiene proyectos vinculados (asignados desde Facturación
+      // mensual, p. ej. varios proyectos con el mismo número de factura), esa
+      // vinculación manda: cada proyecto se desglosa en su propia línea. Si no
+      // hay vínculos (factura creada/editada a mano), se usan las líneas ya
+      // guardadas en la propia factura.
+      const lineasDesdeVinculos = (vinculos && vinculos.length)
+        ? vinculos.map(v => ({ concepto: v.proyectos?.nombre || "Proyecto", cantidad: 1, precio: Number(v.importe || 0), proyecto_id: v.proyecto_id }))
+        : null;
+      const lineas = lineasDesdeVinculos || (data.lineas?.length ? data.lineas.map(l => ({ proyecto_id: "", ...l })) : [{ concepto: "", cantidad: 1, precio: 0, proyecto_id: "" }]);
+      draft = { ...data, lineas };
+      if (lineasDesdeVinculos && lineasDesdeVinculos.length > 1) {
+        origenProyectoTexto = `Esta factura agrupa ${lineasDesdeVinculos.length} proyectos, cada uno en su propia línea — revisa los importes antes de emitir.`;
+      }
+    }
   } else if (proyectoId) {
     const { data: proyecto } = await db.from("proyectos").select("*").eq("id", proyectoId).single().exec();
     if (proyecto) {
       draft.proyecto_id = proyecto.id;
       draft.cliente_id = proyecto.cliente_id;
       draft.lineas = [{ concepto: proyecto.nombre, cantidad: 1, precio: Number(proyecto.precio_acordado || 0), proyecto_id: proyecto.id }];
-      origenProyectoTexto = proyecto.nombre;
+      origenProyectoTexto = `Generada automáticamente desde el proyecto "${proyecto.nombre}" — revisa los datos antes de enviar.`;
     }
     draft.numero = await nextNumero();
   } else {
@@ -148,7 +165,7 @@ async function renderEditor(container, { proyectoId, facturaId }) {
   }
 
   container.innerHTML = `
-    ${origenProyectoTexto ? `<div class="ai-banner">✨ Generada automáticamente desde el proyecto "${escapeHtml(origenProyectoTexto)}" — revisa los datos antes de enviar.</div>` : ""}
+    ${origenProyectoTexto ? `<div class="ai-banner">✨ ${escapeHtml(origenProyectoTexto)}</div>` : ""}
     <div class="grid grid-2">
       <div class="card">
         <h3>Datos de la factura</h3>
