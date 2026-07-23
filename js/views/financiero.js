@@ -197,6 +197,27 @@ export async function renderFinanciero(container) {
       </div>
 
       <div class="card" style="margin-bottom:20px;">
+        <h3 style="margin-bottom:2px;">Beneficio mes a mes ${anio}</h3>
+        <p class="muted" style="font-size:12px; margin-top:0; margin-bottom:16px;">Facturado (base imponible) − gastos del mes = beneficio mensual.</p>
+        <div class="grid grid-4">
+          ${porMes.map((m, i) => {
+            const beneficioMes = round2(m.totalBase - m.gastosTotales);
+            const positivo = beneficioMes >= 0;
+            const color = positivo ? "var(--green-fg)" : "var(--red-fg,#B4453A)";
+            return `<div class="card" style="box-shadow:none; padding:14px; border-left:4px solid ${color};">
+              <div style="font-weight:700; font-size:13px; margin-bottom:8px;">${MESES[i]} ${anio}</div>
+              <div style="font-size:20px; font-weight:800; letter-spacing:-.02em; color:${color};">${eur(beneficioMes)}</div>
+              <div class="muted" style="font-size:11px; margin-bottom:10px;">beneficio mensual</div>
+              <div style="font-size:12px; display:flex; flex-direction:column; gap:4px; border-top:1px solid var(--border); padding-top:8px;">
+                <div style="display:flex; justify-content:space-between;"><span class="muted">Facturado</span><span>${eur(m.totalBase)}</span></div>
+                <div style="display:flex; justify-content:space-between;"><span class="muted">Gastos</span><span>−${eur(m.gastosTotales)}</span></div>
+              </div>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
         <h3 style="margin-bottom:2px;">Modelo 130 — pago fraccionado trimestral</h3>
         <p class="muted" style="font-size:12px; margin-top:0; margin-bottom:16px;">Solo cuenta lo ya cobrado por transferencia (marcado como "pagada" en Facturación mensual), tus gastos deducibles y la deducción automática por "difícil justificación" (5%, tope 2.000€/año) que también aplica tu gestoría. Marca cada trimestre cuando lo presentes en la Sede de Hacienda, para llevar el control aquí mismo.</p>
         <div class="grid grid-4">
