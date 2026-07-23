@@ -224,27 +224,43 @@ export async function renderMensual(container) {
       sel.addEventListener("change", async () => {
         const proyectoId = sel.dataset.proyectoId;
         if (sel.value === "__nueva__") {
-          // Asigna un número de factura nuevo sin salir de Facturación mensual.
-          // La factura se crea "vacía" (sin líneas propias); cuando el usuario
-          // la abra para emitirla, el editor construye las líneas a partir de
-          // TODOS los proyectos vinculados a este mismo número (ver
+          // Asigna un número de factura nuevo sin salir de Facturación mensual:
+          // sustituye el desplegable por un campo inline para elegir/confirmar
+          // el número. La factura se crea "vacía" (sin líneas propias); cuando
+          // el usuario la abra para emitirla, el editor construye las líneas a
+          // partir de TODOS los proyectos vinculados a este mismo número (ver
           // facturacion.js renderEditor), así que basta con repetir el mismo
           // número en varios proyectos para agruparlos en un solo documento.
-          const p = proyectos.find(x => x.id === proyectoId);
           const sugerido = await nextNumero();
-          const numero = prompt("Número para la nueva factura:", sugerido);
-          if (!numero || !numero.trim()) { pintar(anio); return; }
-          const { data, error } = await db.from("facturas").insert({
-            numero: numero.trim(),
-            cliente_id: p?.cliente_id || null,
-            tipo: "factura",
-          }).exec();
-          if (error) { alert("Error creando la factura: " + error); pintar(anio); return; }
-          const nuevaFacturaId = Array.isArray(data) ? data[0]?.id : data?.id;
-          await db.from("factura_proyectos").delete().eq("proyecto_id", proyectoId).exec();
-          await db.from("factura_proyectos").insert({ factura_id: nuevaFacturaId, proyecto_id: proyectoId, importe: Number(p?.precio_acordado || 0) }).exec();
-          await recargarDatos();
-          pintar(anio);
+          const $celda = sel.closest("td");
+          $celda.innerHTML = `
+            <div style="display:flex; gap:4px; align-items:center;">
+              <input class="np-numero-factura" type="text" value="${escapeHtml(sugerido)}" style="width:90px;">
+              <button class="btn btn-primary btn-confirmar-numero" type="button" style="padding:4px 8px; font-size:12px;">OK</button>
+              <button class="btn btn-ghost btn-cancelar-numero" type="button" style="padding:4px 8px; font-size:12px;">✕</button>
+            </div>`;
+          const $input = $celda.querySelector(".np-numero-factura");
+          $input.focus();
+          $input.select();
+          $celda.querySelector(".btn-cancelar-numero").addEventListener("click", () => pintar(anio));
+          const confirmar = async () => {
+            const numero = $input.value.trim();
+            if (!numero) { pintar(anio); return; }
+            const p = proyectos.find(x => x.id === proyectoId);
+            const { data, error } = await db.from("facturas").insert({
+              numero,
+              cliente_id: p?.cliente_id || null,
+              tipo: "factura",
+            }).exec();
+            if (error) { alert("Error creando la factura: " + error); pintar(anio); return; }
+            const nuevaFacturaId = Array.isArray(data) ? data[0]?.id : data?.id;
+            await db.from("factura_proyectos").delete().eq("proyecto_id", proyectoId).exec();
+            await db.from("factura_proyectos").insert({ factura_id: nuevaFacturaId, proyecto_id: proyectoId, importe: Number(p?.precio_acordado || 0) }).exec();
+            await recargarDatos();
+            pintar(anio);
+          };
+          $celda.querySelector(".btn-confirmar-numero").addEventListener("click", confirmar);
+          $input.addEventListener("keydown", e => { if (e.key === "Enter") confirmar(); if (e.key === "Escape") pintar(anio); });
           return;
         }
         // Quita cualquier vínculo anterior de este proyecto con una factura real.
