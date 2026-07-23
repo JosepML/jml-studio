@@ -22,7 +22,7 @@ export async function renderMensual(container) {
   const clientesMap = Object.fromEntries((clientes || []).map(c => [c.id, c.nombre]));
   const anioActual = new Date().getFullYear();
   let ledger = construirLedger(proyectos, facturaProyectos);
-  const facturasReales = (facturas || []).filter(f => f.tipo === "factura");
+  let facturasReales = (facturas || []).filter(f => f.tipo === "factura");
   // proyecto_id -> factura_id ya vinculado (si lo hay), para preseleccionar el desplegable.
   const vinculoPorProyecto = {};
   (facturaProyectos || []).forEach(fp => { if (fp.facturas && fp.facturas.tipo === "factura") vinculoPorProyecto[fp.proyecto_id] = fp.factura_id; });
@@ -60,6 +60,7 @@ export async function renderMensual(container) {
     facturaProyectos.length = 0; facturaProyectos.push(...(fp2 || []));
     facturas.length = 0; facturas.push(...(f2 || []));
     ledger = construirLedger(proyectos, facturaProyectos);
+    facturasReales = (facturas || []).filter(f => f.tipo === "factura");
     Object.keys(vinculoPorProyecto).forEach(k => delete vinculoPorProyecto[k]);
     (facturaProyectos || []).forEach(fp => { if (fp.facturas && fp.facturas.tipo === "factura") vinculoPorProyecto[fp.proyecto_id] = fp.factura_id; });
   }
