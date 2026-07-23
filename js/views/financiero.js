@@ -1,10 +1,28 @@
 import { db } from "../supabase.js";
-import { eur } from "../utils/format.js";
-import { calcularModelo130, round2, PLAZOS_MODELO_130_2026 } from "../utils/invoice-calc.js";
+import { eur, CATEGORIAS_SERVICIO, CATEGORIAS_GASTO } from "../utils/format.js";
+import { calcularModelo130, gastoDeducibleEnRango, round2, PLAZOS_MODELO_130_2026 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, resumenTrimestre, rangoMes, rangoAnio } from "../utils/resumen.js";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 let chartMensual = null;
+let chartIngresosServicio = null;
+
+// Agrupa el coste real de los gastos (prorrateando amortizaciones) por
+// categoría, dentro de un rango de fechas — para el desglose de la cuenta de
+// resultados. A diferencia de "gastosDeducibles", aquí SÍ se incluyen los no
+// deducibles (son coste real del negocio aunque Hacienda no los compute).
+function gastosPorCategoriaEnRango(gastos, desde, hasta) {
+  const out = {};
+  (gastos || []).forEach(g => {
+    const k = g.categoria || "otros";
+    const esDeducible = g.deducible !== false;
+    const monto = esDeducible
+      ? gastoDeducibleEnRango(g, desde, hasta)
+      : ((g.fecha >= desde && g.fecha <= hasta) ? round2(Number(g.importe || 0)) : 0);
+    if (monto) out[k] = round2((out[k] || 0) + monto);
+  });
+  return out;
+}
 
 // "Gastos de difícil justificación": deducción a tanto alzado del 5% sobre
 // (ingresos - gastos deducibles) en estimación directa simplificada, con un
@@ -93,6 +111,27 @@ export async function renderFinanciero(container) {
     const proximoTrimestre = trimestres[trimestreActual - 1] || trimestres[0];
     const plazoProximoVencido = new Date(proximoTrimestre.plazo.fin) < hoy;
 
+    // --- Cuenta de resultados (P&L) — adaptada a un negocio autónomo: sin
+    // sueldos/alquiler/impuesto de sociedades, con IRPF (Modelo 130) y las
+    // categorías reales de ingreso (tipo de servicio) y gasto de Josep. ---
+    const ingresosPorCategoria = {};
+    anual.filas.forEach(f => {
+      const k = f.proyecto?.categoria_servicio || "otros";
+      ingresosPorCategoria[k] = round2((ingresosPorCategoria[k] || 0) + f.importeBase);
+    });
+    const gastosPorCategoria = gastosPorCategoriaEnRango(gastos, desde, hasta);
+    const ingresosEntradas = Object.entries(ingresosPorCategoria).sort((a,b) => b[1]-a[1]);
+    const gastosEntradas = Object.entries(gastosPorCategoria).sort((a,b) => b[1]-a[1]);
+    const totalIngresosPL = round2(ingresosEntradas.reduce((s,[,v])=>s+v, 0));
+    const totalGastosPL = round2(gastosEntradas.reduce((s,[,v])=>s+v, 0));
+    const resultadoAntesImpuestos = round2(totalIngresosPL - totalGastosPL);
+    const irpfEstimadoAcumulado = round2(acumuladoPagado);
+    const beneficioNetoEstimado = round2(resultadoAntesImpuestos - irpfEstimadoAcumulado);
+    const numProyectosPL = anual.filas.length;
+    const margenPct = totalIngresosPL ? round2(resultadoAntesImpuestos / totalIngresosPL * 100) : 0;
+    const ticketMedio = numProyectosPL ? round2(totalIngresosPL / numProyectosPL) : 0;
+    const gastoMedioProyecto = numProyectosPL ? round2(totalGastosPL / numProyectosPL) : 0;
+
     container.querySelector("#financiero-body").innerHTML = `
       <div class="grid grid-4" style="margin-bottom:20px;">
         <div class="card kpi"><div class="label">Cobrado por transferencia ${anio}</div><div class="value">${eur(anual.transferenciaPagada)}</div><div class="muted" style="font-size:11px;">${eur(anual.transferenciaNoPagada)} facturado y aún sin cobrar</div></div>
@@ -103,6 +142,51 @@ export async function renderFinanciero(container) {
           <div class="value">${eur(proximoTrimestre.aIngresar)}</div>
           <div style="font-size:11px;color:${plazoProximoVencido && !proximoTrimestre.presentado ? "#F5B896" : "#8FD6B3"};">
             ${proximoTrimestre.presentado ? "Marcado como presentado ✓" : (plazoProximoVencido ? "Plazo vencido el " + proximoTrimestre.plazo.fin : "Vence " + proximoTrimestre.plazo.fin)}
+          </div>
+        </div>
+      </div>
+
+      <div class="grid" style="grid-template-columns:1.6fr 1fr; margin-bottom:20px; align-items:start;">
+        <div class="card">
+          <h3 style="margin-bottom:2px;">Cuenta de resultados</h3>
+          <p class="muted" style="font-size:12px; margin-top:0;">Acumulado ${anio} · facturado (no solo cobrado), coste real de los gastos (con amortizaciones prorrateadas).</p>
+          <table>
+            <tbody>
+              <tr style="background:var(--light);"><td colspan="2" style="font-weight:700;">Ingresos por servicio</td></tr>
+              ${ingresosEntradas.length ? ingresosEntradas.map(([k,v]) => {
+                const cat = CATEGORIAS_SERVICIO[k] || CATEGORIAS_SERVICIO.otros;
+                return `<tr><td style="padding-left:24px;"><span class="badge" style="background:${cat.bg}; color:${cat.fg};">${cat.label}</span></td><td style="text-align:right;">${eur(v)}</td></tr>`;
+              }).join("") : `<tr><td colspan="2" class="muted" style="padding-left:24px;">Sin ingresos en ${anio}.</td></tr>`}
+              <tr style="font-weight:700; border-top:1px solid var(--border);"><td>Ingresos totales</td><td style="text-align:right;">${eur(totalIngresosPL)}</td></tr>
+
+              <tr style="background:var(--light);"><td colspan="2" style="font-weight:700; padding-top:14px;">Gastos por categoría</td></tr>
+              ${gastosEntradas.length ? gastosEntradas.map(([k,v]) => {
+                const cat = CATEGORIAS_GASTO[k] || CATEGORIAS_GASTO.otros;
+                return `<tr><td style="padding-left:24px;"><span class="badge" style="background:${cat.bg}; color:${cat.fg};">${cat.label}</span></td><td style="text-align:right; color:var(--red-fg,#B4453A);">−${eur(v)}</td></tr>`;
+              }).join("") : `<tr><td colspan="2" class="muted" style="padding-left:24px;">Sin gastos en ${anio}.</td></tr>`}
+              <tr style="font-weight:700; border-top:1px solid var(--border);"><td>Gastos totales</td><td style="text-align:right; color:var(--red-fg,#B4453A);">−${eur(totalGastosPL)}</td></tr>
+
+              <tr style="font-weight:700; border-top:2px solid var(--border);"><td style="padding-top:10px;">Resultado antes de impuestos</td><td style="text-align:right; padding-top:10px;">${eur(resultadoAntesImpuestos)}</td></tr>
+              <tr><td class="muted">IRPF estimado (Modelo 130 acumulado)</td><td style="text-align:right; color:var(--red-fg,#B4453A);">−${eur(irpfEstimadoAcumulado)}</td></tr>
+              <tr style="font-weight:700; background:var(--light);"><td>Beneficio neto estimado</td><td style="text-align:right; color:var(--green-fg);">${eur(beneficioNetoEstimado)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:20px;">
+          <div class="card">
+            <h3>Ingresos por tipo de servicio</h3>
+            <div style="position:relative; height:170px;"><canvas id="chart-ingresos-servicio"></canvas></div>
+          </div>
+          <div class="card">
+            <h3>Ratios clave</h3>
+            <table style="margin:0;">
+              <tbody>
+                <tr><td>Margen sobre ingresos</td><td style="text-align:right; font-weight:600;">${margenPct}%</td></tr>
+                <tr><td>Proyectos facturados</td><td style="text-align:right; font-weight:600;">${numProyectosPL}</td></tr>
+                <tr><td>Ticket medio por proyecto</td><td style="text-align:right; font-weight:600;">${eur(ticketMedio)}</td></tr>
+                <tr><td>Gasto medio por proyecto</td><td style="text-align:right; font-weight:600;">${eur(gastoMedioProyecto)}</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -170,6 +254,22 @@ export async function renderFinanciero(container) {
           maintainAspectRatio: false,
           scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, ticks: { callback: v => eur(v) } } },
           plugins: { legend: { position: "bottom" } },
+        },
+      });
+    }
+
+    const ctxServicio = container.querySelector("#chart-ingresos-servicio");
+    if (ctxServicio && window.Chart) {
+      if (chartIngresosServicio) { chartIngresosServicio.destroy(); chartIngresosServicio = null; }
+      const labels = ingresosEntradas.map(([k]) => (CATEGORIAS_SERVICIO[k]||CATEGORIAS_SERVICIO.otros).label);
+      const data = ingresosEntradas.map(([,v]) => v);
+      const colors = ingresosEntradas.map(([k]) => (CATEGORIAS_SERVICIO[k]||CATEGORIAS_SERVICIO.otros).fg);
+      chartIngresosServicio = new window.Chart(ctxServicio, {
+        type: "doughnut",
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
+        options: {
+          maintainAspectRatio: false,
+          plugins: { legend: { position: "right", labels: { boxWidth: 10, font: { size: 11 } } } },
         },
       });
     }
