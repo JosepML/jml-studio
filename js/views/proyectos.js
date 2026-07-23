@@ -1,6 +1,7 @@
 import { db } from "../supabase.js";
-import { ESTADOS_FACTURA, ESTADOS_COBRO, FORMAS_PAGO, eur, dateEs, todayIso } from "../utils/format.js";
+import { ESTADOS_FACTURA, ESTADOS_COBRO, FORMAS_PAGO, CATEGORIAS_SERVICIO, eur, dateEs, todayIso } from "../utils/format.js";
 import { construirLedger, conIva, estadoEfectivo, rangoAnio, resumenPeriodo } from "../utils/resumen.js";
+import { round2 } from "../utils/invoice-calc.js";
 import { escapeHtml, escapeAttr } from "./clientes.js";
 
 export async function renderProyectos(container, param) {
@@ -29,6 +30,18 @@ export async function renderProyectos(container, param) {
       <div class="card kpi dark"><div class="label">Facturado ${anioActual}</div><div class="value">${eur(resumenAnual.totalBase)}</div></div>
     </div>
 
+    <div class="grid grid-2" style="margin-bottom:20px;">
+      <div class="card">
+        <h3>Qué es lo que más hago</h3>
+        <p class="muted" style="font-size:12px; margin-top:-4px;">Por tipo de servicio, todos los proyectos.</p>
+        <div id="categoria-chips" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+      </div>
+      <div class="card">
+        <h3>Clientes más habituales</h3>
+        <div id="top-clientes"></div>
+      </div>
+    </div>
+
     <div style="display:flex; justify-content:space-between; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center;">
       <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
         <input id="filtro-buscar" placeholder="Buscar proyecto o cliente…" style="width:220px;">
@@ -44,7 +57,7 @@ export async function renderProyectos(container, param) {
     <div class="card" style="padding:0; overflow-x:auto;">
       <table>
         <thead><tr>
-          <th style="padding-left:18px;">Proyecto</th><th>Cliente</th><th>Fecha</th><th>Importe c/IVA</th>
+          <th style="padding-left:18px;">Proyecto</th><th>Cliente</th><th>Categoría</th><th>Fecha</th><th>Importe c/IVA</th>
           <th>Forma de pago</th><th>Estado</th><th style="padding-right:18px;"></th>
         </tr></thead>
         <tbody id="tbl-proyectos"></tbody>
@@ -52,6 +65,53 @@ export async function renderProyectos(container, param) {
     </div>
     <div id="proyecto-detalle"></div>
   `;
+
+  let filtroCategoria = "";
+  function pintarAnalitica() {
+    // --- "Qué es lo que más hago" (por categoría de servicio) ---
+    const porCategoriaServicio = {};
+    (proyectos||[]).forEach(p => {
+      const k = p.categoria_servicio || "otros";
+      (porCategoriaServicio[k] ||= { count: 0, total: 0 }).count++;
+      const f = ledgerPorProyecto[p.id];
+      porCategoriaServicio[k].total = round2(porCategoriaServicio[k].total + conIva(f ? f.importeBase : (p.precio_acordado||0)));
+    });
+    const entradas = Object.entries(porCategoriaServicio).sort((a,b)=>b[1].count-a[1].count);
+    const $catChips = container.querySelector("#categoria-chips");
+    $catChips.innerHTML = `
+      <button class="chip-cat" data-cat="" style="background:${filtroCategoria===""?"var(--navy)":"var(--light)"}; color:${filtroCategoria===""?"#fff":"var(--text)"};">Todas · ${(proyectos||[]).length}</button>
+      ${entradas.map(([k,v]) => {
+        const cat = CATEGORIAS_SERVICIO[k] || CATEGORIAS_SERVICIO.otros;
+        const activo = filtroCategoria === k;
+        return `<button class="chip-cat" data-cat="${k}" style="background:${activo?cat.fg:cat.bg}; color:${activo?"#fff":cat.fg};">${cat.label} · ${v.count} <span style="opacity:.7">(${eur(v.total)})</span></button>`;
+      }).join("")}
+    `;
+    $catChips.querySelectorAll(".chip-cat").forEach(btn => {
+      btn.addEventListener("click", () => { filtroCategoria = btn.dataset.cat; pintarAnalitica(); pintarTabla(); });
+    });
+
+    // --- Clientes más habituales ---
+    const porCliente = {};
+    (proyectos||[]).forEach(p => {
+      if (!p.cliente_id) return;
+      (porCliente[p.cliente_id] ||= { count: 0, total: 0 }).count++;
+      const f = ledgerPorProyecto[p.id];
+      porCliente[p.cliente_id].total = round2(porCliente[p.cliente_id].total + conIva(f ? f.importeBase : (p.precio_acordado||0)));
+    });
+    const topClientes = Object.entries(porCliente).sort((a,b)=>b[1].count-a[1].count).slice(0,5);
+    container.querySelector("#top-clientes").innerHTML = topClientes.length ? `
+      <table style="margin:0;">
+        <tbody>
+          ${topClientes.map(([id,v],i) => `<tr>
+            <td style="font-weight:${i===0?700:400};">${escapeHtml(clientesMap[id]||"—")}${i===0?` <span class="badge" style="background:var(--green-bg,#E3F1EA); color:var(--green-fg,#2E7D53); margin-left:4px;">Principal</span>`:""}</td>
+            <td class="muted">${v.count} proyecto${v.count===1?"":"s"}</td>
+            <td style="text-align:right; font-weight:600;">${eur(v.total)}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    ` : `<p class="muted" style="font-size:13px;">Sin clientes asignados todavía.</p>`;
+  }
+  pintarAnalitica();
 
   container.querySelector("#btn-nuevo-proyecto").addEventListener("click", () => abrirFicha(container, null, clientes || [], recargarYPintar));
 
@@ -80,20 +140,23 @@ export async function renderProyectos(container, param) {
     if (q) lista = lista.filter(p => (p.nombre||"").toLowerCase().includes(q) || (clientesMap[p.cliente_id]||"").toLowerCase().includes(q));
     if (clienteId) lista = lista.filter(p => p.cliente_id === clienteId);
     if (filtroEstado) lista = lista.filter(p => { const f = ledgerPorProyecto[p.id]; return f && estadoEfectivo(f) === filtroEstado; });
+    if (filtroCategoria) lista = lista.filter(p => (p.categoria_servicio||"otros") === filtroCategoria);
     lista.sort((a,b) => (b.fecha_entrega||b.fecha_inicio||"").localeCompare(a.fecha_entrega||a.fecha_inicio||""));
 
     const $tbl = container.querySelector("#tbl-proyectos");
-    if (!lista.length) { $tbl.innerHTML = `<tr><td colspan="7" class="muted" style="padding:20px; text-align:center;">Sin proyectos con ese filtro.</td></tr>`; return; }
+    if (!lista.length) { $tbl.innerHTML = `<tr><td colspan="8" class="muted" style="padding:20px; text-align:center;">Sin proyectos con ese filtro.</td></tr>`; return; }
 
     $tbl.innerHTML = lista.map(p => {
       const f = ledgerPorProyecto[p.id];
       const estado = f ? estadoEfectivo(f) : "pendiente";
       const cat = ESTADOS_COBRO[estado];
+      const catServicio = CATEGORIAS_SERVICIO[p.categoria_servicio] || CATEGORIAS_SERVICIO.otros;
       const importeConIva = f ? conIva(f.importeBase) : conIva(p.precio_acordado);
       const nGastos = (gastos||[]).filter(g => g.proyecto_id === p.id).length;
       return `<tr>
         <td class="link-proyecto" data-id="${p.id}" style="padding-left:18px; cursor:pointer; color:var(--blue); font-weight:600;">${escapeHtml(p.nombre)}${nGastos?` <span class="muted" style="font-weight:400; font-size:11px;">· ${nGastos} gasto${nGastos===1?"":"s"}</span>`:""}</td>
         <td>${escapeHtml(clientesMap[p.cliente_id] || "Sin cliente")}</td>
+        <td><span class="badge" style="background:${catServicio.bg}; color:${catServicio.fg};">${catServicio.label}</span></td>
         <td class="muted">${dateEs(p.fecha_entrega || p.fecha_inicio)}</td>
         <td>${eur(importeConIva)}</td>
         <td>
@@ -154,6 +217,7 @@ export async function renderProyectos(container, param) {
     const ledger2 = construirLedger(proyectos, facturaProyectos);
     Object.keys(ledgerPorProyecto).forEach(k => delete ledgerPorProyecto[k]);
     ledger2.forEach(f => { ledgerPorProyecto[f.proyecto.id] = f; });
+    pintarAnalitica();
     pintarTabla();
   }
 
@@ -167,7 +231,7 @@ export async function renderProyectos(container, param) {
 
 async function abrirFicha(container, proyecto, clientes, onGuardado) {
   const esNuevo = !proyecto;
-  proyecto = proyecto || { nombre: "", cliente_id: clientes[0]?.id || "", estado: "en_curso", fecha_inicio: todayIso(), fecha_entrega: "", horas_invertidas: 0, coste_asociado: 0, precio_acordado: 0, entregables: [], forma_pago: "transferencia", estado_facturacion: "pendiente", notas: "" };
+  proyecto = proyecto || { nombre: "", cliente_id: clientes[0]?.id || "", estado: "en_curso", fecha_inicio: todayIso(), fecha_entrega: "", horas_invertidas: 0, coste_asociado: 0, precio_acordado: 0, entregables: [], forma_pago: "transferencia", estado_facturacion: "pendiente", categoria_servicio: "otros", notas: "" };
   const $detalle = container.querySelector("#proyecto-detalle");
 
   let gastos = [], facturasVinculadas = [];
@@ -202,6 +266,11 @@ async function abrirFicha(container, proyecto, clientes, onGuardado) {
         <div class="field"><label>Estado de cobro</label>
           <select id="f-estado-cobro">
             ${Object.entries(ESTADOS_COBRO).map(([k, v]) => `<option value="${k}" ${k === (proyecto.estado_facturacion||"pendiente") ? "selected" : ""}>${v.label}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field"><label>Tipo de servicio</label>
+          <select id="f-categoria-servicio">
+            ${Object.entries(CATEGORIAS_SERVICIO).map(([k, v]) => `<option value="${k}" ${k === (proyecto.categoria_servicio||"otros") ? "selected" : ""}>${v.label}</option>`).join("")}
           </select>
         </div>
       </div>
@@ -260,6 +329,7 @@ async function abrirFicha(container, proyecto, clientes, onGuardado) {
       precio_acordado: Number($detalle.querySelector("#f-precio").value || 0),
       forma_pago: $detalle.querySelector("#f-forma-pago").value,
       estado_facturacion: $detalle.querySelector("#f-estado-cobro").value,
+      categoria_servicio: $detalle.querySelector("#f-categoria-servicio").value,
       entregables: $detalle.querySelector("#f-entregables").value.split("\n").map(s => s.trim()).filter(Boolean),
       notas: $detalle.querySelector("#f-notas").value.trim(),
     };
