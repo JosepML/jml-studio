@@ -154,6 +154,14 @@ export async function renderMensual(container) {
     $body.querySelectorAll(".btn-add-mes").forEach(btn => {
       btn.addEventListener("click", () => {
         const mes = Number(btn.dataset.mes);
+        // El botón vive dentro del <summary> del <details> del mes. Un <details>
+        // cerrado oculta con CSS nativo todo lo que no sea el <summary> (incluido
+        // este formulario), así que si el mes está colapsado hay que abrirlo a
+        // mano — el toggle nativo del navegador no siempre se dispara cuando el
+        // clic viene de un elemento interactivo anidado (este botón) dentro del
+        // summary, sobre todo tras el stopPropagation() del onclick inline.
+        const $details = $body.querySelector(`details[data-mes="${mes}"]`);
+        if ($details && !$details.open) { $details.open = true; mesesAbiertos.add(mes); }
         const $slot = $body.querySelector(`.add-proyecto-mes[data-mes="${mes}"]`);
         if ($slot.innerHTML) { $slot.innerHTML = ""; return; }
         $slot.innerHTML = `
