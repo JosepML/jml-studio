@@ -52,6 +52,20 @@ function lineRL(doc, x1, y1, x2, y2) { doc.line(x1, pageH(doc) - y1, x2, pageH(d
 function rectRL(doc, x, y, w, h, mode) { doc.rect(x, pageH(doc) - (y + h), w, h, mode); }
 function imageRL(doc, dataUrl, x, y, w, h) { doc.addImage(dataUrl, "PNG", x, pageH(doc) - (y + h), w, h); }
 
+// La dirección del cliente se guarda en Clientes como una sola cadena libre
+// (calle, código postal, ciudad, provincia...) que puede ser larga y salirse
+// de la página. Igual que el emisor (que ya tiene direccion_linea1/linea2
+// separadas a mano), partimos la dirección del cliente en dos líneas justo
+// donde empieza el código postal, para que la segunda mitad baje de línea.
+function partirDireccion(direccion) {
+  if (!direccion) return ["", ""];
+  const idx = direccion.search(/\b\d{5}\b/);
+  if (idx <= 0) return [String(direccion).trim(), ""];
+  const l1 = direccion.slice(0, idx).trim().replace(/,\s*$/, "");
+  const l2 = direccion.slice(idx).trim();
+  return [l1, l2];
+}
+
 function formatCantidad(valor) {
   const n = Number(valor);
   if (Number.isInteger(n)) return String(n);
@@ -105,7 +119,10 @@ export function crearFacturaPdf(doc, cfg, numero, fechaStr, cliente, lineas, not
   doc.setFont("Poppins", "normal"); doc.setFontSize(10);
   setText(doc, GRIS_TEXTO);
   const lineasEmisor = [emisor.nif, emisor.direccion_linea1, emisor.direccion_linea2];
-  const lineasCliente = [cliente.nif, cliente.direccion, cliente.direccion2 || ""];
+  const [clienteDirL1, clienteDirL2] = cliente.direccion2
+    ? [cliente.direccion || "", cliente.direccion2]
+    : partirDireccion(cliente.direccion);
+  const lineasCliente = [cliente.nif, clienteDirL1, clienteDirL2];
   let yy = y - 15;
   for (let i = 0; i < 3; i++) {
     const le = lineasEmisor[i], lc = lineasCliente[i];
