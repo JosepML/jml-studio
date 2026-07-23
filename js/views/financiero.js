@@ -196,37 +196,63 @@ export async function renderFinanciero(container) {
         <div style="position:relative; height:220px;"><canvas id="chart-mensual"></canvas></div>
       </div>
 
-      <div class="card" style="margin-bottom:20px; border-left:4px solid var(--blue);">
+      <div class="card" style="margin-bottom:20px;">
         <h3 style="margin-bottom:2px;">Modelo 130 — pago fraccionado trimestral</h3>
-        <p class="muted" style="font-size:12px; margin-top:0;">Solo cuenta lo ya cobrado por transferencia (marcado como "pagada" en Facturación mensual), tus gastos deducibles y la deducción automática por "difícil justificación" (5%, tope 2.000€/año) que también aplica tu gestoría. Marca cada trimestre cuando lo presentes en la Sede de Hacienda, para llevar el control aquí mismo.</p>
-        <table>
-          <thead><tr><th>Trimestre</th><th>Cobrado (transferencia)</th><th>Gastos deducibles</th><th>Difícil justif.</th><th>Rendimiento neto</th><th>A ingresar</th><th>Plazo</th><th style="text-align:center;">Presentado</th></tr></thead>
-          <tbody>
-            ${trimestres.map(t => `<tr>
-              <td>T${t.q}</td><td>${eur(t.transferenciaPagada)}</td><td>${eur(t.gastosDeducibles)}</td><td class="muted">+${eur(t.dificilJustificacion)}</td><td>${eur(t.rendimientoNeto)}</td>
-              <td><strong>${eur(t.aIngresar)}</strong></td><td>${t.plazo.inicio.slice(8,10)}–${t.plazo.fin.slice(8,10)} ${t.plazo.fin.slice(5,7)}/${t.plazo.fin.slice(0,4)}</td>
-              <td style="text-align:center;"><input type="checkbox" class="chk-presentado" data-q="${t.q}" ${t.presentado?"checked":""}></td>
-            </tr>`).join("")}
-            <tr style="font-weight:600; background:var(--light);">
-              <td>Total ${anio}</td><td>${eur(anual.transferenciaPagada)}</td><td>${eur(anual.gastosDeducibles)}</td><td>+${eur(acumuladoDificilJustificacion)}</td><td colspan="1"></td><td>${eur(trimestres.reduce((s,t)=>s+t.aIngresar,0))}</td><td colspan="2"></td>
-            </tr>
-          </tbody>
-        </table>
+        <p class="muted" style="font-size:12px; margin-top:0; margin-bottom:16px;">Solo cuenta lo ya cobrado por transferencia (marcado como "pagada" en Facturación mensual), tus gastos deducibles y la deducción automática por "difícil justificación" (5%, tope 2.000€/año) que también aplica tu gestoría. Marca cada trimestre cuando lo presentes en la Sede de Hacienda, para llevar el control aquí mismo.</p>
+        <div class="grid grid-4">
+          ${trimestres.map(t => {
+            const vencido = new Date(t.plazo.fin) < hoy;
+            const borderColor = t.presentado ? "var(--green-fg)" : (vencido ? "var(--orange-fg)" : "var(--blue)");
+            const badge = t.presentado
+              ? `<span class="badge" style="background:var(--green-bg); color:var(--green-fg);">Presentado ✓</span>`
+              : (vencido ? `<span class="badge" style="background:var(--orange-bg); color:var(--orange-fg);">Vencido</span>` : `<span class="badge" style="background:var(--grey-bg); color:var(--grey-fg);">Pendiente</span>`);
+            return `<div class="card" style="box-shadow:none; padding:16px; border-left:4px solid ${borderColor};">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-weight:700; font-size:13px;">T${t.q} ${anio}</span>
+                ${badge}
+              </div>
+              <div style="font-size:22px; font-weight:800; letter-spacing:-.02em;">${eur(t.aIngresar)}</div>
+              <div class="muted" style="font-size:11px; margin-bottom:12px;">a ingresar · plazo ${t.plazo.inicio.slice(8,10)}–${t.plazo.fin.slice(8,10)}/${t.plazo.fin.slice(5,7)}</div>
+              <div style="font-size:12px; display:flex; flex-direction:column; gap:4px; border-top:1px solid var(--border); padding-top:10px;">
+                <div style="display:flex; justify-content:space-between;"><span class="muted">Cobrado</span><span>${eur(t.transferenciaPagada)}</span></div>
+                <div style="display:flex; justify-content:space-between;"><span class="muted">Gastos deducibles</span><span>${eur(t.gastosDeducibles)}</span></div>
+                <div style="display:flex; justify-content:space-between;"><span class="muted">Difícil justif.</span><span>+${eur(t.dificilJustificacion)}</span></div>
+                <div style="display:flex; justify-content:space-between;"><span class="muted">Rendimiento neto</span><span>${eur(t.rendimientoNeto)}</span></div>
+              </div>
+              <label style="display:flex; align-items:center; gap:6px; margin-top:12px; font-size:12px; cursor:pointer;">
+                <input type="checkbox" class="chk-presentado" data-q="${t.q}" ${t.presentado?"checked":""}> Marcar como presentado
+              </label>
+            </div>`;
+          }).join("")}
+        </div>
+        <div class="muted" style="font-size:12px; margin-top:16px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; border-top:1px solid var(--border); padding-top:12px;">
+          <span>Total ${anio}: cobrado ${eur(anual.transferenciaPagada)} · gastos deducibles ${eur(anual.gastosDeducibles)} (+${eur(acumuladoDificilJustificacion)} difícil justif.)</span>
+          <strong style="color:var(--text);">A ingresar total: ${eur(trimestres.reduce((s,t)=>s+t.aIngresar,0))}</strong>
+        </div>
         <p class="muted" style="font-size:12px; margin-top:10px;">Estimación orientativa (20% del rendimiento neto acumulado, menos retenciones e ingresos previos del año). Confírmalo con tu gestor/a antes de presentar el modelo oficial. "Presentado" solo se guarda en este dispositivo, a modo de recordatorio.</p>
       </div>
 
       <div class="card" style="border-left:4px solid var(--purple-fg, #6B3FA0);">
         <h3 style="margin-bottom:2px;">Balance real (personal)</h3>
-        <p class="muted" style="font-size:12px; margin-top:0;">Incluye también el efectivo y los gastos no deducibles — es lo que de verdad ha entrado y salido de tu bolsillo (solo cobros ya marcados como pagados).</p>
-        <table>
-          <thead><tr><th></th><th>Transferencia</th><th>Efectivo</th><th>Total</th></tr></thead>
-          <tbody>
-            <tr><td>Cobrado</td><td>${eur(anual.transferenciaPagada)}</td><td>${eur(anual.efectivoPagada)}</td><td><strong>${eur(round2(anual.transferenciaPagada + anual.efectivoPagada))}</strong></td></tr>
-            <tr><td>Aún sin cobrar</td><td>${eur(anual.transferenciaNoPagada)}</td><td>${eur(anual.efectivoNoPagada)}</td><td class="muted">${eur(anual.noPagado)}</td></tr>
-            <tr><td>Gastos</td><td colspan="2" class="muted">deducibles ${eur(anual.gastosDeducibles)} + no deducibles ${eur(anual.gastosNoDeducibles)}</td><td><strong>${eur(anual.gastosTotales)}</strong></td></tr>
-            <tr style="font-weight:600; background:var(--light);"><td>Beneficio real (cobrado)</td><td colspan="2"></td><td style="color:var(--green-fg)">${eur(anual.beneficioRealPagado)}</td></tr>
-          </tbody>
-        </table>
+        <p class="muted" style="font-size:12px; margin-top:0; margin-bottom:16px;">Incluye también el efectivo y los gastos no deducibles — es lo que de verdad ha entrado y salido de tu bolsillo (solo cobros ya marcados como pagados).</p>
+        <div class="grid" style="grid-template-columns:repeat(3,1fr);">
+          <div>
+            <div class="muted" style="font-size:11px; text-transform:uppercase; letter-spacing:.06em; font-weight:700;">Cobrado</div>
+            <div style="font-size:22px; font-weight:800; margin:6px 0 2px; letter-spacing:-.02em;">${eur(round2(anual.transferenciaPagada + anual.efectivoPagada))}</div>
+            <div class="muted" style="font-size:11px;">Transferencia ${eur(anual.transferenciaPagada)} · Efectivo ${eur(anual.efectivoPagada)}</div>
+            <div class="muted" style="font-size:11px; margin-top:2px;">+ ${eur(anual.noPagado)} aún sin cobrar</div>
+          </div>
+          <div>
+            <div class="muted" style="font-size:11px; text-transform:uppercase; letter-spacing:.06em; font-weight:700;">Gastos</div>
+            <div style="font-size:22px; font-weight:800; margin:6px 0 2px; letter-spacing:-.02em; color:var(--red-fg,#B4453A);">−${eur(anual.gastosTotales)}</div>
+            <div class="muted" style="font-size:11px;">Deducibles ${eur(anual.gastosDeducibles)} + no deducibles ${eur(anual.gastosNoDeducibles)}</div>
+          </div>
+          <div>
+            <div class="muted" style="font-size:11px; text-transform:uppercase; letter-spacing:.06em; font-weight:700;">Beneficio real (cobrado)</div>
+            <div style="font-size:22px; font-weight:800; margin:6px 0 2px; letter-spacing:-.02em; color:var(--green-fg);">${eur(anual.beneficioRealPagado)}</div>
+            <div class="muted" style="font-size:11px;">Cobrado − gastos totales</div>
+          </div>
+        </div>
       </div>
     `;
 
