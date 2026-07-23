@@ -1,6 +1,6 @@
 import { db } from "../supabase.js";
 import { calcularFactura, round2 } from "../utils/invoice-calc.js";
-import { ESTADOS_FACTURA, eur, dateEs, todayIso } from "../utils/format.js";
+import { ESTADOS_FACTURA, eur, dateEs, todayIso, CATEGORIAS_SERVICIO } from "../utils/format.js";
 import { escapeHtml, escapeAttr } from "./clientes.js";
 import { CONFIG_NEGOCIO } from "../utils/config-negocio.js";
 import { crearFacturaPdf, crearPresupuestoPdf, cargarLogoDataUrl } from "../utils/pdf-documentos.js";
@@ -216,7 +216,27 @@ async function renderEditor(container, { proyectoId, facturaId }) {
 
         <label>Líneas</label>
         <div id="lineas-wrap"></div>
-        <button class="btn btn-ghost" id="btn-add-linea" type="button" style="margin-bottom:14px;">+ Añadir línea</button>
+        <div style="display:flex; gap:8px; margin-bottom:14px;">
+          <button class="btn btn-ghost" id="btn-add-linea" type="button">+ Añadir línea</button>
+          <button class="btn btn-ghost" id="btn-nuevo-proyecto" type="button">+ Crear proyecto nuevo</button>
+        </div>
+        <div id="nuevo-proyecto-form" class="hidden" style="margin:-6px 0 14px; padding:14px; background:var(--light); border-radius:var(--radius); border:1px solid var(--border);">
+          <p class="muted" style="font-size:12px; margin:0 0 10px;">Créalo ahora mismo — útil cuando el presupuesto es para un trabajo que todavía no existe en Proyectos. Al guardar quedará vinculado a esta línea.</p>
+          <div class="row">
+            <div class="field"><label>Nombre del proyecto</label><input id="np-nombre" placeholder="Ej. Boda Marta y Juan"></div>
+            <div class="field"><label>Precio acordado (€, sin IVA)</label><input id="np-precio" type="number" step="0.01" placeholder="0.00"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label>Categoría de servicio</label>
+              <select id="np-categoria">${Object.entries(CATEGORIAS_SERVICIO).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("")}</select>
+            </div>
+            <div class="field"><label>Fecha de inicio</label><input type="date" id="np-fecha" value="${todayIso()}"></div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-primary" id="btn-crear-proyecto" type="button">Crear y usar en esta línea</button>
+            <button class="btn btn-ghost" id="btn-cancelar-proyecto" type="button">Cancelar</button>
+          </div>
+        </div>
 
         <div class="row">
           <div class="field"><label>IVA %</label><input type="number" id="f-iva" value="${draft.iva_pct}"></div>
@@ -296,6 +316,38 @@ async function renderEditor(container, { proyectoId, facturaId }) {
   actualizar();
   container.querySelector("#btn-add-linea").addEventListener("click", () => { draft.lineas.push({ concepto: "", cantidad: 1, precio: 0, proyecto_id: "" }); pintarLineas(); actualizar(); });
   ["#f-iva", "#f-retencion", "#f-cliente", "#f-numero", "#f-tipo"].forEach(sel => container.querySelector(sel).addEventListener("input", actualizar));
+
+  const $formNuevoProyecto = container.querySelector("#nuevo-proyecto-form");
+  container.querySelector("#btn-nuevo-proyecto").addEventListener("click", () => $formNuevoProyecto.classList.toggle("hidden"));
+  container.querySelector("#btn-cancelar-proyecto").addEventListener("click", () => $formNuevoProyecto.classList.add("hidden"));
+  container.querySelector("#btn-crear-proyecto").addEventListener("click", async () => {
+    const nombre = container.querySelector("#np-nombre").value.trim();
+    if (!nombre) { alert("Ponle un nombre al proyecto."); return; }
+    const precio = Number(container.querySelector("#np-precio").value || 0);
+    const categoria_servicio = container.querySelector("#np-categoria").value;
+    const fecha_inicio = container.querySelector("#np-fecha").value || todayIso();
+    const cliente_id = container.querySelector("#f-cliente").value || null;
+    const payload = { nombre, cliente_id, fecha_inicio, precio_acordado: precio, categoria_servicio, forma_pago: "transferencia", estado_facturacion: "pendiente" };
+    const { data, error } = await db.from("proyectos").insert(payload).exec();
+    if (error) { alert("Error creando el proyecto: " + error); return; }
+    const nuevo = Array.isArray(data) ? data[0] : data;
+    proyectosDisponibles.push({ id: nuevo.id, nombre: nuevo.nombre });
+
+    // Rellena la última línea si está vacía; si no, añade una nueva línea con el proyecto recién creado.
+    const ultima = draft.lineas[draft.lineas.length - 1];
+    const target = (ultima && !ultima.concepto && !ultima.proyecto_id)
+      ? ultima
+      : (draft.lineas.push({ concepto: "", cantidad: 1, precio: 0, proyecto_id: "" }), draft.lineas[draft.lineas.length - 1]);
+    target.concepto = nombre;
+    target.precio = precio;
+    target.proyecto_id = nuevo.id;
+
+    container.querySelector("#np-nombre").value = "";
+    container.querySelector("#np-precio").value = "";
+    $formNuevoProyecto.classList.add("hidden");
+    pintarLineas();
+    actualizar();
+  });
 
   container.querySelector("#btn-guardar").addEventListener("click", async () => {
     const calc = actualizar();
