@@ -38,6 +38,7 @@ async function render() {
   document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("active", a.dataset.route === routeName));
   $pageTitle.textContent = route.title;
   $content.innerHTML = `<div class="empty-state">Cargando…</div>`;
+  closeSidebar();
   try {
     await route.render($content, param);
   } catch (err) {
@@ -45,6 +46,17 @@ async function render() {
     $content.innerHTML = `<div class="card"><strong>Ha ocurrido un error cargando esta sección.</strong><p class="muted">${(err && err.message) || err}</p></div>`;
   }
 }
+
+// --- Menú móvil (sidebar deslizante) ---
+const $sidebar = document.getElementById("sidebar");
+const $sidebarOverlay = document.getElementById("sidebar-overlay");
+const $menuToggle = document.getElementById("menu-toggle");
+function openSidebar() { $sidebar.classList.add("open"); $sidebarOverlay.classList.add("open"); }
+function closeSidebar() { $sidebar.classList.remove("open"); $sidebarOverlay.classList.remove("open"); }
+$menuToggle.addEventListener("click", () => {
+  $sidebar.classList.contains("open") ? closeSidebar() : openSidebar();
+});
+$sidebarOverlay.addEventListener("click", closeSidebar);
 
 let previewMode = false;
 
