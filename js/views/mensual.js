@@ -85,7 +85,7 @@ export async function renderMensual(container) {
       const cabecera = `
         <summary style="cursor:pointer; font-weight:600; display:flex; justify-content:space-between; align-items:center;">
           <span>${nombreMes} — ${eur(totalMes)} ${filasMes.length ? `<span class="muted" style="font-weight:400;">(${filasMes.length} proyecto${filasMes.length===1?"":"s"})</span>` : ""}</span>
-          <button class="btn btn-ghost btn-add-mes" data-mes="${idx}" style="font-size:12px; padding:4px 10px;" onclick="event.stopPropagation();">+ Añadir proyecto</button>
+          <button class="btn btn-ghost btn-add-mes" data-mes="${idx}" style="font-size:12px; padding:4px 10px;" onclick="event.preventDefault(); event.stopPropagation();">+ Añadir proyecto</button>
         </summary>`;
       const abierto = mesesAbiertos.has(idx) ? "open" : "";
       if (!filasMes.length) {
