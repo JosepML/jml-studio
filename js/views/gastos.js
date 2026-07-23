@@ -119,16 +119,18 @@ export async function renderGastos(container) {
       <details class="card" style="margin-bottom:10px;" ${idx === new Date().getMonth() && anio === anioActual ? "open" : ""}>
         <summary style="cursor:pointer; font-weight:600;">${nombreMes} — ${eur(totalMes)} <span class="muted" style="font-weight:400;">(${delMes.length} gasto${delMes.length===1?"":"s"})</span></summary>
         <table style="margin-top:10px;">
-          <thead><tr><th>Fecha</th><th>Concepto</th><th>Categoría</th><th>Importe</th><th>Deducible</th><th>Amortización</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Concepto</th><th>Categoría</th><th>Pago</th><th>Importe</th><th>Deducible</th><th>Amortización</th></tr></thead>
           <tbody>
             ${delMes.map(g => {
               const cat = CATEGORIAS_GASTO[g.categoria] || CATEGORIAS_GASTO.otros;
               const esDeducible = g.deducible !== false;
+              const conFactura = g.con_factura !== false;
               const amort = g.es_amortizable ? `${g.meses_amortizacion} meses desde ${dateEs(g.fecha_inicio_amortizacion || g.fecha)}` : "—";
               return `<tr class="clickable" data-id="${g.id}">
                 <td>${dateEs(g.fecha)}</td>
                 <td>${escapeHtml(g.concepto)}</td>
                 <td><span class="badge" style="background:${cat.bg};color:${cat.fg}">${cat.label}</span></td>
+                <td><span class="badge" style="background:${conFactura?"var(--purple-bg)":"var(--grey-bg)"};color:${conFactura?"var(--purple-fg)":"var(--grey-fg)"}">${conFactura?"Factura":"Efectivo"}</span></td>
                 <td>${eur(g.importe)}</td>
                 <td><span class="badge" style="background:${esDeducible?"var(--green-bg)":"var(--orange-bg)"};color:${esDeducible?"var(--green-fg)":"var(--orange-fg)"}">${esDeducible?"Sí":"No"}</span></td>
                 <td style="font-size:12px;">${amort}</td>
@@ -152,7 +154,7 @@ function abrirFormulario(container, gasto, onGuardado) {
   const esNuevo = !gasto;
   gasto = gasto || {
     concepto: "", importe: 0, tipo: "variable", fecha: todayIso(), recurrente: false,
-    categoria: "otros", deducible: true, iva_soportado: 0, iva_deducible_pct: 100,
+    categoria: "otros", deducible: true, con_factura: true, iva_soportado: 0, iva_deducible_pct: 100,
     es_amortizable: false, tipo_bien: null, meses_amortizacion: null, fecha_inicio_amortizacion: todayIso(),
   };
   const $wrap = container.querySelector("#gasto-form-wrap");
@@ -162,7 +164,6 @@ function abrirFormulario(container, gasto, onGuardado) {
       <h3>${esNuevo ? "Nuevo gasto" : "Editar gasto"}</h3>
       <div class="row">
         <div class="field" style="flex:2"><label>Concepto</label><input id="g-concepto" value="${escapeAttr(gasto.concepto)}"></div>
-        <div class="field"><label>Importe total (€, con IVA)</label><input id="g-importe" type="number" step="0.01" value="${gasto.importe}"></div>
         <div class="field"><label>Fecha</label><input id="g-fecha" type="date" value="${gasto.fecha}"></div>
       </div>
       <div class="row">
@@ -178,14 +179,24 @@ function abrirFormulario(container, gasto, onGuardado) {
 
       <div class="field" style="background:var(--light); border-radius:8px; padding:10px 12px; margin-bottom:14px;">
         <label style="display:flex; align-items:center; gap:8px; text-transform:none; font-size:13px; color:var(--text);">
+          <input type="checkbox" id="g-con-factura" style="width:auto;" ${gasto.con_factura !== false ? "checked" : ""}>
+          Con factura
+        </label>
+        <p class="muted" id="g-hint-efectivo" style="display:none; font-size:12px; margin:6px 0 0;">Pago en efectivo o sin factura: el sistema no desglosa IVA (no se puede recuperar sin factura) y por defecto no cuenta como deducible en Hacienda.</p>
+      </div>
+
+      <div class="field" style="background:var(--light); border-radius:8px; padding:10px 12px; margin-bottom:14px;">
+        <label style="display:flex; align-items:center; gap:8px; text-transform:none; font-size:13px; color:var(--text);">
           <input type="checkbox" id="g-deducible" style="width:auto;" ${gasto.deducible !== false ? "checked" : ""}>
           Deducible en Hacienda (cuenta para IRPF / Modelo 130)
         </label>
         <p class="muted" id="g-hint-no-deducible" style="display:none; font-size:12px; margin:6px 0 0;">Este gasto restará en tu balance real (personal) pero no se declara a Hacienda — útil para pagos en efectivo sin ticket u otros gastos que no puedes justificar fiscalmente.</p>
       </div>
 
+      <div id="g-importe-wrap"></div>
+
       <div id="g-iva-wrap" class="row">
-        <div class="field"><label>IVA soportado (€)</label><input id="g-iva-soportado" type="number" step="0.01" value="${gasto.iva_soportado}"></div>
+        <div class="field"><label>IVA soportado (€, automático)</label><input id="g-iva-soportado" type="number" step="0.01" value="${gasto.iva_soportado}" readonly style="background:var(--light);"></div>
         <div class="field"><label>% IVA deducible</label><input id="g-iva-pct" type="number" step="1" value="${gasto.iva_deducible_pct}"></div>
       </div>
       <p class="muted" id="g-hint-combustible" style="display:none; font-size:12px;">Combustible: por defecto solo el 50% del IVA es deducible (uso mixto del vehículo). Puedes ajustarlo si tu caso es distinto.</p>
@@ -234,22 +245,70 @@ function abrirFormulario(container, gasto, onGuardado) {
   }
 
   function actualizarTotales() {
+    const conFactura = $wrap.querySelector("#g-con-factura").checked;
     const esDeducible = $wrap.querySelector("#g-deducible").checked;
-    const importe = Number($wrap.querySelector("#g-importe").value || 0);
-    const ivaSoportado = Number($wrap.querySelector("#g-iva-soportado").value || 0);
-    const pct = Number($wrap.querySelector("#g-iva-pct").value || 100);
+    const importe = Number($wrap.querySelector("#g-importe")?.value || 0);
+    const ivaSoportado = conFactura ? Number($wrap.querySelector("#g-iva-soportado")?.value || 0) : 0;
+    const pct = Number($wrap.querySelector("#g-iva-pct")?.value || 100);
     $wrap.querySelector("#g-hint-no-deducible").style.display = esDeducible ? "none" : "block";
-    $wrap.querySelector("#g-iva-wrap").style.display = esDeducible ? "flex" : "none";
+    $wrap.querySelector("#g-iva-wrap").style.display = (esDeducible && conFactura) ? "flex" : "none";
     if (esDeducible) {
       const deducible = gastoDeducibleTotal({ importe, iva_soportado: ivaSoportado, iva_deducible_pct: pct });
-      $wrap.querySelector("#g-totales").innerHTML = `Deducible a efectos de IRPF: <strong style="color:var(--green-fg)">${eur(deducible)}</strong> · IVA no recuperable (coste real): <strong>${eur(round2(ivaSoportado*(1-pct/100)))}</strong>`;
+      $wrap.querySelector("#g-totales").innerHTML = conFactura
+        ? `Deducible a efectos de IRPF: <strong style="color:var(--green-fg)">${eur(deducible)}</strong> · IVA no recuperable (coste real): <strong>${eur(round2(ivaSoportado*(1-pct/100)))}</strong>`
+        : `Deducible a efectos de IRPF: <strong style="color:var(--green-fg)">${eur(importe)}</strong> (sin factura, no hay IVA que desglosar).`;
     } else {
       $wrap.querySelector("#g-totales").innerHTML = `Gasto personal: <strong style="color:var(--orange-fg)">${eur(importe)}</strong> — no cuenta para Hacienda, solo para tu balance real.`;
     }
     pintarAmortizacion();
   }
 
-  $wrap.querySelector("#g-deducible").addEventListener("change", actualizarTotales);
+  function pintarImporte() {
+    const conFactura = $wrap.querySelector("#g-con-factura").checked;
+    const esDeducible = $wrap.querySelector("#g-deducible").checked;
+    const $imp = $wrap.querySelector("#g-importe-wrap");
+    const mostrarDesglose = conFactura && esDeducible;
+
+    if (mostrarDesglose) {
+      const ivaSoportadoActual = Number(gasto.iva_soportado || 0);
+      const importeActual = Number(gasto.importe || 0);
+      const baseInicial = round2(importeActual - ivaSoportadoActual) || 0;
+      const ivaTipoInicial = (ivaSoportadoActual > 0 && baseInicial) ? Math.round((ivaSoportadoActual / baseInicial) * 100) : 21;
+      $imp.innerHTML = `
+        <div class="row">
+          <div class="field"><label>Base imponible (€, sin IVA)</label><input id="g-base" type="number" step="0.01" value="${baseInicial || ""}"></div>
+          <div class="field"><label>% IVA</label><input id="g-iva-tipo" type="number" step="1" value="${ivaTipoInicial}"></div>
+          <div class="field"><label>Total (€, con IVA)</label><input id="g-importe" type="number" step="0.01" value="${gasto.importe}" readonly style="background:var(--light); font-weight:600;"></div>
+        </div>`;
+      const recalcular = () => {
+        const base = Number($wrap.querySelector("#g-base").value || 0);
+        const ivaTipo = Number($wrap.querySelector("#g-iva-tipo").value || 0);
+        const iva = round2(base * (ivaTipo / 100));
+        $wrap.querySelector("#g-iva-soportado").value = iva;
+        $wrap.querySelector("#g-importe").value = round2(base + iva);
+        actualizarTotales();
+      };
+      $wrap.querySelector("#g-base").addEventListener("input", recalcular);
+      $wrap.querySelector("#g-iva-tipo").addEventListener("input", recalcular);
+      recalcular();
+    } else {
+      $imp.innerHTML = `
+        <div class="row">
+          <div class="field"><label>Importe (€)${conFactura ? "" : " — pago en efectivo, sin IVA"}</label><input id="g-importe" type="number" step="0.01" value="${gasto.importe}"></div>
+        </div>`;
+      $wrap.querySelector("#g-iva-soportado").value = 0;
+      $wrap.querySelector("#g-importe").addEventListener("input", actualizarTotales);
+      actualizarTotales();
+    }
+  }
+
+  $wrap.querySelector("#g-deducible").addEventListener("change", pintarImporte);
+  $wrap.querySelector("#g-con-factura").addEventListener("change", () => {
+    const conFactura = $wrap.querySelector("#g-con-factura").checked;
+    $wrap.querySelector("#g-hint-efectivo").style.display = conFactura ? "none" : "block";
+    if (esNuevo) $wrap.querySelector("#g-deducible").checked = conFactura; // sugerencia de defecto, editable
+    pintarImporte();
+  });
   $wrap.querySelector("#g-categoria").addEventListener("change", () => {
     const categoria = $wrap.querySelector("#g-categoria").value;
     const defecto = CATEGORIAS_GASTO[categoria]?.ivaDeduciblePctDefecto ?? 100;
@@ -257,9 +316,10 @@ function abrirFormulario(container, gasto, onGuardado) {
     $wrap.querySelector("#g-hint-combustible").style.display = categoria === "combustible" ? "block" : "none";
     actualizarTotales();
   });
-  ["#g-importe", "#g-iva-soportado", "#g-iva-pct"].forEach(sel => $wrap.querySelector(sel).addEventListener("input", actualizarTotales));
+  $wrap.querySelector("#g-iva-pct").addEventListener("input", actualizarTotales);
   $wrap.querySelector("#g-hint-combustible").style.display = gasto.categoria === "combustible" ? "block" : "none";
-  actualizarTotales();
+  $wrap.querySelector("#g-hint-efectivo").style.display = gasto.con_factura !== false ? "none" : "block";
+  pintarImporte();
 
   $wrap.querySelector("#btn-cancelar-gasto").addEventListener("click", () => { $wrap.innerHTML = ""; });
 
@@ -267,6 +327,7 @@ function abrirFormulario(container, gasto, onGuardado) {
     const categoria = $wrap.querySelector("#g-categoria").value;
     const importe = Number($wrap.querySelector("#g-importe").value || 0);
     const esDeducible = $wrap.querySelector("#g-deducible").checked;
+    const conFactura = $wrap.querySelector("#g-con-factura").checked;
     const esMaterialAmortizable = esDeducible && categoria === "material_amortizable" && importe > UMBRAL_AMORTIZACION;
     const tipoBien = esMaterialAmortizable ? ($wrap.querySelector("#g-tipo-bien")?.value || "equipo_audiovisual_informatico") : null;
     const payload = {
@@ -276,8 +337,9 @@ function abrirFormulario(container, gasto, onGuardado) {
       fecha: $wrap.querySelector("#g-fecha").value || todayIso(),
       categoria,
       deducible: esDeducible,
-      iva_soportado: esDeducible ? Number($wrap.querySelector("#g-iva-soportado").value || 0) : 0,
-      iva_deducible_pct: esDeducible ? Number($wrap.querySelector("#g-iva-pct").value || 100) : 0,
+      con_factura: conFactura,
+      iva_soportado: (esDeducible && conFactura) ? Number($wrap.querySelector("#g-iva-soportado").value || 0) : 0,
+      iva_deducible_pct: (esDeducible && conFactura) ? Number($wrap.querySelector("#g-iva-pct").value || 100) : 0,
       es_amortizable: esMaterialAmortizable,
       tipo_bien: tipoBien,
       meses_amortizacion: esMaterialAmortizable ? mesesPorTipoBien(tipoBien) : null,
