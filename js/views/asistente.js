@@ -1,7 +1,7 @@
 import { db } from "../supabase.js";
 import { parseClienteDesdeTexto } from "../ai/parser.js";
 import { eur, dateEs, todayIso } from "../utils/format.js";
-import { calcularModelo130 } from "../utils/invoice-calc.js";
+import { calcularModelo130, round2 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, resumenTrimestre, rangoMes, rangoAnio, conIva, estadoEfectivo } from "../utils/resumen.js";
 import { escapeHtml, escapeAttr } from "./clientes.js";
 
