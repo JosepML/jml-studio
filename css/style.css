@@ -16,7 +16,7 @@ body{
 #app{display:flex; min-height:100vh;}
 
 /* Sidebar */
-.sidebar{width:220px; background:var(--navy); color:#fff; flex-shrink:0; padding:20px 0; display:flex; flex-direction:column;}
+.sidebar{width:220px; background:var(--navy); color:#fff; flex-shrink:0; padding:20px 0; display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto;}
 .sidebar .brand{padding:0 24px; font-size:19px; font-weight:700; margin-bottom:4px;}
 .sidebar .brand small{display:block; font-size:11px; color:#8C96B3; font-weight:400; margin-top:2px;}
 .sidebar nav{margin-top:24px; display:flex; flex-direction:column; gap:2px; padding:0 12px;}
