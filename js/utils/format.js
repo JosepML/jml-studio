@@ -48,3 +48,18 @@ export const FORMAS_PAGO = {
   efectivo:      { label: "Efectivo",       bg: "#FFF3D6", fg: "#8A6A10" },
   mixto:         { label: "Mixto",          bg: "#F0E7FB", fg: "#6B3FA0" },
 };
+// Tipo de servicio del proyecto (qué clase de trabajo es), para poder ver qué
+// es lo que más se repite en el negocio (Proyectos) y desglosar los ingresos
+// por tipo (Financiero). Propuesta a partir de los trabajos reales de Josep;
+// se puede ampliar/editar libremente desde el desplegable de cada proyecto.
+export const CATEGORIAS_SERVICIO = {
+  grabacion:   { label: "Grabación",              bg: "#E7ECFB", fg: "#33499E" },
+  edicion:     { label: "Edición / Postproducción", bg: "#F0E7FB", fg: "#6B3FA0" },
+  evento:      { label: "Evento",                 bg: "#FFF3D6", fg: "8A6A10" },
+  boda:        { label: "Boda",                   bg: "#FBE7F0", fg: "#A03F6B" },
+  videoclip:   { label: "Videoclip",               bg: "#E3F1EA", fg: "#2E7D53" },
+  deporte:     { label: "Deporte",                 bg: "#FDEBD8", fg: "#B4571C" },
+  publicidad:  { label: "Publicidad / Marca",       bg: "#E7F5FB", fg: "#1C7FA0" },
+  fotografia:  { label: "Fotografía",               bg: "#FBEAE7", fg: "#B4453A" },
+  otros:       { label: "Otros",                   bg: "#F0F1F4", fg: "#5B6478" },
+};
