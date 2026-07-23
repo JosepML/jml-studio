@@ -6,6 +6,7 @@ import { construirLedger, resumenPeriodo, resumenTrimestre, rangoMes, rangoAnio,
 import { escapeHtml, escapeAttr } from "./clientes.js";
 
 const CLIENTE_GENERICO = "por clasificar";
+const MESES_CORTO = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
 export async function renderAsistente(container) {
   container.innerHTML = `<div class="empty-state">Analizando tu negocio…</div>`;
@@ -78,6 +79,69 @@ export async function renderAsistente(container) {
     }
   });
 
+  (proyectos||[]).filter(p => !p.cliente_id).forEach(p => alertas.push({
+    tipo: "cliente",
+    texto: `"${p.nombre}" no tiene cliente asignado — asígnaselo para poder facturarlo correctamente.`,
+    href: `#/proyectos/${p.id}`,
+  }));
+
+  // Facturas/proyectos con un número de factura repetido apuntando a
+  // distintos clientes: normalmente es un error de tecleo al asignar el
+  // número desde Facturación mensual.
+  {
+    const porCliente = {};
+    (facturaProyectos||[]).forEach(fp => {
+      if (!fp.facturas || fp.facturas.tipo !== "factura") return;
+      const num = fp.facturas.numero;
+      const clienteProyecto = (proyectos||[]).find(p => p.id === fp.proyecto_id)?.cliente_id;
+      porCliente[num] = porCliente[num] || new Set();
+      if (clienteProyecto) porCliente[num].add(clienteProyecto);
+    });
+    Object.entries(porCliente).filter(([, s]) => s.size > 1).forEach(([num]) => alertas.push({
+      tipo: "factura",
+      texto: `La factura ${num} agrupa proyectos de varios clientes distintos — revísala, seguramente sea un error de número.`,
+      href: "#/mensual",
+    }));
+  }
+
+  // Gastos fijos recurrentes que sí aparecen en meses anteriores pero no en
+  // el mes en curso (p. ej. cuota de autónomos, suscripciones) — para no
+  // olvidarse de registrarlos y perder deducción.
+  {
+    const mesActualIdx = hoy.getMonth();
+    const fijosMesesAnteriores = new Set();
+    (gastos||[]).filter(g => g.tipo === "fijo" && g.fecha).forEach(g => {
+      const f = new Date(g.fecha + "T00:00:00");
+      if (f.getFullYear() === anio && f.getMonth() < mesActualIdx) fijosMesesAnteriores.add(g.concepto.replace(/[\d\/\-]+$/, "").trim());
+    });
+    const fijosEsteMes = new Set((gastos||[]).filter(g => g.tipo === "fijo" && g.fecha && g.fecha.startsWith(rMes.desde.slice(0,7))).map(g => g.concepto.replace(/[\d\/\-]+$/, "").trim()));
+    if (mesActualIdx > 0) {
+      Array.from(fijosMesesAnteriores).filter(c => !fijosEsteMes.has(c)).forEach(c => alertas.push({
+        tipo: "gasto",
+        texto: `No hay ningún gasto fijo "${c}" registrado este mes — si ya lo has pagado, no olvides añadirlo.`,
+        href: "#/gastos",
+      }));
+    }
+  }
+
+  // --- Datos que le interesan a un freelance: quién le da de comer, cómo va
+  // el año mes a mes y cuánto factura de media por proyecto. ---
+  const filasAnio = resumenAnual.filas;
+  const porCliente = {};
+  filasAnio.forEach(f => {
+    const nombre = clientesMap[f.proyecto.cliente_id] || "Sin cliente";
+    porCliente[nombre] = round2((porCliente[nombre]||0) + f.importeBase);
+  });
+  const topClientes = Object.entries(porCliente).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const totalClientesFacturado = Object.values(porCliente).reduce((s,v)=>s+v,0) || 1;
+
+  const porMesInsight = MESES_CORTO.map((_, i) => {
+    const r = rangoMes(anio, i);
+    return round2(resumenPeriodo(ledger, gastos, r.desde, r.hasta).totalBase);
+  });
+  const mejorMesIdx = porMesInsight.reduce((best, v, i) => v > porMesInsight[best] ? i : best, 0);
+  const ticketMedio = filasAnio.length ? round2(filasAnio.reduce((s,f)=>s+f.importeBase,0) / filasAnio.length) : 0;
+
   const resumenTexto = `
     En ${MES_LARGO(hoy.getMonth())} de ${anio} llevas facturado <strong>${eur(resumenMes.transferencia + resumenMes.efectivo)}</strong>
     (${eur(resumenMes.transferencia)} por transferencia, ${eur(resumenMes.efectivo)} en efectivo).
@@ -103,11 +167,18 @@ export async function renderAsistente(container) {
       </div>
 
       <div class="card">
-        <h3>Flujo B — Factura desde un proyecto</h3>
-        <p class="muted">Abre un proyecto y pulsa "Generar factura": la app cruza los datos del cliente vinculado con el precio acordado y prepara un borrador listo para revisar.</p>
-        <a href="#/proyectos" class="btn btn-dark" style="text-decoration:none; display:inline-block;">Ir a Proyectos</a>
-        <hr style="border:none; border-top:1px solid var(--border); margin:18px 0;">
-        <p class="muted" style="font-size:12px;">Este asistente usa un motor de reglas propio, gratuito, sobre tus propios datos. Nunca guarda nada automáticamente: siempre revisas y confirmas antes.</p>
+        <h3>Tu negocio en cifras (${anio})</h3>
+        <p class="muted" style="font-size:12px; margin-top:0;">Mejor mes: <strong>${MESES_CORTO[mejorMesIdx]}</strong> (${eur(porMesInsight[mejorMesIdx])}) · Ticket medio por proyecto: <strong>${eur(ticketMedio)}</strong></p>
+        <p class="muted" style="font-size:11px; text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;">Clientes que más te facturan</p>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          ${topClientes.length ? topClientes.map(([nombre, importe]) => `
+            <div>
+              <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:3px;"><span>${escapeHtml(nombre)}</span><strong>${eur(importe)}</strong></div>
+              <div style="background:var(--light); border-radius:4px; height:6px; overflow:hidden;"><div style="background:var(--blue); height:100%; width:${Math.round(importe/totalClientesFacturado*100)}%;"></div></div>
+            </div>`).join("") : `<p class="muted">Todavía no hay facturación este año.</p>`}
+        </div>
+        <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
+        <a href="#/proyectos" class="btn btn-ghost" style="text-decoration:none; display:inline-block; font-size:12px;">+ Generar factura desde un proyecto →</a>
       </div>
     </div>
 

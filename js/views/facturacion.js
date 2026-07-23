@@ -28,6 +28,32 @@ async function renderLista(container) {
   const pendientesCobro = facturasReales.filter(f => f.estado !== "pagada").length;
   const presupuestosAbiertos = (facturas || []).filter(f => f.tipo === "presupuesto" && f.estado !== "pagada").length;
 
+  // --- Integridad de la numeración (inspirado en el requisito de Verifactu de
+  // que la serie de facturas sea correlativa y sin huecos ni duplicados) ---
+  // Solo avisa; no bloquea nada. Útil para detectar números repetidos o
+  // saltos antes de que lo note un cliente o la Agencia Tributaria.
+  const numerosPorAnio = {};
+  facturasReales.forEach(f => {
+    const y = (f.fecha || "").slice(0, 4);
+    if (!y) return;
+    (numerosPorAnio[y] ||= []).push(f.numero);
+  });
+  const avisosIntegridad = [];
+  Object.entries(numerosPorAnio).forEach(([y, numeros]) => {
+    const conteo = {};
+    numeros.forEach(n => { conteo[n] = (conteo[n] || 0) + 1; });
+    const duplicados = Object.entries(conteo).filter(([, c]) => c > 1).map(([n]) => n);
+    if (duplicados.length) avisosIntegridad.push(`${y}: número${duplicados.length > 1 ? "s" : ""} repetido${duplicados.length > 1 ? "s" : ""} ${duplicados.join(", ")}`);
+    const secuenciales = numeros.map(n => parseInt(n, 10)).filter(n => !isNaN(n)).sort((a, b) => a - b);
+    const huecos = [];
+    for (let i = 1; i < secuenciales.length; i++) {
+      if (secuenciales[i] - secuenciales[i - 1] > 1) {
+        for (let g = secuenciales[i - 1] + 1; g < secuenciales[i]; g++) huecos.push(String(g).padStart(2, "0") + "-" + y);
+      }
+    }
+    if (huecos.length) avisosIntegridad.push(`${y}: falta${huecos.length > 1 ? "n" : ""} ${huecos.join(", ")}`);
+  });
+
   container.innerHTML = `
     <div class="grid grid-4" style="margin-bottom:20px;">
       <div class="card kpi"><div class="label">Documentos</div><div class="value">${(facturas || []).length}</div></div>
@@ -35,6 +61,8 @@ async function renderLista(container) {
       <div class="card kpi"><div class="label">Facturas sin cobrar</div><div class="value">${pendientesCobro}</div></div>
       <div class="card kpi"><div class="label">Presupuestos abiertos</div><div class="value">${presupuestosAbiertos}</div></div>
     </div>
+
+    ${avisosIntegridad.length ? `<div class="ai-banner" style="border-left-color:var(--orange-fg); background:var(--orange-bg); color:var(--orange-fg);">⚠️ Revisa la numeración de facturas: ${avisosIntegridad.map(escapeHtml).join(" · ")}</div>` : ""}
 
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
