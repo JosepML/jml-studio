@@ -7,6 +7,7 @@ import { renderFinanciero } from "./views/financiero.js";
 import { renderGastos } from "./views/gastos.js";
 import { renderMensual } from "./views/mensual.js";
 import { renderAsistente } from "./views/asistente.js";
+import { asegurarGastosFijosMensuales } from "./utils/gastos-recurrentes.js";
 
 const ROUTES = {
   dashboard: { title: "Dashboard", render: renderDashboard },
@@ -65,6 +66,10 @@ function showApp() {
   $setpassScreen.classList.add("hidden");
   $app.classList.remove("hidden");
   $userEmail.textContent = previewMode ? "Modo vista (sin datos)" : (auth.currentUser()?.email || "");
+  // Da de alta solos, si faltan, los gastos fijos recurrentes del mes (cuota
+  // de autónomo, gestoría) — así Josep no tiene que añadirlos a mano. No se
+  // hace en modo vista, que no tiene datos reales que tocar.
+  if (!previewMode) asegurarGastosFijosMensuales().catch(err => console.error(err));
   render();
 }
 function showLogin() {
