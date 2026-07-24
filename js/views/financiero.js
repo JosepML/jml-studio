@@ -1,7 +1,7 @@
 import { db } from "../supabase.js";
 import { eur, CATEGORIAS_SERVICIO, CATEGORIAS_GASTO } from "../utils/format.js";
 import { calcularModelo130, gastoDeducibleEnRango, round2, PLAZOS_MODELO_130_2026 } from "../utils/invoice-calc.js";
-import { construirLedger, resumenPeriodo, resumenTrimestre, rangoMes, rangoAnio } from "../utils/resumen.js";
+import { construirLedger, resumenPeriodo, resumenTrimestre, resumenIvaTrimestre, rangoMes, rangoAnio } from "../utils/resumen.js";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 let chartMensual = null;
@@ -106,10 +106,28 @@ export async function renderFinanciero(container) {
       return { q, ...t, dificilJustificacion, gastosConDificilJustificacion, ...r, plazo, presentado };
     });
 
+    // --- Trimestral (IVA — Modelo 303). El IVA se devenga con la factura, no
+    // con el cobro (a diferencia del Modelo 130 de arriba): el repercutido
+    // sale de las facturas reales emitidas en el trimestre y el soportado de
+    // los gastos con factura, de golpe (sin prorratear como la amortización
+    // del IRPF). Si un trimestre sale negativo, ese crédito se compensa en el
+    // siguiente.
+    let creditoIvaAcumulado = 0;
+    const ivaTrimestres = [1,2,3,4].map(q => {
+      const t = resumenIvaTrimestre(facturas, gastos, anio, q);
+      const neto = round2(t.resultado - creditoIvaAcumulado);
+      const aIngresar = neto > 0 ? neto : 0;
+      const aCompensar = neto < 0 ? round2(-neto) : 0;
+      creditoIvaAcumulado = aCompensar;
+      const plazo = PLAZOS_MODELO_130_2026[q-1];
+      return { ...t, neto, aIngresar, aCompensar, plazo };
+    });
+
     const hoy = new Date();
     const trimestreActual = Math.floor(hoy.getMonth()/3) + 1;
     const proximoTrimestre = trimestres[trimestreActual - 1] || trimestres[0];
     const plazoProximoVencido = new Date(proximoTrimestre.plazo.fin) < hoy;
+    const ivaTrimestreActual = ivaTrimestres[trimestreActual - 1] || ivaTrimestres[0];
 
     // --- Cuenta de resultados (P&L) — adaptada a un negocio autónomo: sin
     // sueldos/alquiler/impuesto de sociedades, con IRPF (Modelo 130) y las
@@ -142,6 +160,9 @@ export async function renderFinanciero(container) {
           <div class="value">${eur(proximoTrimestre.aIngresar)}</div>
           <div style="font-size:11px;color:${plazoProximoVencido && !proximoTrimestre.presentado ? "#F5B896" : "#8FD6B3"};">
             ${proximoTrimestre.presentado ? "Marcado como presentado ✓" : (plazoProximoVencido ? "Plazo vencido el " + proximoTrimestre.plazo.fin : "Vence " + proximoTrimestre.plazo.fin)}
+          </div>
+          <div style="font-size:11px; color:#B9C0DA; margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,.12);">
+            + IVA (Modelo 303, T${trimestreActual}): <strong style="color:#fff;">${ivaTrimestreActual.aIngresar > 0 ? eur(ivaTrimestreActual.aIngresar) : (ivaTrimestreActual.aCompensar > 0 ? eur(ivaTrimestreActual.aCompensar) + " a compensar" : eur(0))}</strong>
           </div>
         </div>
       </div>
@@ -251,6 +272,39 @@ export async function renderFinanciero(container) {
           <strong style="color:var(--text);">A ingresar total: ${eur(trimestres.reduce((s,t)=>s+t.aIngresar,0))}</strong>
         </div>
         <p class="muted" style="font-size:12px; margin-top:10px;">Estimación orientativa (20% del rendimiento neto acumulado, menos retenciones e ingresos previos del año). Confírmalo con tu gestor/a antes de presentar el modelo oficial. "Presentado" solo se guarda en este dispositivo, a modo de recordatorio.</p>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
+        <h3 style="margin-bottom:2px;">IVA — Modelo 303 trimestral</h3>
+        <p class="muted" style="font-size:12px; margin-top:0; margin-bottom:16px;">A diferencia del Modelo 130, el IVA se devenga con la factura (no con el cobro): repercutido = IVA de las facturas emitidas en el trimestre; soportado = IVA de tus gastos con factura. Si un trimestre sale a favor, ese crédito se resta del siguiente automáticamente.</p>
+        <div class="grid grid-4">
+          ${ivaTrimestres.map(t => {
+            const vencido = new Date(t.plazo.fin) < hoy;
+            const aFavor = t.aIngresar === 0 && t.aCompensar > 0;
+            const borderColor = aFavor ? "var(--green-fg)" : (vencido ? "var(--orange-fg)" : "var(--blue)");
+            const badge = aFavor
+              ? `<span class="badge" style="background:var(--green-bg); color:var(--green-fg);">A compensar</span>`
+              : (vencido ? `<span class="badge" style="background:var(--orange-bg); color:var(--orange-fg);">Vencido</span>` : `<span class="badge" style="background:var(--grey-bg); color:var(--grey-fg);">Pendiente</span>`);
+            return `<div class="card" style="box-shadow:none; padding:16px; border-left:4px solid ${borderColor};">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-weight:700; font-size:13px;">T${t.q} ${anio}</span>
+                ${badge}
+              </div>
+              <div style="font-size:22px; font-weight:800; letter-spacing:-.02em; color:${aFavor ? "var(--green-fg)" : "var(--text)"};">${aFavor ? eur(t.aCompensar) : eur(t.aIngresar)}</div>
+              <div class="muted" style="font-size:11px; margin-bottom:12px;">${aFavor ? "a favor · se compensa en T"+(t.q+1<=4?t.q+1:"1 del año siguiente") : "a ingresar"} · plazo ${t.plazo.inicio.slice(8,10)}–${t.plazo.fin.slice(8,10)}/${t.plazo.fin.slice(5,7)}</div>
+              <div style="font-size:12px; display:flex; flex-direction:column; gap:4px; border-top:1px solid var(--border); padding-top:10px;">
+                <div style="display:flex; justify-content:space-between;"><span class="muted">IVA repercutido</span><span>${eur(t.ivaRepercutido)}</span></div>
+                <div style="display:flex; justify-content:space-between;"><span class="muted">IVA soportado</span><span>−${eur(t.ivaSoportado)}</span></div>
+                <div style="display:flex; justify-content:space-between;"><span class="muted">Base facturada</span><span>${eur(t.baseRepercutida)}</span></div>
+              </div>
+            </div>`;
+          }).join("")}
+        </div>
+        <div class="muted" style="font-size:12px; margin-top:16px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; border-top:1px solid var(--border); padding-top:12px;">
+          <span>Total ${anio}: repercutido ${eur(ivaTrimestres.reduce((s,t)=>s+t.ivaRepercutido,0))} · soportado ${eur(ivaTrimestres.reduce((s,t)=>s+t.ivaSoportado,0))}</span>
+          <strong style="color:var(--text);">A ingresar total: ${eur(ivaTrimestres.reduce((s,t)=>s+t.aIngresar,0))}</strong>
+        </div>
+        <p class="muted" style="font-size:12px; margin-top:10px;">Estimación orientativa a partir de tus facturas y gastos registrados. Confírmalo con tu gestor/a antes de presentar el modelo oficial.</p>
       </div>
 
       <div class="card" style="border-left:4px solid var(--purple-fg, #6B3FA0);">
