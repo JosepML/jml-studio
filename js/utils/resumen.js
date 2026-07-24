@@ -145,6 +145,33 @@ export function resumenTrimestre(ledger, facturas, gastos, anio, q) {
   return { ...base, desde, hasta, retenciones, q };
 }
 
+// Resumen trimestral de IVA (Modelo 303) — a diferencia del Modelo 130 (que en
+// esta app solo cuenta lo ya cobrado, por petición de Josep), el IVA se
+// devenga con la factura, no con el cobro: por eso el repercutido sale de las
+// facturas reales emitidas en el trimestre (independientemente de si ya se han
+// cobrado) y el soportado de los gastos con factura del trimestre — de golpe,
+// sin prorratear como la amortización del IRPF, que es como funciona el IVA
+// deducible de verdad (se deduce entero en el periodo en que se recibe la
+// factura de compra).
+export function resumenIvaTrimestre(facturas, gastos, anio, q) {
+  const { desde, hasta } = rangoTrimestre(anio, q);
+  const facturasQ = (facturas || []).filter(f => f.tipo === "factura" && enRango(f.fecha, desde, hasta));
+  const baseRepercutida = round2(facturasQ.reduce((s, f) => s + Number(f.base_imponible || 0), 0));
+  const ivaRepercutido = round2(facturasQ.reduce((s, f) => s + Number(f.iva_importe || 0), 0));
+
+  const gastosQ = (gastos || []).filter(g => g.deducible !== false && g.con_factura !== false && enRango(g.fecha, desde, hasta));
+  const ivaSoportado = round2(gastosQ.reduce((s, g) => {
+    const iva = Number(g.iva_soportado || 0);
+    const pct = Number(g.iva_deducible_pct ?? 100);
+    return s + round2(iva * (pct / 100));
+  }, 0));
+
+  // Positivo = a ingresar en Hacienda; negativo = a compensar en el próximo
+  // trimestre (o a devolver, si es el último del año).
+  const resultado = round2(ivaRepercutido - ivaSoportado);
+  return { desde, hasta, q, baseRepercutida, ivaRepercutido, ivaSoportado, resultado };
+}
+
 export function estadoEfectivo(fila) {
   // Normaliza el estado a un vocabulario común independientemente de si es
   // una factura real (borrador/emitida/pagada/vencida) o un estado manual de
