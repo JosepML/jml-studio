@@ -277,14 +277,20 @@ descargar (ver §4.1).
 
 | | `config-negocio.js` | `config-usuario.js` |
 |---|---|---|
-| Qué guarda | Datos del emisor, condiciones fijas de presupuesto | Modelo 130 %, cuota de autónomo, gestoría, clave de IA, biblioteca de condiciones |
-| Dónde | Constantes en el código, sobrescribibles desde Configuración | `localStorage` (`jml_config_usuario`) |
-| Alcance | Por defecto para todos los dispositivos | Por dispositivo |
+| Qué guarda | Datos del emisor (nombre, NIF, dirección, IBAN…) | Modelo 130 %, cuota de autónomo, gestoría, clave de IA |
+| Dónde | **Supabase**, tabla `emisor` (migración 008), con RLS | `localStorage` (`jml_config_usuario`) |
+| Alcance | Igual en todos los dispositivos | Por dispositivo |
+
+⚠️ Desde el 2026-07-31 **en `config-negocio.js` no hay ningún dato real**: solo
+la estructura con cadenas vacías. Los valores llegan de Supabase con
+`cargarEmisor()` (ver §6). Si ves datos personales ahí, alguien ha metido la
+pata: quítalos.
 
 `CONFIG_NEGOCIO.emisor` es un **getter**, no una propiedad: se recalcula en
-cada acceso fusionando los valores base con lo guardado en Configuración. Los
-campos vacíos se descartan a propósito, para que borrar un campo no deje el PDF
-sin NIF.
+cada acceso fusionando estructura vacía + lo cargado de Supabase + lo editado
+en Configuración. Los campos vacíos se descartan a propósito, para que borrar
+un campo no deje el PDF sin NIF. Es síncrono adrede: `facturacion.js` y
+`pdf-documentos.js` lo leen así y no había que volverlos asíncronos.
 
 La clave de Gemini vive **solo** en `localStorage` y no debe llegar nunca al
 repositorio, que es público.
@@ -423,61 +429,160 @@ móvil. No afirmes que el móvil está bien.
 
 ---
 
-# 6. Estado actual y trabajo pendiente
+# 6. Datos sensibles y seguridad (leer antes de tocar nada de esto)
 
-## Último trabajo cerrado (2026-07-30)
+El 2026-07-31 se hizo una limpieza de seguridad completa. Entender por qué
+evita repetir el error.
 
-Sesión de condiciones y tarifas reales. Todo desplegado y verificado en vivo:
+## 6.1 Qué pasó
 
-- **Migración 007** (`sql/007_condiciones_grupos_y_datos_reales.sql`, ya
-  ejecutada): columna `grupo` en `condiciones` (`generales` | `rodaje` |
-  `postproduccion`, con CHECK), borrado de las condiciones y servicios de
-  prueba, e inserción de las **18 condiciones reales del anexo** de Josep
-  (generales fijas 5, rodaje fijas 4 + opcionales 2, postproducción fijas 3 +
-  opcionales 4) y de sus **14 tarifas reales** (Servicio Express 150 €, Media
-  Jornada 220 €, Jornada Completa 390 €, Jornada de Edición 280 €, Pack 5
-  Reels 300 €, Pack 10 Reels 500 €, Ronda extra 15 €, Fotografía Express /
-  Media Jornada / Jornada Completa…).
-- **Packs de condiciones** en el editor de presupuestos: el menú "Añadir
-  condición" abre con `Pack: condiciones de rodaje / grabación (+4)` y
-  `Pack: condiciones de postproducción (+3)`, que añaden de golpe las fijas de
-  ese grupo que falten. Solo se ofrecen si queda alguna por añadir. Las
-  generales fijas siguen precargándose solas al abrir un presupuesto nuevo.
-  `js/utils/condiciones.js` expone `GRUPOS_CONDICION`, `textosPorDefecto`
-  (solo generales) y `textosFijasDeGrupo`.
-- **Botón "Guardar cambios" por tarifa** en Configuración, con el mismo patrón
-  sucio/limpio que las condiciones. Cuidado: la fila de tarifas usa la clase
-  `.t-guardar` y la de condiciones `.k-guardar`; el CSS tiene que ocultar las
-  dos, se olvidó al principio y el botón se veía siempre.
-- **Columna Grupo** (y "Fija del grupo") en la lista de condiciones de
-  Configuración.
-- **Botón "+ Crear"** encima del menú lateral (`index.html` + `js/app.js` +
-  CSS), con accesos a factura, presupuesto, proyecto, cliente y gasto. Vive
-  fuera de `#content`, así que tiene su propio manejador en `app.js`.
+`js/utils/config-negocio.js` tenía el NIF, la dirección, el teléfono y el IBAN
+de Josep escritos a fuego, y `sql/import_2026.sql` contenía **los datos de sus
+clientes** (nombres, números de factura, importes y una docena de NIF/CIF). El
+repositorio es **público**. O sea: cualquiera podía leerlo todo sin pasar por
+la app. Lo de los clientes es lo más grave: son datos de terceros y ahí el
+responsable del tratamiento es Josep.
+
+## 6.2 Cómo está ahora
+
+- **Datos de emisor → Supabase**, tabla `emisor` (migración 008), con RLS.
+  `config-negocio.js` solo tiene la *estructura* con cadenas vacías.
+  `cargarEmisor()` se llama desde `app.js` al entrar con sesión, guarda una
+  copia en `localStorage` (`jml_emisor_cache`) para que el PDF funcione al
+  instante y sin conexión, y `olvidarEmisor()` la borra al cerrar sesión.
+  `CONFIG_NEGOCIO.emisor` sigue siendo **síncrono** (getter) para no tener que
+  tocar `facturacion.js` ni `pdf-documentos.js`.
+- **`sql/import_2026.sql` ya no está en el repositorio.** Tampoco las
+  migraciones 004-008 ni `reconciliacion_facturacio_2026.sql`. Viven solo en
+  el disco de Josep.
+- **Configuración exige sesión**: `renderConfiguracion` corta con
+  `if (!auth.isLoggedIn())` antes de pintar nada. El "modo vista" (entrar sin
+  contraseña) enseñaba el IBAN.
+- **El repositorio se borró y se recreó de cero** el 2026-07-31. Reescribir el
+  historial con git no habría bastado: GitHub conserva los commits huérfanos
+  accesibles por SHA. Borrar el repo es lo único que los elimina de verdad.
+  Por eso el historial arranca en 2026-07-31 y no hay nada anterior.
+
+## 6.3 Reglas que NO se pueden romper
+
+1. **Nunca escribas datos personales en el repositorio.** Ni de Josep ni de
+   sus clientes. Si una migración SQL lleva datos reales, se queda en local y
+   punto.
+2. **La carpeta `Documentos\WEB Facturacio\jml-studio-COPIA-COMPLETA` no se
+   sube a ningún sitio público.** Contiene la migración 008 con el IBAN y el
+   NIF, y el `import_2026.sql` con los clientes.
+3. Antes de publicar cualquier cosa, comprueba que no se cuela nada. **No
+   escribas los valores reales en este fichero** (se publica): sácalos de la
+   tabla `emisor` en el momento de comprobar.
+   ```bash
+   # Sustituye <IBAN>, <NIF> y <CALLE> por los valores reales al ejecutarlo.
+   grep -rlE "<IBAN>|<NIF>|<CALLE>|insert into clientes" .
+   ```
+4. `SUPABASE_ANON_KEY` en `js/config.js` **es pública a propósito** y no hay
+   que esconderla: identifica el proyecto, no da acceso. Lo que la hace
+   inofensiva es el RLS. Si alguna vez desactivas el RLS de una tabla, esa
+   clave sirve para leerla entera desde cualquier navegador.
+
+## 6.4 Estado del RLS (verificado el 2026-07-31)
+
+Las 8 tablas de `public` — `clientes`, `condiciones`, `emisor`,
+`factura_proyectos`, `facturas`, `gastos`, `proyectos`, `servicios` — tienen
+`relrowsecurity = true` y **una** política cada una, de tipo `ALL`
+(`using (auth.uid() = user_id) with check (auth.uid() = user_id)`).
+
+Comprobación empírica hecha desde la consola de la app: petición a
+`/rest/v1/<tabla>` con la clave anónima y **sin sesión** → **0 filas en las
+ocho**. Repítela así si dudas:
+
+```js
+const url = window.APP_CONFIG.SUPABASE_URL, key = window.APP_CONFIG.SUPABASE_ANON_KEY;
+const r = await fetch(url + "/rest/v1/clientes?select=*&limit=3", { headers: { apikey: key } });
+console.log(r.status, (await r.json()).length);   // 200 y 0
+```
+
+La **escritura** no se ha probado empíricamente a propósito (habría metido
+basura en la base de datos real); se da por cerrada leyendo el `with check` de
+la política. Si alguna vez hay que confirmarlo, hazlo contra un registro
+desechable, nunca contra los datos reales de Josep.
+
+## 6.5 Consulta útil para auditar
+
+```sql
+select c.relname, c.relrowsecurity, count(p.polname), string_agg(distinct p.polcmd::text, ',')
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+left join pg_policy p on p.polrelid = c.oid
+where n.nspname = 'public' and c.relkind = 'r'
+group by 1, 2 order by c.relrowsecurity, 1;
+```
+
+Si alguna fila sale con `relrowsecurity = false`, es una fuga: esa tabla se
+puede leer entera con la clave pública.
+
+# 7. Estado actual y trabajo pendiente
+
+## Último trabajo cerrado (2026-07-30 / 31)
+
+**Condiciones y tarifas reales** (migración 007, ya ejecutada): columna `grupo`
+en `condiciones` (`generales` | `rodaje` | `postproduccion`), las **18
+condiciones reales del anexo** de Josep (generales fijas 5, rodaje 4+2,
+postproducción 3+4) y sus **14 tarifas reales** (Servicio Express 150 €, Media
+Jornada 220 €, Jornada Completa 390 €, Jornada de Edición 280 €, Pack 5 Reels
+300 €, Pack 10 Reels 500 €, Ronda extra 15 €, Fotografía Express / Media
+Jornada / Jornada Completa…).
+
+- **Packs de condiciones** en el editor: el menú "Añadir condición" abre con
+  `Pack: condiciones de rodaje / grabación (+N)` y `Pack: condiciones de
+  postproducción (+N)`, que añaden de golpe las fijas de ese grupo que falten.
+  Solo se ofrecen si queda alguna. Las generales fijas se precargan solas.
+- **Botón "Guardar cambios" por tarifa** en Configuración. Ojo: la fila de
+  tarifas usa `.t-guardar` y la de condiciones `.k-guardar`; el CSS tiene que
+  ocultar **las dos** hasta que haya cambios. Se olvidó y el botón se veía
+  siempre.
+- **Columna Grupo** y "Fija del grupo" en la lista de condiciones.
+- **Botón "+ Crear"** encima del menú lateral (factura, presupuesto, proyecto,
+  cliente, gasto). Vive fuera de `#content`, con su propio manejador en
+  `app.js`.
+- **Limpieza de seguridad completa** (ver §6).
 - `sw.js` → **cache v6**.
 
-Al desplegar se descubrió que `js/app.js` local y desplegado tenían el mismo
-contenido en **orden distinto** (el bloque del menú raíl estaba al final en
-producción). Se comprobó con un hash del fichero con las líneas ordenadas, y
-se reordenó la copia local para que coincida. Hoy **local y `main` son
-idénticos byte a byte** en todos los ficheros tocados.
+## Pendiente — por orden de lo que pidió Josep
 
-## Pendiente
+### 1. Rediseño de Clientes (lo más pedido, sin empezar)
+- Ficha de cliente **con pestañas** en vez de la lista plana actual.
+- **Alta completa en un modal**, no el formulario reducido de ahora.
+- **Importar clientes desde texto pegado** (pegar los datos de un email o un
+  PDF y que se rellenen los campos solos, como el parser de gastos).
 
-- **Tres `alert()` nativos en `js/views/asistente.js`** (~líneas 330-333).
-- **Revisión en móvil** — nunca validada con rigor (§4.3).
-- **Chat del Asistente bloqueado**: usa Gemini, que Google no sirve a usuarios
-  de la UE. Falta decisión de Josep sobre migrar a Mistral AI. Restricción
-  suya, literal: *"No quiero tener que pagar por tokens, eso prohibido."*
-- **Rediseño de Clientes** (ficha con pestañas, alta completa en modal,
-  importar desde texto pegado) y el pulido visual general ("plano y estático"),
-  ambos de su lista anterior, sin empezar.
-- **Saltos de página del presupuesto**: el salto forzado ya no existe y los
-  documentos cortos caben en una página, pero el presupuesto típico necesita
-  ~150 pt más de los que quedan. Josep decidió **dejarlo así**.
-- `LEEME.md` está **obsoleto**: habla de Netlify (ya se migró a GitHub Pages) y
-  de una constante `EMISOR` en `facturacion.js` que ya no existe. No lo cites
-  como referencia.
+### 2. Pulido visual general
+Su queja literal es que la interfaz se ve **"plana y estática"**. Falta rematar
+la Fase 4 que quedó a medias: **diálogos propios, toasts y skeletons de carga**.
+Relacionado: quedan **tres `alert()` nativos en `js/views/asistente.js`**
+(~líneas 330-333) que hay que sustituir por el diálogo de la app.
+
+### 3. Revisión en móvil
+Nunca validada con rigor (§4.3). `resize_window` no cambia el viewport
+renderizado, así que hace falta otro método para comprobarlo de verdad.
+
+### 4. Chat del Asistente (bloqueado por decisión de Josep)
+Usa Gemini, que Google no sirve a usuarios de la UE. Falta que Josep decida si
+migrar a Mistral AI. Restricción suya, literal: *"No quiero tener que pagar por
+tokens, eso prohibido."*
+
+### 5. Seguridad — sugerido, no hecho
+Activar **verificación en dos pasos** en las cuentas de Supabase y de GitHub.
+Es donde está el poder real: quien entre ahí puede desactivar el RLS.
+
+### Cosas menores / conocidas
+- **Saltos de página del presupuesto**: el presupuesto típico necesita ~150 pt
+  más de los que quedan en la página. Josep decidió **dejarlo así** antes que
+  comprimir el diseño. No lo "arregles" por tu cuenta.
+- `LEEME.md` está **obsoleto** (habla de Netlify y de una constante `EMISOR`
+  que ya no existe) y además **ya no está en el repositorio**. No lo cites.
+- La copia local de la sesión y `main` estaban desincronizadas en varios
+  ficheros. Al recrear el repositorio se subió **la versión de `main`**, que
+  es la que funciona. Si encuentras diferencias con una copia local vieja,
+  gana el repositorio.
 
 ## Restricciones del usuario
 
@@ -487,3 +592,6 @@ idénticos byte a byte** en todos los ficheros tocados.
 - El presupuesto de créditos de sesión está ajustado: prefiere el camino barato
   (subir el fichero o transformarlo en el navegador antes que volcarlo al
   contexto).
+- **Los pasos irreversibles se confirman antes.** Borrar el repositorio se hizo
+  solo tras verificar las copias fichero a fichero. Y la verificación de
+  identidad de GitHub (códigos por email) la hace **él**, no tú.
