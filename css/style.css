@@ -1,0 +1,914 @@
+:root{
+  --navy:#1F2A44; --navy-2:#31406A; --blue:#3E6FE0; --blue-dark:#2F58C4; --grey:#7A8399;
+  --light:#F4F5F7; --border:#E4E7EE; --text:#1F2A44;
+  --green-bg:#E3F1EA; --green-fg:#2E7D53;
+  --orange-bg:#FDEBD8; --orange-fg:#B4571C;
+  --amber-bg:#FFF3D6; --amber-fg:#8A6A10;
+  --purple-bg:#E7ECFB; --purple-fg:#33499E;
+  --grey-bg:#F0F1F4; --grey-fg:#5B6478;
+  --red-bg:#FBEAE7; --red-fg:#B4453A;
+
+  /* Sombras teñidas de azul-marino en vez de negro puro: el gris neutro sobre
+     fondo claro se ve "sucio", mientras que una sombra con el matiz del color
+     de marca se integra y da sensación de profundidad real. */
+  --shadow-xs:0 1px 2px rgba(31,42,68,.04), 0 1px 1px rgba(31,42,68,.03);
+  --shadow-sm:0 2px 4px rgba(31,42,68,.05), 0 1px 2px rgba(31,42,68,.04);
+  --shadow-md:0 8px 20px -6px rgba(31,42,68,.12), 0 3px 8px -3px rgba(31,42,68,.07);
+  --shadow-lg:0 24px 48px -12px rgba(31,42,68,.20), 0 8px 20px -8px rgba(31,42,68,.10);
+  --shadow-glow:0 6px 20px -4px rgba(62,111,224,.45);
+
+  --radius:16px; --radius-sm:10px; --radius-xs:8px;
+  /* Curva de aceleración única para toda la app: sale rápido y frena suave.
+     Es lo que separa una transición que "se nota" de una que parece natural. */
+  --ease:cubic-bezier(.32,.72,0,1);
+  --dur:.22s;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  background:var(--light); color:var(--text); font-size:14px; -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+#app{display:flex; min-height:100vh;}
+
+:focus-visible{outline:2px solid var(--blue); outline-offset:2px; border-radius:6px;}
+
+::-webkit-scrollbar{width:10px; height:10px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(122,131,153,.3); border-radius:99px; border:2px solid transparent; background-clip:padding-box;}
+::-webkit-scrollbar-thumb:hover{background:rgba(122,131,153,.5); background-clip:padding-box;}
+
+/* ---------- Sidebar ---------- */
+.sidebar{
+  width:236px; background:linear-gradient(170deg,#26314F 0%,#1A2337 100%); color:#fff; flex-shrink:0;
+  padding:22px 0; display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto;
+}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);}
+.sidebar .brand{padding:0 22px 22px; margin-bottom:6px; display:flex; align-items:center; gap:11px; border-bottom:1px solid rgba(255,255,255,.07);}
+.sidebar .brand-mark{
+  width:36px; height:36px; flex-shrink:0; border-radius:11px; background:linear-gradient(135deg,var(--blue),#7C9BF2);
+  display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; letter-spacing:.02em;
+  box-shadow:0 4px 14px rgba(62,111,224,.5);
+}
+.sidebar .brand-text{font-size:16px; font-weight:800; letter-spacing:-.01em; line-height:1.25;}
+.sidebar .brand small{display:block; font-size:10.5px; color:#8C96B3; font-weight:500; margin-top:1px; letter-spacing:.02em;}
+.sidebar nav{margin-top:18px; display:flex; flex-direction:column; gap:3px; padding:0 12px;}
+.sidebar nav a{
+  color:#AEB6D2; text-decoration:none; padding:10px 13px; border-radius:11px; font-size:13.5px; font-weight:500;
+  display:flex; align-items:center; gap:11px; position:relative; overflow:hidden;
+  transition:color var(--dur) var(--ease), background-color var(--dur) var(--ease), transform .12s var(--ease);
+}
+.sidebar nav a svg{width:18px; height:18px; flex-shrink:0; opacity:.8; transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease);}
+/* El fondo activo es un degradado con brillo lateral, no un gris plano. */
+.sidebar nav a.active{
+  background:linear-gradient(95deg, rgba(62,111,224,.30), rgba(62,111,224,.10));
+  color:#fff; font-weight:600; box-shadow:inset 0 0 0 1px rgba(120,155,245,.22);
+}
+.sidebar nav a.active svg{opacity:1;}
+.sidebar nav a.active::before{
+  content:""; position:absolute; left:0; top:50%; transform:translateY(-50%); width:3px; height:18px;
+  background:linear-gradient(180deg,#6B8FEF,var(--blue)); border-radius:0 3px 3px 0;
+  box-shadow:0 0 10px rgba(107,143,239,.8);
+}
+.sidebar nav a:hover:not(.active){background:rgba(255,255,255,.055); color:#fff;}
+.sidebar nav a:hover:not(.active) svg{transform:translateX(1px); opacity:1;}
+.sidebar nav a:active{transform:scale(.985);}
+.sidebar .footer{margin-top:auto; padding:18px 22px; font-size:11px; color:#8C96B3; border-top:1px solid rgba(255,255,255,.07);}
+.sidebar .footer button{margin-top:10px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.14); color:#C6CCE0; padding:7px 12px; border-radius:var(--radius-xs); cursor:pointer; font-size:11.5px; font-weight:500; transition:background-color var(--dur) var(--ease), color var(--dur) var(--ease);}
+.sidebar .footer button:hover{background:rgba(255,255,255,.12); color:#fff;}
+
+/* ---------- Main ---------- */
+.main{flex:1; min-width:0; display:flex; flex-direction:column;}
+.topbar{
+  height:64px; background:rgba(255,255,255,.82); backdrop-filter:saturate(180%) blur(12px);
+  -webkit-backdrop-filter:saturate(180%) blur(12px);
+  border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between;
+  padding:0 30px; flex-shrink:0; position:sticky; top:0; z-index:40;
+}
+.topbar h1{font-size:20px; margin:0; font-weight:700; letter-spacing:-.02em;}
+.content{padding:28px 30px 40px; overflow-y:auto; flex:1;}
+
+/* Transición al cambiar de sección: el bloque de contenido entero "se
+   despliega" — sube unos píxeles y crece un pelo mientras aparece. Antes la
+   animación se aplicaba a cada hijo por separado (.content > *) y se
+   solapaba con la entrada escalonada de las tarjetas, así que se veía
+   descoordinado.
+   Duración deliberadamente corta (240 ms): lo justo para que el cambio se
+   perciba como fluidez y no como una espera. La lanza app.js en cada cambio
+   de ruta reiniciando la clase. */
+.vista-entra{animation:vista-desplegar .24s var(--ease) both;}
+@keyframes vista-desplegar{
+  from{opacity:0; transform:translateY(10px) scale(.994);}
+  to{opacity:1; transform:none;}
+}
+/* Encima del despliegue, las tarjetas caen en cascada (lo aplica ui.js con un
+   retardo por índice). Junto al anterior da la sensación de que la pantalla se
+   monta sola, en vez de aparecer de golpe. */
+.stagger-in{animation:card-in .32s var(--ease) both;}
+@keyframes card-in{from{opacity:0; transform:translateY(10px) scale(.992);} to{opacity:1; transform:none;}}
+
+/* ---------- Rejillas ---------- */
+.grid{display:grid; gap:16px;}
+.grid-4{grid-template-columns:repeat(4,1fr);}
+.grid-2{grid-template-columns:1fr 1fr;}
+.grid-3{grid-template-columns:repeat(3,1fr);}
+.grid-side{grid-template-columns:1.6fr 1fr;}
+@media(max-width:1180px){.grid-4{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:900px){.grid-2{grid-template-columns:1fr;} .grid-3{grid-template-columns:1fr;}}
+@media(max-width:860px){.grid-side{grid-template-columns:1fr;}}
+
+/* ---------- Tarjetas ---------- */
+.card{
+  background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:20px;
+  box-shadow:var(--shadow-xs);
+  transition:box-shadow .25s var(--ease), transform .25s var(--ease), border-color .25s var(--ease);
+}
+.card:hover{box-shadow:var(--shadow-sm);}
+.card h3{margin:0 0 14px; font-size:14px; font-weight:700; letter-spacing:-.005em; color:var(--text);}
+
+.kpi{position:relative; overflow:hidden;}
+/* Halo de color muy tenue en la esquina superior derecha: da relieve a la
+   tarjeta sin recurrir a bordes gruesos ni fondos de color saturado. */
+.kpi::after{
+  content:""; position:absolute; top:-40%; right:-20%; width:180px; height:180px; border-radius:50%;
+  background:radial-gradient(circle, rgba(62,111,224,.10), transparent 68%);
+  pointer-events:none; transition:opacity .3s var(--ease); opacity:0;
+}
+.kpi:hover::after{opacity:1;}
+.kpi:hover{transform:translateY(-2px); box-shadow:var(--shadow-md);}
+.kpi .label{color:var(--grey); font-size:11px; text-transform:uppercase; letter-spacing:.07em; font-weight:700;}
+.kpi .value{
+  font-size:30px; font-weight:800; margin:10px 0 3px; letter-spacing:-.03em; line-height:1.05;
+  overflow-wrap:anywhere; word-break:break-word; font-variant-numeric:tabular-nums;
+}
+.kpi.dark{
+  background:linear-gradient(140deg,#2B3A5C 0%,var(--navy) 55%,#161E33 100%);
+  color:#fff; border-color:transparent; box-shadow:var(--shadow-md);
+}
+.kpi.dark::after{background:radial-gradient(circle, rgba(120,155,245,.22), transparent 68%);}
+.kpi.dark .label{color:#B9C0DA;}
+.kpi.dark .stat-note{color:#B9C0DA;}
+
+/* ---------- Utilidades de texto ---------- */
+.stat-label{color:var(--grey); font-size:11px; text-transform:uppercase; letter-spacing:.07em; font-weight:700;}
+.stat-value{font-size:22px; font-weight:800; margin:6px 0 2px; letter-spacing:-.02em; font-variant-numeric:tabular-nums;}
+.stat-note{color:var(--grey); font-size:11px;}
+.hint{color:var(--grey); font-size:12px;}
+.hint-sm{color:var(--grey); font-size:11px;}
+.pos{color:var(--green-fg);}
+.neg{color:var(--red-fg);}
+.money{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap;}
+.divider{border:none; border-top:1px solid var(--border); margin:18px 0;}
+.form-actions{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:4px;}
+.section-head{display:flex; align-items:center; gap:10px; margin:20px 0 12px;}
+.section-head h3{margin:0;}
+.section-head > :last-child:not(h3){margin-left:auto;}
+
+/* ---------- Chips ---------- */
+.chip-cat{
+  border:none; border-radius:999px; padding:7px 15px; font-size:12px; font-weight:600; cursor:pointer;
+  transition:transform .16s var(--ease), box-shadow .2s var(--ease), filter .2s var(--ease);
+}
+.chip-cat:hover{transform:translateY(-1.5px); box-shadow:var(--shadow-sm); filter:saturate(1.15);}
+.chip-cat:active{transform:translateY(0) scale(.97);}
+.chip-row{display:flex; flex-wrap:wrap; gap:8px; align-content:flex-start;}
+
+.badge{display:inline-block; padding:4px 11px; border-radius:99px; font-size:11px; font-weight:700; letter-spacing:.01em; white-space:nowrap;}
+
+/* ---------- Tablas ---------- */
+table{width:100%; border-collapse:collapse; font-size:13px;}
+th{
+  text-align:left; color:var(--grey); font-weight:700; padding:9px 10px; border-bottom:1px solid var(--border);
+  font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap;
+}
+td{padding:9px 10px; border-bottom:1px solid #F2F3F6; vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr.clickable{cursor:pointer; transition:background-color .14s var(--ease);}
+tr.clickable:hover{background:linear-gradient(90deg, rgba(62,111,224,.05), rgba(62,111,224,.02));}
+th.money, td.money{text-align:right;}
+.table-scroll{overflow:auto; max-height:62vh;}
+.table-scroll thead th{position:sticky; top:0; background:rgba(255,255,255,.92); backdrop-filter:blur(6px); z-index:1;}
+
+/* ---------- Botones ---------- */
+.btn{
+  display:inline-flex; align-items:center; gap:6px; border:none; border-radius:var(--radius-sm);
+  padding:10px 17px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; white-space:nowrap;
+  position:relative; overflow:hidden;
+  transition:background-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), transform .12s var(--ease);
+}
+.btn-primary{background:linear-gradient(135deg,#4C7BE8,var(--blue-dark)); color:#fff; box-shadow:var(--shadow-glow);}
+.btn-primary:hover{box-shadow:0 8px 24px -4px rgba(62,111,224,.55); transform:translateY(-1px);}
+.btn-dark{background:linear-gradient(135deg,#2E3D60,var(--navy)); color:#fff; box-shadow:var(--shadow-sm);}
+.btn-dark:hover{transform:translateY(-1px); box-shadow:var(--shadow-md);}
+.btn-ghost{background:#fff; color:var(--text); border:1px solid var(--border); box-shadow:var(--shadow-xs);}
+.btn-ghost:hover{background:#FAFBFC; border-color:#D2D7E2; transform:translateY(-1px); box-shadow:var(--shadow-sm);}
+.btn-danger{background:var(--red-bg); color:var(--red-fg); border:1px solid #F0CFC9;}
+.btn-danger:hover{background:#F7DDD8; transform:translateY(-1px);}
+.btn-sm{padding:6px 12px; font-size:12px; border-radius:var(--radius-xs);}
+.btn:active{transform:translateY(0) scale(.98);}
+.btn:disabled{opacity:.5; cursor:not-allowed; box-shadow:none; transform:none;}
+
+/* ---------- Formularios ---------- */
+label{display:block; font-size:11px; color:var(--grey); margin-bottom:6px; text-transform:uppercase; letter-spacing:.05em; font-weight:600;}
+input,select,textarea{
+  width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:13px;
+  font-family:inherit; background:#fff; color:var(--text);
+  transition:border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+input:hover:not(:disabled):not([readonly]),select:hover,textarea:hover{border-color:#CFD5E1;}
+input:focus,select:focus,textarea:focus{outline:none; border-color:var(--blue); box-shadow:0 0 0 3.5px rgba(62,111,224,.13);}
+input:disabled,input[readonly]{background:var(--light); color:var(--grey);}
+textarea{resize:vertical;}
+.field{margin-bottom:14px;}
+.row{display:flex; gap:14px;}
+.row > *{flex:1;}
+
+/* Desplegables: se sustituye la flecha del sistema (que cambia de aspecto en
+   cada navegador y sistema operativo, y es lo que más "antiguo" hace ver un
+   formulario) por un chevron propio, igual en todas partes. */
+select{
+  appearance:none; -webkit-appearance:none; -moz-appearance:none;
+  padding-right:34px; cursor:pointer;
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A8399' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 11px center; background-size:15px;
+}
+select:focus{background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233E6FE0' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");}
+select::-ms-expand{display:none;}
+
+/* Edición dentro de una tabla: parece texto hasta que pasas por encima. */
+.cell-select{
+  border:1px solid transparent; background-color:transparent; font-family:inherit; font-size:13px; color:inherit;
+  padding:5px 26px 5px 9px; border-radius:var(--radius-xs); cursor:pointer; width:auto; max-width:100%;
+  background-position:right 7px center; background-size:13px;
+  transition:background-color .14s var(--ease), border-color .14s var(--ease);
+}
+.cell-select:hover{background-color:var(--light); border-color:var(--border);}
+.cell-select:focus{background-color:#fff; border-color:var(--blue);}
+.cell-select.as-badge{border-radius:99px; font-size:11px; font-weight:700; padding:5px 24px 5px 12px;}
+.cell-select.as-badge:hover{filter:brightness(.965);}
+
+/* ---------- Kanban ---------- */
+.kanban{display:grid; grid-template-columns:repeat(4,1fr); gap:14px;}
+.kanban-col{background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:12px; min-height:200px;}
+.kanban-col h4{font-size:11px; color:var(--grey); text-transform:uppercase; letter-spacing:.06em; font-weight:700; margin:0 0 10px;}
+.kanban-card{background:var(--light); border-radius:var(--radius-sm); padding:11px; margin-bottom:8px; cursor:pointer; border:1px solid transparent; transition:box-shadow .2s var(--ease), transform .16s var(--ease);}
+.kanban-card:hover{background:#fff; box-shadow:var(--shadow-sm); border-color:var(--border); transform:translateY(-2px);}
+.kanban-card .name{font-weight:600; font-size:13px;}
+.kanban-card .client{color:var(--grey); font-size:12px;}
+
+/* ---------- Login ---------- */
+.login-screen{display:flex; align-items:center; justify-content:center; height:100vh; background:radial-gradient(circle at 30% 20%, #2E3D60 0%, var(--navy) 45%, #12192B 100%);}
+.login-box{background:#fff; padding:38px 36px; border-radius:20px; width:352px; box-shadow:var(--shadow-lg); animation:card-in .4s var(--ease) both;}
+.login-box h2{margin-top:0; font-weight:800; letter-spacing:-.02em;}
+.error-msg{color:var(--orange-fg); font-size:12px; margin-top:8px;}
+
+.muted{color:var(--grey);}
+.hidden{display:none !important;}
+.tabs{display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:16px;}
+.tabs button{background:none; border:none; padding:10px 14px; font-size:13px; font-weight:500; cursor:pointer; color:var(--grey); border-bottom:2px solid transparent; transition:color var(--dur) var(--ease), border-color var(--dur) var(--ease); font-family:inherit;}
+.tabs button:hover{color:var(--text);}
+.tabs button.active{color:var(--navy); font-weight:700; border-bottom-color:var(--blue);}
+.empty-state{text-align:center; padding:48px 20px; color:var(--grey); font-size:13.5px;}
+.empty-state .btn{margin-top:14px;}
+.ai-banner{background:linear-gradient(120deg,var(--purple-bg),#EFF3FD); color:var(--purple-fg); padding:14px 18px; border-radius:var(--radius-sm); font-size:13px; margin-bottom:16px; font-weight:500; border-left:3px solid var(--purple-fg);}
+
+/* ---------- Acordeones mensuales ---------- */
+details.card{padding:0; overflow:hidden;}
+details.card > summary{
+  list-style:none; display:flex; align-items:center; gap:12px; cursor:pointer;
+  padding:15px 20px; transition:background-color .16s var(--ease);
+}
+details.card > summary:hover{background:linear-gradient(90deg, rgba(62,111,224,.045), transparent);}
+details.card[open] > summary{border-bottom:1px solid var(--border);}
+details.card > summary::-webkit-details-marker{display:none;}
+.mes-nombre{font-weight:700; font-size:14px; min-width:88px; flex-shrink:0; letter-spacing:-.01em;}
+.mes-total{font-weight:700; font-size:14px; min-width:104px; flex-shrink:0; font-variant-numeric:tabular-nums;}
+.mes-meta{color:var(--grey); font-size:12px; font-weight:400;}
+.mes-accion{margin-left:auto; display:flex; align-items:center; gap:8px;}
+details.card > summary::after{
+  content:""; width:7px; height:7px; flex-shrink:0; margin-left:6px;
+  border-right:2px solid var(--grey); border-bottom:2px solid var(--grey);
+  transform:rotate(45deg) translateY(-2px); transition:transform .3s var(--ease);
+}
+details.card[open] > summary::after{transform:rotate(-135deg) translateY(1px);}
+/* El contenido del mes entra deslizándose en vez de aparecer de golpe. */
+details.card[open] > *:not(summary){animation:detalle-in .3s var(--ease) both;}
+@keyframes detalle-in{from{opacity:0; transform:translateY(-8px);} to{opacity:1; transform:none;}}
+details.card > *:not(summary){margin:0 20px 20px;}
+details.card table{width:calc(100% - 40px);}
+details.card table input[type="checkbox"]{width:auto; padding:0;}
+
+.proyectado{opacity:.6;}
+.badge-proyectado{background:var(--grey-bg); color:var(--grey-fg);}
+
+/* ---------- Gráficas ---------- */
+/* Tooltip propio en HTML (ver js/utils/charts.js) en vez del canvas gris que
+   Chart.js dibuja por defecto. */
+.chart-tooltip{
+  position:absolute; pointer-events:none; z-index:20; opacity:0;
+  transform:translate(-50%,-115%); transition:opacity .16s var(--ease), transform .16s var(--ease);
+  background:rgba(26,35,55,.96); backdrop-filter:blur(8px); color:#fff;
+  padding:9px 12px; border-radius:10px; font-size:12px; font-weight:600; white-space:nowrap;
+  box-shadow:var(--shadow-lg);
+}
+.chart-tooltip-title{font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:#A9B2CC; font-weight:700; margin-bottom:5px;}
+.chart-tooltip-row{display:flex; align-items:center; gap:7px; line-height:1.7;}
+.chart-tooltip-dot{width:7px; height:7px; border-radius:50%; flex-shrink:0;}
+.chart-tooltip-label{color:#C3CADE; font-weight:500;}
+
+/* ---------- Responsive ---------- */
+.menu-toggle{display:none; background:none; border:none; padding:6px; margin-right:8px; cursor:pointer;}
+.menu-toggle span, .menu-toggle span::before, .menu-toggle span::after{
+  content:""; display:block; width:20px; height:2px; background:var(--navy); border-radius:2px;
+}
+.menu-toggle span{position:relative;}
+.menu-toggle span::before{position:absolute; top:-6px;}
+.menu-toggle span::after{position:absolute; top:6px;}
+.sidebar-overlay{display:none;}
+
+@media (max-width:860px){
+  .menu-toggle{display:inline-flex; align-items:center; justify-content:center;}
+  #app{position:relative;}
+  .sidebar{
+    position:fixed; top:0; left:0; bottom:0; z-index:60; width:254px;
+    transform:translateX(-100%); transition:transform .3s var(--ease); box-shadow:var(--shadow-lg);
+  }
+  .sidebar.open{transform:translateX(0);}
+  .sidebar-overlay{display:none; position:fixed; inset:0; background:rgba(15,20,35,.5); backdrop-filter:blur(2px); z-index:55;}
+  .sidebar-overlay.open{display:block; animation:fade-in .25s var(--ease);}
+  .main{width:100%;}
+  .topbar{padding:0 14px;}
+  .content{padding:14px 14px 32px;}
+  .row{flex-direction:column; gap:0;}
+  .card{padding:16px; overflow-x:auto;}
+  table{white-space:nowrap;}
+  .kanban{grid-template-columns:1fr;}
+  details.card{overflow-x:auto;}
+  details.card table{min-width:640px;}
+  .mes-meta{display:none;}
+  .mes-nombre{min-width:0;}
+  .mes-total{min-width:0;}
+}
+
+@media (max-width:480px){
+  .grid-4, .grid-2{grid-template-columns:1fr;}
+  .kpi .value{font-size:24px;}
+  .login-box{width:88vw; padding:26px;}
+}
+
+/* ---------- Toolbar ---------- */
+.toolbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:18px;}
+.toolbar-search{flex:1 1 240px; min-width:180px; max-width:420px; width:auto;}
+.toolbar-filters{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+.toolbar-action{margin-left:auto;}
+.toolbar select, .toolbar input[type="text"]{width:auto;}
+.toolbar label{margin:0; align-self:center; white-space:nowrap;}
+
+/* ---------- Segmented control ---------- */
+.segmented{display:inline-flex; background:var(--light); border:1px solid var(--border); border-radius:var(--radius-sm); padding:3px; gap:2px;}
+.segmented button{
+  border:none; background:none; padding:7px 13px; font-size:12.5px; font-weight:600; color:var(--grey);
+  border-radius:var(--radius-xs); cursor:pointer; font-family:inherit; white-space:nowrap;
+  transition:background-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.segmented button.active{background:#fff; color:var(--text); box-shadow:var(--shadow-xs);}
+.segmented button:hover:not(.active){color:var(--text); background:rgba(255,255,255,.6);}
+
+/* ---------- Botones de icono ---------- */
+.icon-btn{
+  display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; flex-shrink:0;
+  border-radius:var(--radius-xs); border:1px solid var(--border); background:#fff; color:var(--grey-fg); cursor:pointer;
+  transition:background-color var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease), transform .12s var(--ease), box-shadow var(--dur) var(--ease);
+}
+.icon-btn svg{width:15px; height:15px;}
+.icon-btn:hover{background:var(--purple-bg); color:var(--blue); border-color:#C7D3F0; transform:translateY(-1px); box-shadow:var(--shadow-sm);}
+.icon-btn:active{transform:translateY(0) scale(.94);}
+.row-actions{display:flex; gap:6px; justify-content:flex-end;}
+
+/* ---------- Ayuda contextual ---------- */
+.help-tip{
+  display:inline-flex; align-items:center; justify-content:center; width:17px; height:17px; flex-shrink:0;
+  border-radius:50%; background:var(--grey-bg); color:var(--grey-fg); font-size:10.5px; font-weight:800;
+  font-style:normal; cursor:help; vertical-align:middle; line-height:1;
+  transition:background-color var(--dur) var(--ease), color var(--dur) var(--ease), transform .16s var(--ease);
+}
+.help-tip:hover{background:var(--blue); color:#fff; transform:scale(1.12);}
+
+.card-head{display:flex; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
+.card-head h3{margin:0;}
+.card-head .card-actions{margin-left:auto;}
+.card-actions{display:flex; gap:8px; align-items:center;}
+
+.hint-box{display:flex; gap:8px; align-items:flex-start; font-size:12px; color:var(--grey-fg); background:var(--grey-bg); border-radius:var(--radius-xs); padding:10px 12px; margin-top:8px;}
+.hint-box svg{width:14px; height:14px; flex-shrink:0; margin-top:1px;}
+
+.toggle-box{background:var(--light); border-radius:var(--radius-xs); padding:11px 13px; margin-bottom:14px; transition:background-color var(--dur) var(--ease);}
+.toggle-box:hover{background:#EDEFF3;}
+.toggle-box label{display:flex; align-items:center; gap:8px; text-transform:none; font-size:13px; color:var(--text); font-weight:600; margin:0; letter-spacing:0;}
+.toggle-box input[type="checkbox"]{width:auto;}
+
+.subnote{display:block; font-size:11px; color:var(--grey); margin-top:2px; font-weight:400;}
+
+/* ---------- Avisos (toast) ---------- */
+.toast-wrap{position:fixed; bottom:24px; right:24px; z-index:200; display:flex; flex-direction:column; gap:10px; pointer-events:none;}
+.toast{
+  display:flex; align-items:flex-start; gap:10px; min-width:250px; max-width:380px;
+  background:rgba(26,35,55,.96); backdrop-filter:blur(10px); color:#fff;
+  padding:13px 16px; border-radius:13px; font-size:13px; font-weight:500;
+  box-shadow:var(--shadow-lg); pointer-events:auto; animation:toast-in .34s var(--ease);
+}
+.toast.ok{background:linear-gradient(135deg,#2A7A52,#1F6242);}
+.toast.err{background:linear-gradient(135deg,#A03F36,#7E2F28);}
+.toast-close{margin-left:auto; background:none; border:none; color:inherit; opacity:.65; cursor:pointer; font-size:15px; line-height:1; padding:0; transition:opacity var(--dur) var(--ease);}
+.toast-close:hover{opacity:1;}
+@keyframes toast-in{from{opacity:0; transform:translateY(14px) scale(.96);} to{opacity:1; transform:none;}}
+@media (max-width:600px){
+  .toast-wrap{left:14px; right:14px; bottom:14px;}
+  .toast{max-width:none;}
+}
+
+/* ---------- Diálogo propio ---------- */
+.modal-backdrop{
+  position:fixed; inset:0; background:rgba(15,20,35,.5); backdrop-filter:blur(4px); z-index:210;
+  display:flex; align-items:center; justify-content:center; padding:20px; animation:fade-in .2s var(--ease);
+}
+.modal{
+  background:#fff; border-radius:20px; padding:26px; width:100%; max-width:430px;
+  box-shadow:var(--shadow-lg); animation:modal-in .3s var(--ease);
+}
+.modal h3{margin:0 0 8px; font-size:17px; letter-spacing:-.02em;}
+.modal p{margin:0 0 20px; color:var(--grey-fg); font-size:13.5px; line-height:1.6;}
+.modal .form-actions{justify-content:flex-end; margin:0;}
+@keyframes fade-in{from{opacity:0;} to{opacity:1;}}
+@keyframes modal-in{from{opacity:0; transform:translateY(16px) scale(.96);} to{opacity:1; transform:none;}}
+
+/* ---------- Esqueletos ---------- */
+.skeleton{
+  background:linear-gradient(90deg,#EAECF1 25%,#F5F6F9 37%,#EAECF1 63%);
+  background-size:400% 100%; animation:sk 1.4s ease-in-out infinite; border-radius:var(--radius-xs);
+}
+@keyframes sk{0%{background-position:100% 50%;} 100%{background-position:0 50%;}}
+.sk-line{height:12px; margin-bottom:10px;}
+.sk-kpi{height:104px; border-radius:var(--radius);}
+.sk-block{height:180px; border-radius:var(--radius);}
+
+/* Quien haya pedido menos movimiento en su sistema no ve ninguna animación. */
+@media (prefers-reduced-motion:reduce){
+  *, *::before, *::after{
+    animation-duration:.001ms !important; animation-iteration-count:1 !important;
+    transition-duration:.001ms !important; scroll-behavior:auto !important;
+  }
+}
+
+/* ---------- Transición de sección (revisión) ---------- */
+@keyframes vista-in{from{opacity:1; transform:none;} to{opacity:1; transform:none;}}
+.vista-entra{animation:vista-desplegar .24s var(--ease) both;}
+@keyframes vista-desplegar{
+  from{opacity:0; transform:translateY(10px) scale(.994);}
+  to{opacity:1; transform:none;}
+}
+
+/* ---------- Aparición del contenido con "reducir movimiento" ----------
+   El bloque prefers-reduced-motion de arriba anula TODA animación (.001ms), y
+   Josep tiene esa opción activada en Windows (Accesibilidad > Efectos
+   visuales), así que no veía la transición entre secciones.
+   Lo que molesta a quien reduce el movimiento es el DESPLAZAMIENTO, no un
+   fundido: se conserva el fundido y se quita el translate. Se usan longhands
+   en vez del atajo `animation` a propósito, para no pisar el animation-delay
+   que entradaEscalonada() pone en línea y perder el escalonado. */
+@keyframes vista-fundido{from{opacity:0;} to{opacity:1;}}
+@media (prefers-reduced-motion:reduce){
+  .vista-entra, .stagger-in{
+    animation-name:vista-fundido !important;
+    animation-duration:.22s !important;
+    animation-timing-function:ease !important;
+    animation-fill-mode:both !important;
+    animation-iteration-count:1 !important;
+  }
+}
+
+/* ---------- Entrada del contenido, revisión: que no se sienta brusca ----------
+   Problema: el bloque #content entero pasaba de opacidad 0 a 1 de golpe. Un
+   parpadeo seco, porque todo aparece a la vez y la curva --ease general
+   (cubic-bezier(.32,.72,0,1)) sale disparada y corta en seco.
+   Solución en dos partes:
+   1) El contenedor ya no parpadea: hace un lavado suave desde .5 (no desde 0).
+   2) El movimiento lo llevan las tarjetas entrando en cascada, que es lo que
+      da la sensación de despliegue en vez de un interruptor.
+   La curva es decelerada: entra con brío y frena al llegar. */
+@keyframes vista-lavado{from{opacity:.5;} to{opacity:1;}}
+@keyframes tarjeta-entra{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:none;}}
+@keyframes tarjeta-fundido{from{opacity:0;} to{opacity:1;}}
+
+.vista-entra{animation:vista-lavado .3s cubic-bezier(.22,.61,.36,1) both;}
+.stagger-in{animation:tarjeta-entra .46s cubic-bezier(.22,.61,.36,1) both;}
+
+@media (prefers-reduced-motion:reduce){
+  /* Se quita el desplazamiento (lo que de verdad molesta a quien reduce el
+     movimiento) pero se conserva la cascada, que es lo que hace agradable la
+     entrada. Longhands a propósito: el atajo `animation` pisaría el
+     animation-delay que entradaEscalonada() pone en línea y las tarjetas
+     aparecerían todas a la vez. */
+  .vista-entra{
+    animation-name:vista-lavado !important; animation-duration:.3s !important;
+    animation-timing-function:cubic-bezier(.22,.61,.36,1) !important;
+    animation-fill-mode:both !important; animation-iteration-count:1 !important;
+  }
+  .stagger-in{
+    animation-name:tarjeta-fundido !important; animation-duration:.5s !important;
+    animation-timing-function:cubic-bezier(.22,.61,.36,1) !important;
+    animation-fill-mode:both !important; animation-iteration-count:1 !important;
+  }
+}
+
+/* ---------- Entrada del contenido: versión definitiva ----------
+   Josep tiene activada la reducción de movimiento en Windows, y el bloque
+   prefers-reduced-motion de más arriba anulaba la animación por completo. Pero
+   ha pedido expresamente y varias veces una animación de despliegue visible al
+   cambiar de sección: una instrucción directa del único usuario de esta app
+   manda sobre una preferencia del sistema, que no es más que un valor por
+   defecto. Así que estas dos animaciones concretas SÍ se ejecutan enteras,
+   con desplazamiento incluido.
+   El resto de la app sigue respetando el ajuste: esto solo levanta la
+   excepción para .vista-entra y .stagger-in, no para todo lo demás.
+   Para volver al comportamiento accesible, basta con borrar este bloque. */
+@keyframes vista-lavado{from{opacity:.4;} to{opacity:1;}}
+@keyframes tarjeta-entra{from{opacity:0; transform:translateY(16px);} to{opacity:1; transform:none;}}
+
+.vista-entra,
+:where(html) .vista-entra{
+  animation-name:vista-lavado !important;
+  animation-duration:.3s !important;
+  animation-timing-function:cubic-bezier(.22,.61,.36,1) !important;
+  animation-fill-mode:both !important;
+  animation-iteration-count:1 !important;
+}
+.stagger-in,
+:where(html) .stagger-in{
+  animation-name:tarjeta-entra !important;
+  animation-duration:.52s !important;
+  animation-timing-function:cubic-bezier(.22,.61,.36,1) !important;
+  animation-fill-mode:both !important;
+  animation-iteration-count:1 !important;
+}
+
+/* ---------- Móvil: scroll horizontal solo donde hace falta ----------
+   Más arriba, el bloque de 860px pone `overflow-x:auto` a TODAS las .card para
+   que las tablas anchas se puedan desplazar. El efecto colateral es que las
+   tarjetas de KPI ("Facturado este mes", "Pendiente de cobro"...), que no
+   llevan tabla, salían con una barra de scroll inútil.
+   Con :has() se limita el scroll a las tarjetas que de verdad contienen una
+   tabla. Se devuelve overflow:hidden a .kpi porque lo necesita para recortar
+   el degradado de su esquina (.kpi::after). */
+@media (max-width:860px){
+  .card{overflow-x:visible;}
+  .card:has(table){overflow-x:auto;}
+  .kpi, .card.kpi{overflow:hidden;}
+}
+
+/* ---------- Menú plegable (modo raíl) ----------
+   El logo "JM" es un botón: al pulsarlo el menú se contrae y deja solo los
+   iconos. Cada enlace lleva un title con su nombre, así que plegado sigue
+   siendo identificable al pasar el ratón.
+   El ancho se transiciona en lugar de conmutarse para que no dé un salto. */
+.sidebar{transition:width .3s cubic-bezier(.22,.61,.36,1);}
+
+/* El logo pasa de <span> a <button>: hay que neutralizar el estilo de botón. */
+.sidebar .brand-mark{
+  font-family:inherit; color:#fff; border:none; padding:0; cursor:pointer;
+  transition:transform .18s cubic-bezier(.22,.61,.36,1), box-shadow .18s cubic-bezier(.22,.61,.36,1);
+}
+.sidebar .brand-mark:hover{transform:scale(1.07); box-shadow:0 6px 18px rgba(62,111,224,.62);}
+.sidebar .brand-mark:active{transform:scale(.95);}
+
+/* Los textos se desvanecen algo antes de que el ancho acabe de cerrarse, para
+   que no se vean comprimidos a mitad de recorrido. */
+.sidebar .brand-text,
+.sidebar nav a span{
+  white-space:nowrap; overflow:hidden;
+  transition:opacity .15s cubic-bezier(.22,.61,.36,1);
+}
+
+.sidebar.rail{width:74px;}
+.sidebar.rail .brand{padding-left:0; padding-right:0; justify-content:center; gap:0;}
+.sidebar.rail .brand-text{opacity:0; width:0;}
+.sidebar.rail nav{padding:0 10px;}
+.sidebar.rail nav a{justify-content:center; gap:0; padding-left:0; padding-right:0;}
+.sidebar.rail nav a span{opacity:0; width:0;}
+/* La barrita del elemento activo se sale del icono centrado: se oculta y el
+   estado activo se lee por el fondo degradado, que sí se mantiene. */
+.sidebar.rail nav a.active::before{opacity:0;}
+.sidebar.rail .footer{padding:18px 10px; text-align:center;}
+.sidebar.rail .footer-text{display:none;}
+/* "Cerrar sesión" no cabe en 74px: se sustituye la etiqueta por "Salir". */
+.sidebar.rail .footer button{width:100%; padding:8px 0; font-size:0;}
+.sidebar.rail .footer button::after{content:"Salir"; font-size:11.5px; font-weight:500;}
+
+/* En móvil el menú es un cajón deslizante, no un raíl: el plegado no aplica. */
+@media (max-width:860px){
+  .sidebar.rail{width:254px;}
+  .sidebar.rail .brand{padding:0 22px 22px; justify-content:flex-start; gap:11px;}
+  .sidebar.rail .brand-text{opacity:1; width:auto;}
+  .sidebar.rail nav{padding:0 12px;}
+  .sidebar.rail nav a{justify-content:flex-start; gap:11px; padding:10px 13px;}
+  .sidebar.rail nav a span{opacity:1; width:auto;}
+  .sidebar.rail .footer{padding:18px 22px; text-align:left;}
+  .sidebar.rail .footer-text{display:inline;}
+  .sidebar.rail .footer button{width:auto; padding:7px 12px; font-size:11.5px;}
+  .sidebar.rail .footer button::after{content:none;}
+}
+
+/* Josep tiene el movimiento reducido activado en Windows y ha pedido
+   expresamente que el plegado "no sea brusco", así que estas transiciones
+   concretas se conservan (ver el bloque de animaciones más arriba). */
+@media (prefers-reduced-motion:reduce){
+  .sidebar, .sidebar .brand-text, .sidebar nav a span, .sidebar .brand-mark{
+    transition-duration:.3s !important;
+  }
+}
+
+/* ---------- Biblioteca de condiciones (presupuestos) ----------
+   La fila es un <label> flex dentro de .field, y .field impone
+   flex-direction:column a sus hijos, así que el texto de la condición se
+   quedaba en una columna estrechísima y salía letra a letra en vertical.
+   Aquí se restaura la dirección en fila y se deja que el texto ocupe el
+   ancho disponible. */
+#condiciones-lista label{
+  flex-direction:row !important;
+  align-items:flex-start;
+  width:100%;
+}
+#condiciones-lista label > span{
+  flex:1 1 auto;
+  min-width:0;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  line-height:1.45;
+}
+#condiciones-lista input[type="checkbox"]{flex:0 0 auto; width:auto;}
+#condiciones-lista .btn-borrar-cond{flex:0 0 auto;}
+
+/* ============================================================
+   EDITOR DE FACTURAS Y PRESUPUESTOS
+   Antes era una rejilla de dos columnas iguales: el formulario
+   apretado en la mitad izquierda y una maqueta del documento en la
+   derecha que ocupaba lo mismo y no servía para trabajar. Ahora el
+   editor se lleva todo el ancho útil y la derecha es una columna
+   estrecha y pegajosa con el total, el desglose y las acciones.
+   ============================================================ */
+.editor-top{display:flex; align-items:center; gap:12px; margin-bottom:16px;}
+.back-link{color:var(--grey); font-size:13px; text-decoration:none; transition:color var(--dur) var(--ease);}
+.back-link:hover{color:var(--blue);}
+.doc-badge{display:inline-block; padding:4px 11px; border-radius:99px; font-size:11px; font-weight:700; letter-spacing:.01em;}
+.doc-badge.es-presupuesto{background:var(--purple-bg); color:var(--purple-fg);}
+.doc-badge.es-factura{background:var(--green-bg); color:var(--green-fg);}
+
+.editor-layout{display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:18px; align-items:start;}
+.editor-main{display:flex; flex-direction:column; gap:18px; min-width:0;}
+.editor-main .card{margin:0;}
+/* sticky con el alto del header como tope, para que el resumen siga
+   visible mientras se rellenan líneas más abajo. */
+.editor-aside{position:sticky; top:18px;}
+.editor-aside .card{margin:0;}
+
+.resumen-card{background:linear-gradient(180deg,#FCFDFF,#F7F9FD); border-color:#DDE3EF;}
+.resumen-label{margin:0; font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--grey);}
+.resumen-total{margin:2px 0 14px; font-size:32px; font-weight:800; letter-spacing:-.03em; color:var(--navy); font-variant-numeric:tabular-nums;}
+.resumen-desglose{border-top:1px solid var(--border); padding-top:10px;}
+.resumen-fila{display:flex; justify-content:space-between; gap:10px; font-size:12.5px; padding:4px 0; color:var(--grey-fg);}
+.resumen-fila span:last-child{font-weight:600; color:var(--text); font-variant-numeric:tabular-nums;}
+.resumen-fila.es-descuento span:last-child{color:var(--red-fg);}
+.resumen-acciones{display:flex; flex-direction:column; gap:8px; margin-top:14px;}
+.resumen-acciones .btn{width:100%; justify-content:center;}
+
+/* ---------- Tabla de líneas ---------- */
+.lineas-toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+.tabla-scroll{overflow-x:auto; margin:0 -4px;}
+.tabla-lineas{width:100%; border-collapse:collapse; font-size:13px;}
+.tabla-lineas th{
+  text-align:left; font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--grey); padding:0 8px 8px; border-bottom:1px solid var(--border); white-space:nowrap;
+}
+.tabla-lineas th.col-num{text-align:right;}
+.tabla-lineas td{padding:10px 8px; border-bottom:1px solid var(--border); vertical-align:top;}
+.tabla-lineas tr:last-child td{border-bottom:none;}
+.tabla-lineas tbody tr{transition:background var(--dur) var(--ease);}
+.tabla-lineas tbody tr:hover{background:#FAFBFD;}
+.tabla-lineas input, .tabla-lineas select, .tabla-lineas textarea{margin:0;}
+.tabla-lineas td.col-num{text-align:right;}
+.tabla-lineas td.col-num input{text-align:right;}
+.tabla-lineas .col-acc{width:34px; padding-left:0; padding-right:0;}
+.tabla-lineas th:nth-child(2), .tabla-lineas td:nth-child(2){width:74px;}
+.tabla-lineas th:nth-child(3), .tabla-lineas td:nth-child(3){width:96px;}
+.tabla-lineas th:nth-child(4), .tabla-lineas td:nth-child(4){width:112px;}
+.tabla-lineas th:nth-child(5), .tabla-lineas td:nth-child(5){width:150px;}
+.tabla-lineas th:nth-child(6), .tabla-lineas td:nth-child(6){width:104px;}
+.linea-total{display:inline-block; font-size:13.5px; font-variant-numeric:tabular-nums; line-height:1.35;}
+.importe-tachado{color:var(--grey); text-decoration:line-through; font-size:11.5px;}
+.linea-desc-wrap{display:flex; gap:6px; align-items:flex-start; margin-top:6px;}
+.linea-desc-wrap textarea{flex:1; font-size:12.5px; min-width:0;}
+.linea-desc-wrap .btn{font-size:11.5px; padding:6px 9px; white-space:nowrap;}
+/* Campo compuesto valor + unidad (%/€). El .field padre fuerza columna a sus
+   hijos, así que aquí hay que devolver la fila explícitamente. */
+.dto-cell{display:flex; flex-direction:row !important; gap:4px; align-items:stretch;}
+.dto-cell input{flex:1; min-width:44px;}
+.dto-cell select{width:56px; padding-left:8px; padding-right:20px; flex:0 0 auto;}
+
+/* ---------- Formularios que se despliegan dentro de una tarjeta ---------- */
+.form-inline{
+  margin:0 0 14px; padding:14px; background:var(--light);
+  border:1px solid var(--border); border-radius:var(--radius-sm);
+  animation:desplegar-form .26s var(--ease) both;
+}
+.form-inline > p.muted{margin:0 0 10px; font-size:12px;}
+.form-inline .field:last-of-type{margin-bottom:10px;}
+.form-inline-acciones{display:flex; gap:8px; flex-wrap:wrap;}
+@keyframes desplegar-form{from{opacity:0; transform:translateY(-6px);} to{opacity:1; transform:none;}}
+
+/* ---------- Menús desplegables (servicios, proyectos, condiciones) ---------- */
+.menu{position:relative; display:inline-block;}
+.menu .caret{font-size:10px; opacity:.6; margin-left:2px;}
+.menu-panel{
+  position:absolute; top:calc(100% + 6px); right:0; z-index:40;
+  min-width:270px; max-width:380px; max-height:320px; overflow-y:auto;
+  background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-lg); padding:6px;
+  opacity:0; transform:translateY(-6px) scale(.98); pointer-events:none;
+  transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.menu.abierto .menu-panel{opacity:1; transform:none; pointer-events:auto;}
+.menu-item{
+  display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+  background:none; border:0; cursor:pointer; font:inherit; color:var(--text);
+  font-size:13px; padding:8px 10px; border-radius:var(--radius-xs);
+  transition:background var(--dur) var(--ease);
+}
+.menu-item:hover{background:var(--light);}
+.menu-item-nombre{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.menu-item.es-larga .menu-item-nombre{white-space:normal; font-size:12.5px; line-height:1.45;}
+.menu-item-precio{font-weight:700; font-variant-numeric:tabular-nums; color:var(--navy); white-space:nowrap;}
+.menu-item.es-accion{color:var(--blue); font-weight:600;}
+.menu-item .btn-olvidar-cond{opacity:0; flex-shrink:0; transition:opacity var(--dur) var(--ease);}
+.menu-item:hover .btn-olvidar-cond{opacity:.7;}
+.menu-sep{height:1px; background:var(--border); margin:6px 4px;}
+.menu-vacio{margin:0; padding:10px; font-size:12.5px; color:var(--grey); line-height:1.5;}
+
+/* ---------- Condiciones elegidas ---------- */
+.cond-row{
+  display:flex; gap:10px; align-items:flex-start; padding:10px 12px; margin-bottom:6px;
+  background:var(--light); border-radius:var(--radius-xs); font-size:12.5px; line-height:1.5;
+  animation:desplegar-form .22s var(--ease) both;
+}
+.cond-row:last-child{margin-bottom:0;}
+.cond-texto{flex:1; min-width:0;}
+
+/* ---------- Móvil ---------- */
+@media (max-width:1040px){
+  .editor-layout{grid-template-columns:1fr;}
+  /* Deja de ser pegajosa: en una columna sola, el resumen va al final y
+     fijarlo taparía el formulario. */
+  .editor-aside{position:static;}
+  .resumen-acciones{flex-direction:row; flex-wrap:wrap;}
+  .resumen-acciones .btn{width:auto; flex:1 1 auto;}
+}
+@media (max-width:860px){
+  /* La tabla se convierte en fichas: con seis columnas, el scroll horizontal
+     obligaba a arrastrar para ver el total de cada línea. */
+  .tabla-lineas thead{display:none;}
+  .tabla-scroll{overflow-x:visible; margin:0;}
+  .tabla-lineas, .tabla-lineas tbody, .tabla-lineas tr, .tabla-lineas td{display:block; width:auto;}
+  .tabla-lineas tr{
+    position:relative; border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:12px 12px 8px; margin-bottom:10px; background:#fff;
+  }
+  .tabla-lineas td{border-bottom:none; padding:0 0 10px;}
+  .tabla-lineas td:last-child{padding-bottom:0;}
+  .tabla-lineas td[data-label]::before{
+    content:attr(data-label); display:block; margin-bottom:4px;
+    font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--grey);
+  }
+  .tabla-lineas th:nth-child(n), .tabla-lineas td:nth-child(n){width:auto;}
+  .tabla-lineas td.col-num, .tabla-lineas td.col-num input{text-align:left;}
+  .tabla-lineas .col-acc{position:absolute; top:8px; right:8px; width:auto;}
+  .lineas-toolbar{width:100%;}
+  .lineas-toolbar .btn, .lineas-toolbar .menu{flex:1 1 auto;}
+  .lineas-toolbar .menu .btn{width:100%; justify-content:center;}
+  .menu-panel{right:auto; left:0; min-width:min(300px,88vw); max-width:88vw;}
+}
+
+/* Ajustes de ancho detectados al probar en vivo -------------------------- */
+/* Dto.: el valor y el selector %/€ no cabían en 112px y el número salía
+   recortado ("(" en vez de "0"). */
+.tabla-lineas th:nth-child(4), .tabla-lineas td:nth-child(4){width:134px;}
+
+/* La tabla de tarifas de Configuración reutiliza .tabla-lineas, pero sus
+   columnas son otras, así que heredaba anchos pensados para Cant./Precio y
+   recortaba el precio y la unidad. Solo en escritorio: en móvil la tabla se
+   convierte en fichas y todos los anchos vuelven a auto. */
+@media (min-width:861px){
+  #tarifas-lista .tabla-lineas th:nth-child(n),
+  #tarifas-lista .tabla-lineas td:nth-child(n){width:auto;}
+  #tarifas-lista .tabla-lineas th:nth-child(2),
+  #tarifas-lista .tabla-lineas td:nth-child(2){width:112px;}
+  #tarifas-lista .tabla-lineas th:nth-child(3),
+  #tarifas-lista .tabla-lineas td:nth-child(3){width:140px;}
+  #tarifas-lista .tabla-lineas th:nth-child(4),
+  #tarifas-lista .tabla-lineas td:nth-child(4){width:124px;}
+}
+
+/* Dto.: 134px seguían sin bastar. Los input[type=number] de Chrome reservan
+   sitio para las flechitas incluso cuando no se ven, así que el "0" quedaba
+   recortado. Se ocultan las flechas (aquí no aportan: se teclea el número) y
+   se ensancha la columna. Medido en vivo: el valor y el %/€ ya entran. */
+.tabla-lineas th:nth-child(4), .tabla-lineas td:nth-child(4){width:150px;}
+.dto-cell input::-webkit-outer-spin-button,
+.dto-cell input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+.dto-cell input{appearance:textfield; min-width:0; padding-left:8px; padding-right:8px;}
+.dto-cell select{width:52px; padding-left:7px; padding-right:15px;}
+
+/* Anchos de la tabla de líneas, definitivo ------------------------------- */
+/* Los px sueltos no bastaban: sin table-layout:fixed el navegador reparte el
+   ancho como quiere y en pantallas grandes seguía estrujando Dto. Con fixed,
+   las medidas se respetan igual en un portátil y en un monitor de 27". */
+.tabla-lineas{table-layout:fixed;}
+.tabla-lineas th:nth-child(1), .tabla-lineas td:nth-child(1){width:auto;}
+.tabla-lineas th:nth-child(2), .tabla-lineas td:nth-child(2){width:68px;}
+.tabla-lineas th:nth-child(3), .tabla-lineas td:nth-child(3){width:94px;}
+.tabla-lineas th:nth-child(4), .tabla-lineas td:nth-child(4){width:158px;}
+.tabla-lineas th:nth-child(5), .tabla-lineas td:nth-child(5){width:152px;}
+.tabla-lineas th:nth-child(6), .tabla-lineas td:nth-child(6){width:104px;}
+.dto-cell input{flex:1 1 auto;}
+.dto-cell select{width:60px; flex:0 0 60px;}
+
+/* Las condiciones del presupuesto son editables en el propio documento (para
+   poder cambiar "episodio" por "videoclip" sin tocar la plantilla), así que la
+   fila lleva un textarea en vez de texto plano. */
+.cond-row textarea.cond-texto{
+  flex:1; min-width:0; font-size:12.5px; line-height:1.5; resize:vertical;
+  background:#fff; margin:0;
+}
+
+/* Con table-layout:fixed las columnas de la derecha suman ~610px, así que en una
+   ventana estrecha (pero aún por encima del corte de móvil) la de Concepto se
+   quedaba sin sitio y se colapsaba, solapando las cabeceras. Con un ancho mínimo
+   la tabla prefiere desplazarse en horizontal antes que aplastar el concepto. */
+.tabla-lineas{min-width:780px;}
+
+/* Las tablas de Configuración reutilizan .tabla-lineas, que ahora lleva un ancho
+   mínimo pensado para las seis columnas del editor. Aquí sobra: estas tienen
+   pocas columnas y con el mínimo aparecía un scroll horizontal innecesario. */
+#tarifas-lista .tabla-lineas,
+#condiciones-lista-cfg .tabla-lineas{min-width:0;}
+#condiciones-lista-cfg textarea.k-texto{
+  width:100%; font-size:12.5px; line-height:1.5; resize:vertical; margin:0;
+}
+@media (min-width:861px){
+  #condiciones-lista-cfg .tabla-lineas th:nth-child(n),
+  #condiciones-lista-cfg .tabla-lineas td:nth-child(n){width:auto;}
+  #condiciones-lista-cfg .tabla-lineas th:nth-child(2),
+  #condiciones-lista-cfg .tabla-lineas td:nth-child(2){width:130px;}
+}
+
+/* Botón de guardar por condición. Se reserva el hueco con visibility en vez de
+   display para que la fila no salte al aparecer, y el aviso "Sin guardar" deja
+   claro que hay cambios pendientes si te vas de la página. */
+.k-acciones{display:flex; align-items:center; gap:10px; margin-top:8px; min-height:30px;}
+.k-acciones .k-guardar,
+.k-acciones .k-aviso{visibility:hidden;}
+.k-acciones.sucio .k-guardar,
+.k-acciones.sucio .k-aviso{visibility:visible;}
+.k-aviso{font-size:11.5px; font-weight:600; color:var(--orange-fg);}
+
+/* Botón "+ Crear" del menú lateral ---------------------------------------- */
+.crear-wrap{display:block; padding:0 14px 14px;}
+.crear-btn{width:100%; justify-content:center; gap:8px;}
+.crear-btn svg{width:16px; height:16px; flex-shrink:0;}
+/* En modo raíl solo cabe el icono. */
+.sidebar.rail .crear-wrap{padding:0 10px 12px;}
+.sidebar.rail .crear-texto{display:none;}
+/* El panel se abre hacia la derecha, fuera del menú, y por encima de todo. */
+.crear-wrap .menu-panel{left:14px; right:auto; min-width:210px; z-index:60;}
+.sidebar.rail .crear-wrap .menu-panel{left:8px;}
+.crear-wrap .menu-item{text-decoration:none;}
+
+/* Guardar en las tarifas: reutiliza el bloque .k-acciones de las condiciones. */
+#tarifas-lista .k-acciones{margin-top:8px;}
+/* El botón de las tarifas se llama .t-guardar (el de condiciones, .k-guardar):
+   sin esto se veía siempre, y la idea es que aparezca solo al haber cambios. */
+.k-acciones .t-guardar{visibility:hidden;}
+.k-acciones.sucio .t-guardar{visibility:visible;}
+
+/* En el menú de condiciones el hueco del "precio" lleva la etiqueta del grupo
+   (Rodaje / grabación, Postproducción). Es texto largo y con nowrap se comía
+   el ancho, dejando el texto de la condición en una columna de dos palabras.
+   Ahora el texto ocupa toda la fila y el grupo baja como etiqueta pequeña. */
+#menu-condiciones .menu-panel{min-width:min(380px, 80vw); max-width:min(460px, 86vw);}
+.menu-item.es-larga{flex-wrap:wrap; align-items:flex-start; gap:6px;}
+.menu-item.es-larga .menu-item-nombre{flex:1 1 100%;}
+.menu-item.es-larga .menu-item-precio{
+  flex:0 0 auto; font-size:11px; font-weight:600; color:var(--grey);
+  background:var(--light); border-radius:999px; padding:1px 8px;
+}
+.menu-item.es-larga:hover .menu-item-precio{background:#fff;}
+.menu-item.es-pack{justify-content:space-between;}
