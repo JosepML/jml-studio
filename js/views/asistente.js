@@ -240,7 +240,7 @@ export async function renderAsistente(container) {
     <div class="card">
       <h3>Flujo A — Pegar datos de un cliente nuevo</h3>
       <p class="muted">Pega aquí cualquier texto (un email, un WhatsApp, una nota) con los datos de un cliente. Detecta NIF/CIF, email, teléfono, IBAN y dirección.</p>
-      <div class="field"><textarea id="texto-cliente" rows="6" placeholder="Ej: JUNO Media SL&#10;CIF B12345678&#10;contacto@junomedia.es&#10;Tel 612 345 678&#10;C/ Ejemplo 12, 03500 Benidorm"></textarea></div>
+      <div class="field"><textarea id="texto-cliente" rows="6" placeholder="Pega aquí el texto con los datos del cliente…"></textarea></div>
       <button class="btn btn-primary" id="btn-analizar">Analizar texto</button>
       <div id="resultado-analisis" style="margin-top:18px;"></div>
     </div>`;
