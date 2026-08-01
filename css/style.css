@@ -1093,7 +1093,20 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 .modal.ancho .toggle-box{margin-bottom:12px;}
 .modal.ancho .form-actions{margin-top:18px;}
 
-/* Si el sistema pide menos animación, la barra deja de brillar. */
+/* Josep tiene activado "reducir movimiento" en Windows, y la regla global de
+   arriba anula TODA transición con `!important` (.001ms). Por eso la barra de
+   progreso saltaba de golpe: no es que faltara la transición, es que estaba
+   siendo cancelada.
+   Aquí se recupera solo lo que él pidió —que el avance se vea progresivo— y se
+   renuncia a lo decorativo: el brillo en bucle sí se queda fuera, que es
+   justo el tipo de movimiento perpetuo que molesta a quien activa esa opción. */
 @media (prefers-reduced-motion: reduce){
-  .wizard-progreso span{animation:none; transition:width .15s linear;}
+  .wizard-progreso span{
+    transition-duration:.7s !important;
+    transition-timing-function:cubic-bezier(.65, 0, .35, 1) !important;
+    animation:none !important;
+  }
+  .wz-paso, .wz-paso-num, .wz-paso-num > span{
+    transition-duration:.4s !important;
+  }
 }
