@@ -94,27 +94,35 @@ function cargarGis() {
   });
 }
 
+let tokenClientId = "";
+
 /**
- * Pide un token de acceso.
- * @param {boolean} silencioso  true = no abrir ventana; solo sirve si ya dio
- *                              el consentimiento antes y sigue con sesión.
+ * Deja el cliente de Google listo (script cargado + initTokenClient).
+ * Se llama al montar la vista, ANTES de que el usuario pulse nada.
+ *
+ * Es imprescindible separarlo de la petición del token: el navegador solo
+ * deja abrir la ventana de Google si `requestAccessToken` sale del propio
+ * clic. Si primero hay que descargar el script de Google, para cuando se
+ * llama ya se ha perdido el gesto y Chrome responde `popup_failed_to_open`.
  */
-export async function conectar({ silencioso = false } = {}) {
-  if (recuperarToken()) return token;
+export async function preparar() {
   const id = clientId();
   if (!id) throw new Error("Falta el ID de cliente de Google (Configuración → Calendario).");
-
   await cargarGis();
-
-  if (!tokenClient) {
+  if (!tokenClient || tokenClientId !== id) {
     tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: id,
       scope: SCOPE,
       callback: () => {},   // se reasigna en cada petición
     });
+    tokenClientId = id;
   }
+}
 
+/** Pide el token. SIN await previo: tiene que ir pegado al clic. */
+export function pedirToken({ silencioso = false } = {}) {
   return new Promise((resolve, reject) => {
+    if (!tokenClient) { reject(new Error("Google todavía no está listo. Inténtalo otra vez.")); return; }
     tokenClient.callback = (res) => {
       if (res.error) { reject(new Error(res.error_description || res.error)); return; }
       token = res.access_token;
@@ -128,6 +136,13 @@ export async function conectar({ silencioso = false } = {}) {
       tokenClient.requestAccessToken({ prompt: silencioso ? "none" : "" });
     } catch (e) { reject(e); }
   });
+}
+
+/** Camino completo: preparar + pedir. Para cuando no hay prisa por el gesto. */
+export async function conectar(opciones = {}) {
+  if (recuperarToken()) return token;
+  await preparar();
+  return pedirToken(opciones);
 }
 
 /* ------------------------------------------------------------------- api */
