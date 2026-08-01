@@ -194,3 +194,46 @@ export function animarVista(container) {
   entradaEscalonada(container);
   animarValores(container);
 }
+
+/**
+ * Arrastrar y soltar para reordenar filas de una tabla o lista.
+ *
+ * El tirador activa `draggable` en la FILA (así lo que se arrastra es la fila
+ * entera, no el iconito) y lo desactiva al soltar, para no estorbar a la
+ * selección de texto de los inputs que haya dentro.
+ *
+ * Las filas identifican su posición con `data-idx` (o `data-i`), y `alSoltar`
+ * recibe (posiciónOrigen, posiciónDestino).
+ */
+export function engancharArrastre(contenedor, selectorFila, selectorTirador, alSoltar) {
+  let origen = null;
+  contenedor.querySelectorAll(selectorFila).forEach(fila => {
+    const tirador = fila.querySelector(selectorTirador);
+    if (!tirador) return;
+    tirador.addEventListener("mousedown", () => { fila.draggable = true; });
+    fila.addEventListener("dragstart", (e) => {
+      origen = fila;
+      fila.classList.add("arrastrando");
+      e.dataTransfer.effectAllowed = "move";
+      try { e.dataTransfer.setData("text/plain", ""); } catch { /* Firefox lo exige */ }
+    });
+    fila.addEventListener("dragend", () => {
+      fila.draggable = false;
+      fila.classList.remove("arrastrando");
+      contenedor.querySelectorAll(".soltar-aqui").forEach(x => x.classList.remove("soltar-aqui"));
+      origen = null;
+    });
+    fila.addEventListener("dragover", (e) => {
+      if (!origen || origen === fila) return;
+      e.preventDefault();
+      fila.classList.add("soltar-aqui");
+    });
+    fila.addEventListener("dragleave", () => fila.classList.remove("soltar-aqui"));
+    fila.addEventListener("drop", (e) => {
+      if (!origen || origen === fila) return;
+      e.preventDefault();
+      fila.classList.remove("soltar-aqui");
+      alSoltar(Number(origen.dataset.idx ?? origen.dataset.i), Number(fila.dataset.idx ?? fila.dataset.i));
+    });
+  });
+}
