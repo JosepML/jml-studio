@@ -33,7 +33,7 @@ export async function renderGastos(container) {
     </div>
     <div id="gasto-form-wrap"></div>
     <div id="gastos-resumen" class="grid grid-4" style="margin-bottom:20px;"></div>
-    <div class="grid grid-2" style="margin-bottom:20px; align-items:start;">
+    <div class="grid grid-2" style="margin-bottom:20px;">
       <div class="card">
         <div class="card-head"><h3>Por categoría</h3><span class="help-tip" title="Pulsa una categoría para filtrar el listado de abajo.">i</span></div>
         <div id="categorias-chips" class="chip-row"></div>

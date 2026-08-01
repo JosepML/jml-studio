@@ -16,7 +16,7 @@ export async function renderClientes(container, param) {
     <div class="toolbar">
       <button class="btn btn-primary toolbar-action" id="btn-nuevo-cliente">+ Nuevo cliente</button>
     </div>
-    <div class="grid grid-side" style="margin-bottom:20px; align-items:start;">
+    <div class="grid grid-side" style="margin-bottom:20px;">
       <div class="card"><div id="clientes-list">${skeletonTabla(8)}</div></div>
       <div class="card">
         <div class="card-head"><h3>Clientes por valor</h3><span class="help-tip" title="Total facturado real por cliente (transferencia + efectivo, incluyendo proyectos aún sin factura formal), de más a menos.">i</span></div>

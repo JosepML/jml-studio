@@ -31,7 +31,9 @@ export async function renderProyectos(container, param) {
       <div class="card kpi dark"><div class="label">Facturado ${anioActual}</div><div class="value">${eur(resumenAnual.totalBase)}</div></div>
     </div>
 
-    <div class="grid grid-2" style="margin-bottom:20px; align-items:start;">
+    <!-- Sin align-items:start: las dos tarjetas se estiran a la misma altura y
+         los bordes inferiores coinciden, en vez de quedar una más corta. -->
+    <div class="grid grid-2" style="margin-bottom:20px;">
       <div class="card">
         <div class="card-head"><h3>Qué es lo que más hago</h3><span class="help-tip" title="Por tipo de servicio, todos los proyectos. Pulsa una categoría para filtrar la tabla.">i</span></div>
         <div id="categoria-chips" class="chip-row"></div>

@@ -207,7 +207,7 @@ export async function renderFinanciero(container) {
         </div>
       </div>
 
-      <div class="grid grid-side" style="margin-bottom:20px; align-items:start;">
+      <div class="grid grid-side" style="margin-bottom:20px;">
         <div class="card">
           <div class="card-head"><h3>Cuenta de resultados</h3><span class="help-tip" title="Acumulado ${anio} · facturado (no solo cobrado), coste real de los gastos (con amortizaciones prorrateadas).">i</span></div>
           <table>
