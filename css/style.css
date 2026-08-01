@@ -1228,6 +1228,9 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 .dash-graficas .card{display:flex; flex-direction:column; min-height:0; padding-bottom:14px;}
 .dash-graficas .card h3{margin-bottom:4px;}
 .dash-graficas .grafica{position:relative; flex:1 1 auto; min-height:118px;}
+/* El lienzo va absoluto: si se deja en flujo, Chart.js le calcula el alto por
+   su relación de aspecto y estira la tarjeta, que era justo el descuadre. */
+.dash-graficas .grafica > canvas{position:absolute; inset:0; width:100% !important; height:100% !important;}
 @media (max-width:1250px){
   .dash-fila-cal{grid-template-columns:minmax(0,1fr);}
   .dash-graficas{grid-template-rows:none;}
