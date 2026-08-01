@@ -1,4 +1,5 @@
 import { db } from "../supabase.js";
+import { abrirFichaProyecto } from "./proyectos.js";
 import { eur, FORMAS_PAGO, todayIso } from "../utils/format.js";
 import { round2 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo } from "../utils/resumen.js";
@@ -195,7 +196,13 @@ export async function renderMensual(container) {
     });
 
     $body.querySelectorAll(".link-proyecto").forEach(td => {
-      td.addEventListener("click", () => { location.hash = `#/proyectos/${td.dataset.proyectoId}`; });
+      // Antes saltaba a la sección Proyectos y perdías el mes que estabas
+      // revisando. Ahora se edita en el mismo diálogo, aquí mismo.
+      td.addEventListener("click", async () => {
+        const { data } = await db.from("proyectos").select("*").eq("id", td.dataset.proyectoId).single().exec();
+        if (!data) { location.hash = `#/proyectos/${td.dataset.proyectoId}`; return; }
+        abrirFichaProyecto(data, null, () => renderMensual(container));
+      });
     });
 
     // --- Botón "+ Añadir proyecto" por mes: abre un mini-formulario inline ---

@@ -65,7 +65,6 @@ export async function renderProyectos(container, param) {
         </table>
       </div>
     </div>
-    <div id="proyecto-detalle"></div>
   `;
 
   let filtroCategoria = "";
@@ -115,7 +114,7 @@ export async function renderProyectos(container, param) {
   }
   pintarAnalitica();
 
-  container.querySelector("#btn-nuevo-proyecto").addEventListener("click", () => abrirFicha(container, null, clientes || [], recargarYPintar));
+  container.querySelector("#btn-nuevo-proyecto").addEventListener("click", () => abrirFichaProyecto(null, clientes || [], recargarYPintar));
 
   let filtroEstado = "";
   const $chips = container.querySelector("#filtro-chips");
@@ -184,7 +183,7 @@ export async function renderProyectos(container, param) {
     $tbl.querySelectorAll(".link-proyecto").forEach(el => {
       el.addEventListener("click", () => {
         const p = proyectos.find(x => x.id === el.dataset.id);
-        abrirFicha(container, p, clientes || [], recargarYPintar);
+        abrirFichaProyecto(p, clientes || [], recargarYPintar);
       });
     });
     $tbl.querySelectorAll(".sel-forma").forEach(sel => {
@@ -232,14 +231,29 @@ export async function renderProyectos(container, param) {
 
   if (param && proyectos) {
     const p = proyectos.find(x => x.id === param);
-    if (p) abrirFicha(container, p, clientes || [], recargarYPintar);
+    if (p) abrirFichaProyecto(p, clientes || [], recargarYPintar);
   }
 }
 
-async function abrirFicha(container, proyecto, clientes, onGuardado) {
+// Exportada: la abren tanto Proyectos como Facturación mensual. Va en un
+// diálogo encima de la página, igual que la ficha de cliente o el gasto, para
+// no perder de vista dónde estabas ni tener que navegar a otra sección.
+// `clientes` puede venir vacío: si falta, se cargan aquí.
+export async function abrirFichaProyecto(proyecto, clientes, onGuardado) {
   const esNuevo = !proyecto;
+  if (!clientes || !clientes.length) {
+    const { data } = await db.from("clientes").select("id,nombre").order("nombre").exec();
+    clientes = data || [];
+  }
   proyecto = proyecto || { nombre: "", cliente_id: clientes[0]?.id || "", estado: "en_curso", fecha_inicio: todayIso(), fecha_entrega: "", horas_invertidas: 0, coste_asociado: 0, precio_acordado: 0, entregables: [], forma_pago: "transferencia", estado_facturacion: "pendiente", categoria_servicio: "otros", notas: "" };
-  const $detalle = container.querySelector("#proyecto-detalle");
+
+  const $detalle = document.createElement("div");
+  $detalle.className = "modal-backdrop";
+  document.body.appendChild($detalle);
+  const alPulsarEsc = e => { if (e.key === "Escape") cerrarFicha(); };
+  function cerrarFicha() { $detalle.remove(); document.removeEventListener("keydown", alPulsarEsc); }
+  document.addEventListener("keydown", alPulsarEsc);
+  $detalle.addEventListener("mousedown", e => { if (e.target === $detalle) cerrarFicha(); });
 
   let gastos = [], facturasVinculadas = [];
   if (!esNuevo) {
@@ -253,7 +267,7 @@ async function abrirFicha(container, proyecto, clientes, onGuardado) {
   const margen = Number(proyecto.precio_acordado || 0) - Number(proyecto.coste_asociado || 0);
 
   $detalle.innerHTML = `
-    <div class="card" style="margin-top:16px;">
+    <div class="modal ancho" role="dialog" aria-modal="true">
       <div class="ficha-cabecera">
         <div>
           <h3 style="margin:0;">${esNuevo ? "Nuevo proyecto" : escapeHtml(proyecto.nombre)}</h3>
@@ -351,9 +365,7 @@ async function abrirFicha(container, proyecto, clientes, onGuardado) {
     });
   }
 
-  $detalle.scrollIntoView({ behavior: "smooth", block: "start" });
-
-  $detalle.querySelector("#btn-cerrar-ficha").addEventListener("click", () => { $detalle.innerHTML = ""; });
+  $detalle.querySelector("#btn-cerrar-ficha").addEventListener("click", cerrarFicha);
 
   $detalle.querySelector("#btn-guardar-proyecto").addEventListener("click", async () => {
     const payload = {
@@ -376,8 +388,8 @@ async function abrirFicha(container, proyecto, clientes, onGuardado) {
       : await db.from("proyectos").update(payload).eq("id", proyecto.id).exec();
     if (error) { toastError("No se ha podido guardar: " + error); return; }
     toastOk(esNuevo ? `Proyecto "${payload.nombre}" creado.` : "Proyecto actualizado.");
-    $detalle.innerHTML = "";
-    await onGuardado();
+    cerrarFicha();
+    if (onGuardado) await onGuardado();
   });
 
   if (!esNuevo) {
@@ -386,8 +398,8 @@ async function abrirFicha(container, proyecto, clientes, onGuardado) {
       const { error } = await db.from("proyectos").delete().eq("id", proyecto.id).exec();
       if (error) { toastError("No se ha podido eliminar: " + error); return; }
       toastOk("Proyecto eliminado.");
-      $detalle.innerHTML = "";
-      await onGuardado();
+      cerrarFicha();
+      if (onGuardado) await onGuardado();
     });
 
     $detalle.querySelector("#btn-generar-factura").addEventListener("click", () => {
@@ -420,7 +432,8 @@ async function abrirFicha(container, proyecto, clientes, onGuardado) {
         const { error } = await db.from("gastos").insert(payload).exec();
         if (error) { toastError("No se ha podido guardar el gasto: " + error); return; }
         toastOk("Gasto añadido al proyecto.");
-        await abrirFicha(container, proyecto, clientes, onGuardado);
+        cerrarFicha();
+        await abrirFichaProyecto(proyecto, clientes, onGuardado);
       });
     });
   }
