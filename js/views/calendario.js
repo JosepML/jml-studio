@@ -116,7 +116,12 @@ export function montarCalendario(host) {
 
   /* ------------------------------------------------------------- carga */
 
-  async function cargar({ silencioso = true } = {}) {
+  function pedirConexion() {
+    estado(`Conecta tu Google Calendar para ver aquí tu agenda.
+            <button class="btn btn-sec" type="button" data-conectar>Conectar con Google</button>`);
+  }
+
+  async function cargar() {
     if (cargando) return;
     if (!gcal.clientId()) {
       estado(`Para ver aquí tu agenda hace falta conectar Google una sola vez.
@@ -124,9 +129,11 @@ export function montarCalendario(host) {
       pintar();
       return;
     }
+    // Sin token válido no se pide nada por nuestra cuenta: la ventana de
+    // Google solo puede abrirse desde un clic suyo (ver gcal.preparar).
+    if (!gcal.estaConectado()) { pedirConexion(); pintar(); return; }
     cargando = true;
     try {
-      if (!gcal.estaConectado()) await gcal.conectar({ silencioso });
       if (!calendarios.length) calendarios = await gcal.listarCalendarios();
       const desde = lunesDe(mes);
       const hasta = new Date(desde);
@@ -156,7 +163,15 @@ export function montarCalendario(host) {
       return;
     }
     if (ev.target.closest("[data-recargar]")) { calendarios = []; cargar(); return; }
-    if (ev.target.closest("[data-conectar]")) { cargar({ silencioso: false }); return; }
+    if (ev.target.closest("[data-conectar]")) {
+      // Nada de await antes de esto: el navegador exige que la ventana de
+      // Google salga del propio clic.
+      gcal.pedirToken()
+        .then(() => { estado(""); cargar(); })
+        .catch(e => estado(`No se ha podido conectar. <button class="btn btn-sec" type="button" data-conectar>Reintentar</button>
+                            <small class="muted" style="display:block; margin-top:6px;">${escapeHtml(e.message || "")}</small>`));
+      return;
+    }
 
     const chip = ev.target.closest("[data-ev]");
     if (chip) {
@@ -268,5 +283,7 @@ export function montarCalendario(host) {
   }
 
   pintar();
-  cargar();
+  // El script de Google se descarga y se inicializa YA, para que cuando él
+  // pulse "Conectar" la ventana pueda abrirse sin esperas de por medio.
+  gcal.preparar().then(cargar, () => cargar());
 }
