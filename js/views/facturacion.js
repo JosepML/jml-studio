@@ -1,7 +1,7 @@
 import { db } from "../supabase.js";
 import { calcularFactura, desglosarLinea, aplicarDescuentoGlobal, round2 } from "../utils/invoice-calc.js";
 import { ESTADOS_FACTURA, ESTADOS_PRESUPUESTO, eur, dateEs, todayIso, CATEGORIAS_SERVICIO } from "../utils/format.js";
-import { escapeHtml, escapeAttr } from "./clientes.js";
+import { escapeHtml, escapeAttr, abrirModalNuevoCliente } from "./clientes.js";
 import { CONFIG_NEGOCIO } from "../utils/config-negocio.js";
 import { crearFacturaPdf, crearPresupuestoPdf, cargarLogoDataUrl } from "../utils/pdf-documentos.js";
 import { mejorarDescripcionConIA, tieneClaveGemini } from "../ai/gemini.js";
@@ -312,6 +312,23 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
     draft.numero = draft.tipo === "presupuesto" ? await nextNumeroPresupuesto() : await nextNumero();
   }
 
+  // El vencimiento se elige por plazo (lo normal son 30 días), no tecleando una
+  // fecha. Si el documento ya traía una fecha que no cuadra con 15 ni 30, se
+  // conserva tal cual en una opción aparte para no cambiarla sin querer.
+  function diasEntre(desde, hasta) {
+    if (!desde || !hasta) return null;
+    const ms = new Date(hasta + "T00:00:00") - new Date(desde + "T00:00:00");
+    return Math.round(ms / 86400000);
+  }
+  function sumarDias(iso, dias) {
+    const d = new Date(iso + "T00:00:00");
+    d.setDate(d.getDate() + Number(dias));
+    return d.toISOString().slice(0, 10);
+  }
+  const diasGuardados = diasEntre(draft.fecha, draft.fecha_vencimiento);
+  const plazoInicial = !draft.fecha_vencimiento ? (facturaId ? 0 : 30)
+    : (diasGuardados === 30 || diasGuardados === 15) ? diasGuardados : "otro";
+
   const esNuevo = !facturaId;
   const estadosDoc = draft.tipo === "presupuesto" ? ESTADOS_PRESUPUESTO : ESTADOS_FACTURA;
   const volver = volverA || (draft.tipo === "presupuesto" ? "#/presupuestos" : "#/facturacion");
@@ -345,7 +362,11 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
         <div class="card">
           <div class="card-head"><h3>Cliente</h3></div>
           <div class="row">
-            <div class="field" style="flex:2;"><label>Cliente</label>
+            <div class="field" style="flex:2;">
+              <div class="campo-con-accion">
+                <label>Cliente</label>
+                <button class="btn btn-ghost btn-sm" id="btn-nuevo-cliente-doc" type="button">+ Nuevo cliente</button>
+              </div>
               <select id="f-cliente">${(clientes || []).map(c => `<option value="${c.id}" ${c.id === draft.cliente_id ? "selected" : ""}>${escapeHtml(c.nombre)}</option>`).join("")}</select>
             </div>
           </div>
@@ -371,7 +392,13 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
           </div>
           <div class="row">
             <div class="field"><label>Fecha</label><input type="date" id="f-fecha" value="${draft.fecha}"></div>
-            <div class="field"><label>Vencimiento</label><input type="date" id="f-vencimiento" value="${draft.fecha_vencimiento || ""}"></div>
+            <div class="field"><label>Vencimiento</label>
+              <select id="f-vencimiento-dias">
+                ${[30, 15].map(d => `<option value="${d}" ${plazoInicial === d ? "selected" : ""}>${d} días</option>`).join("")}
+                <option value="0" ${plazoInicial === 0 ? "selected" : ""}>Sin vencimiento</option>
+                ${plazoInicial === "otro" ? `<option value="otro" selected>${dateEs(draft.fecha_vencimiento)} (guardada)</option>` : ""}
+              </select>
+            </div>
           </div>
         </div>
         </section>
@@ -554,7 +581,7 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
   function pintarPasos() {
     $wzPasos.innerHTML = PASOS.map((p, i) => `
       <button class="wz-paso" data-i="${i}" type="button">
-        <span class="wz-paso-num"><span class="wz-num-cifra">${i + 1}</span><span class="wz-num-check">✓</span></span>
+        <span class="wz-paso-num"><span class="wz-num-cifra">${i + 1}</span><span class="wz-num-check">✓</span><span class="wz-num-aviso">!</span></span>
         <span class="wz-paso-txt"><strong>${p.label}</strong>${esNuevo ? `<small></small>` : ""}</span>
       </button>`).join("");
     $wzPasos.querySelectorAll("[data-i]").forEach(b => {
@@ -566,29 +593,53 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
   function actualizarPasos() {
     $wzPasos.querySelectorAll("[data-i]").forEach(b => {
       const i = Number(b.dataset.i);
-      const hecho = esNuevo && i < pasoActual;
+      const id = PASOS[i].id;
+      const visitado = visitados.has(i) && i !== pasoActual;
+      const completo = pasoCompleto(id);
+      // Verde solo si de verdad está completo. Si se pasó por él y quedó algo
+      // a medias, se marca en ámbar con un "!" en vez de dar el visto bueno.
+      const hecho = visitado && completo;
+      const incompleto = visitado && !completo;
       b.classList.toggle("activo", i === pasoActual);
       b.classList.toggle("hecho", hecho);
+      b.classList.toggle("incompleto", incompleto);
       const $small = b.querySelector("small");
-      if ($small) $small.textContent = i === pasoActual ? "En curso" : hecho ? "Completado" : "Pendiente";
+      if ($small) {
+        $small.textContent = i === pasoActual
+          ? (completo ? "En curso" : "En curso · falta algo")
+          : hecho ? "Completado" : incompleto ? "Incompleto" : "Pendiente";
+      }
     });
   }
 
-  // Solo se valida al AVANZAR en un documento nuevo. Editando uno ya hecho no
-  // tiene sentido bloquear: puedes querer entrar a cambiar solo la fecha.
-  function puedeAvanzar() {
-    const id = PASOS[pasoActual].id;
-    if (id === "lineas" && !draft.lineas.some(l => String(l.concepto || "").trim())) {
-      toastError("Añade al menos un concepto antes de continuar.");
-      return false;
+  // Nunca se bloquea el avance: se marca el paso como incompleto y se sigue.
+  // Decisión de Josep: prefiere poder saltar y volver, con la señal a la vista.
+  // El vencimiento no cuenta — es opcional y ya tiene 30 días por defecto.
+  const visitados = new Set([0]);
+
+  function pasoCompleto(id) {
+    if (id === "cliente") {
+      const hayCliente = !!container.querySelector("#f-cliente")?.value;
+      const hayProyecto = draft.tipo !== "presupuesto"
+        || !!(container.querySelector("#f-proyecto-nombre")?.value || "").trim();
+      return hayCliente && hayProyecto;
     }
+    if (id === "datos") {
+      return !!container.querySelector("#f-numero")?.value.trim()
+        && !!container.querySelector("#f-fecha")?.value;
+    }
+    if (id === "lineas") {
+      const conConcepto = draft.lineas.filter(l => String(l.concepto || "").trim());
+      return conConcepto.length > 0 && conConcepto.every(l => Number(l.precio || 0) > 0);
+    }
+    if (id === "condiciones") return draft.condiciones.length > 0;
     return true;
   }
 
   function irAPaso(i) {
     if (i === pasoActual) return;
-    if (esNuevo && i > pasoActual && !puedeAvanzar()) return;
     pasoActual = Math.max(0, Math.min(PASOS.length - 1, i));
+    visitados.add(pasoActual);
     mostrarPaso();
   }
 
@@ -623,10 +674,27 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
       ${faltan.length ? `<div class="ai-banner" style="margin-top:14px;">Al cliente le falta ${faltan.join(", ")}. Puedes guardar igual, pero el PDF saldrá con la marca de borrador.</div>` : ""}`;
   }
 
+  // Alta de cliente sin salir del documento: el modal se abre encima y, al
+  // guardar, el cliente nuevo queda añadido y seleccionado en el desplegable.
+  container.querySelector("#btn-nuevo-cliente-doc")?.addEventListener("click", () => {
+    abrirModalNuevoCliente(async (creado) => {
+      if (!creado?.id) return;
+      clientes.push(creado);
+      const $sel = container.querySelector("#f-cliente");
+      const $op = document.createElement("option");
+      $op.value = creado.id;
+      $op.textContent = creado.nombre;
+      $sel.appendChild($op);
+      $sel.value = creado.id;
+      draft.cliente_id = creado.id;
+      pintarAvisoCliente();
+      actualizar();
+    });
+  });
+
   $wzAnterior.addEventListener("click", () => irAPaso(pasoActual - 1));
   $wzSiguiente.addEventListener("click", () => {
     if (pasoActual === PASOS.length - 1) { container.querySelector("#btn-guardar").click(); return; }
-    if (!puedeAvanzar()) return;
     irAPaso(pasoActual + 1);
   });
 
@@ -792,6 +860,7 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
   }
 
   function actualizar() {
+    if (typeof actualizarPasos === "function" && container.querySelector("#wz-pasos")) actualizarPasos();
     const ivaPct = Number(container.querySelector("#f-iva").value || 0);
     const retencionPct = Number(container.querySelector("#f-retencion").value || 0);
     draft.descuento_tipo = container.querySelector("#f-descuento-tipo")?.value || "porcentaje";
@@ -1112,7 +1181,12 @@ pintarCondiciones();
       numero: container.querySelector("#f-numero").value.trim(),
       tipo: draft.tipo,
       fecha: container.querySelector("#f-fecha").value,
-      fecha_vencimiento: container.querySelector("#f-vencimiento").value || null,
+      fecha_vencimiento: (() => {
+        const sel = container.querySelector("#f-vencimiento-dias")?.value;
+        if (sel === "otro") return draft.fecha_vencimiento || null;
+        const dias = Number(sel || 0);
+        return dias ? sumarDias(container.querySelector("#f-fecha").value, dias) : null;
+      })(),
       lineas: draft.lineas,
       estado: container.querySelector("#f-estado").value,
       descuento_tipo: draft.descuento_tipo || "porcentaje",

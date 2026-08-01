@@ -25,7 +25,7 @@ export async function renderClientes(container, param) {
     </div>
   `;
 
-  container.querySelector("#btn-nuevo-cliente").addEventListener("click", () => abrirModalNuevo(container));
+  container.querySelector("#btn-nuevo-cliente").addEventListener("click", () => abrirModalNuevoCliente(() => renderClientes(container)));
 
   const [{ data, error }, { data: proyectos }, { data: facturaProyectos }] = await Promise.all([
     db.from("clientes").select("*").order("nombre").exec(),
@@ -35,7 +35,7 @@ export async function renderClientes(container, param) {
   const $list = container.querySelector("#clientes-list");
   if (error) { $list.innerHTML = `<p class="muted">Error cargando clientes: ${error}</p>`; return; }
 
-  if (param === "nuevo") abrirModalNuevo(container);
+  if (param === "nuevo") abrirModalNuevoCliente(() => renderClientes(container));
 
   if (!data || !data.length) {
     container.querySelector("#clientes-chart-wrap").innerHTML = `<p class="muted" style="padding-top:20px;">Sin datos todavía.</p>`;
@@ -151,7 +151,10 @@ function leerCampos($raiz, prefijo) {
 // Alta en modal, con pegado de texto
 // ---------------------------------------------------------------------------
 
-function abrirModalNuevo(container) {
+// Exportado: el editor de facturas y presupuestos lo abre encima de la página
+// para dar de alta un cliente sin salir del documento que estás haciendo.
+// `alCrear` recibe el cliente recién creado.
+export function abrirModalNuevoCliente(alCrear) {
   const $backdrop = document.createElement("div");
   $backdrop.className = "modal-backdrop";
   $backdrop.innerHTML = `
@@ -202,11 +205,12 @@ function abrirModalNuevo(container) {
   $backdrop.querySelector("#nc-guardar").addEventListener("click", async () => {
     const payload = leerCampos($backdrop, "nc");
     if (!payload.nombre) { toastError("El nombre es obligatorio."); $backdrop.querySelector("#nc-nombre").focus(); return; }
-    const { error } = await db.from("clientes").insert(payload).exec();
+    const { data, error } = await db.from("clientes").insert(payload).exec();
     if (error) { toastError("No se ha podido guardar: " + error); return; }
+    const creado = Array.isArray(data) ? data[0] : data;
     cerrar();
     toastOk(`Cliente "${payload.nombre}" creado.`);
-    await renderClientes(container);
+    if (alCrear) await alCrear(creado || payload);
   });
 
   $backdrop.querySelector("#nc-pegado").focus();
