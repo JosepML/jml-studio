@@ -1427,17 +1427,20 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 /* El mes en curso se distingue con un filo azul, sin gritar. */
 details.card.mes-actual{box-shadow:inset 3px 0 0 var(--blue), var(--shadow-xs);}
 
-/* Estado de cada fila con una franja de color a la izquierda: se sabe cómo va
-   un proyecto sin recorrer la fila hasta las casillas del final. */
+/* Semáforo del estado, pegado al nombre del proyecto: gris sin facturar,
+   ámbar emitida pero sin cobrar, verde cobrada. Antes era una franja de 3 px
+   al margen izquierdo de la fila y pasaba desapercibida. */
 #meses-body tbody tr{transition:background-color var(--dur) var(--ease);}
 #meses-body tbody tr:hover{background:var(--light);}
-#meses-body tbody tr > td:first-child{position:relative;}
-#meses-body tbody tr > td:first-child::before{
-  content:""; position:absolute; left:0; top:6px; bottom:6px; width:3px; border-radius:99px;
+.semaforo{
+  display:inline-block; width:9px; height:9px; border-radius:99px;
+  margin-right:9px; vertical-align:middle; flex:0 0 auto;
 }
-#meses-body tr.fila-sinfacturar > td:first-child::before{background:var(--border);}
-#meses-body tr.fila-emitida > td:first-child::before{background:var(--amber-fg);}
-#meses-body tr.fila-cobrada > td:first-child::before{background:var(--green-fg);}
+.semaforo.sinfacturar{background:#fff; box-shadow:inset 0 0 0 2px var(--grey);}
+.semaforo.emitida{background:var(--amber-fg); box-shadow:0 0 0 3px var(--amber-bg);}
+.semaforo.cobrada{background:var(--green-fg); box-shadow:0 0 0 3px var(--green-bg);}
+.nombre-proyecto{color:var(--blue); vertical-align:middle;}
+#meses-body tr.fila-cobrada .nombre-proyecto{color:var(--grey-fg);}
 
 /* Encabezado de la tabla del mes: más contraste para separarlo de las filas. */
 #meses-body thead th{
