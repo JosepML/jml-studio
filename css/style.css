@@ -1004,28 +1004,49 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 }
 .wizard-titulo{margin:0; font-size:22px; font-weight:700; letter-spacing:-.025em; color:var(--navy);}
 .wizard-ayuda{margin:0; max-width:420px; text-align:right; font-size:12.5px; line-height:1.5; color:var(--grey-fg);}
-.wizard-progreso{height:4px; border-radius:999px; background:var(--light); margin:16px 0 14px; overflow:hidden;}
+.wizard-progreso{height:5px; border-radius:999px; background:var(--light); margin:16px 0 14px; overflow:hidden;}
 .wizard-progreso span{
-  display:block; height:100%; width:0; border-radius:999px;
-  background:linear-gradient(90deg, var(--blue), #8B5CF6);
-  transition:width .35s var(--ease);
+  display:block; height:100%; width:0; border-radius:999px; position:relative;
+  /* El degradado es más ancho que la barra y se desplaza: así el avance se lee
+     como movimiento y no como un salto de un ancho a otro. */
+  background:linear-gradient(90deg, var(--blue), #8B5CF6, var(--blue));
+  background-size:200% 100%;
+  animation:wz-brillo 3.5s linear infinite;
+  transition:width .7s cubic-bezier(.65, 0, .35, 1);
+}
+@keyframes wz-brillo{from{background-position:0% 0;} to{background-position:-200% 0;}}
+/* Punta luminosa que acompaña al final de la barra mientras crece. */
+.wizard-progreso span::after{
+  content:""; position:absolute; right:0; top:50%; transform:translate(50%, -50%);
+  width:9px; height:9px; border-radius:50%; background:#8B5CF6;
+  box-shadow:0 0 0 3px rgba(139,92,246,.22);
 }
 .wizard-pasos{display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px;}
 .wz-paso{
   display:flex; align-items:center; gap:10px; text-align:left; cursor:pointer;
   background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm);
   padding:10px 12px; font:inherit; color:var(--grey);
-  transition:border-color var(--dur) var(--ease), background var(--dur) var(--ease), color var(--dur) var(--ease);
+  transition:border-color .45s var(--ease), background .45s var(--ease),
+             color .45s var(--ease), box-shadow .45s var(--ease);
 }
 .wz-paso:hover{border-color:var(--blue);}
 .wz-paso-num{
   flex:0 0 26px; height:26px; border-radius:50%; display:grid; place-items:center;
   background:var(--light); color:var(--grey); font-size:12px; font-weight:700;
+  position:relative; transition:background .45s var(--ease), color .45s var(--ease);
 }
+/* El número y el ✓ conviven superpuestos y se cruzan con un fundido, en vez de
+   sustituirse de golpe. */
+.wz-paso-num > span{
+  grid-area:1 / 1; transition:opacity .3s var(--ease), transform .3s var(--ease);
+}
+.wz-num-check{opacity:0; transform:scale(.5);}
+.wz-paso.hecho .wz-num-cifra{opacity:0; transform:scale(.5);}
+.wz-paso.hecho .wz-num-check{opacity:1; transform:none;}
 .wz-paso-txt{display:flex; flex-direction:column; min-width:0;}
 .wz-paso-txt strong{font-size:12.5px; font-weight:600; color:inherit; line-height:1.3;}
 .wz-paso-txt small{font-size:10.5px; color:var(--grey);}
-.wz-paso.activo{border-color:var(--blue); background:#F4F7FF; color:var(--navy);}
+.wz-paso.activo{border-color:var(--blue); background:#F4F7FF; color:var(--navy); box-shadow:0 0 0 3px rgba(62,111,224,.12);}
 .wz-paso.activo .wz-paso-num{background:var(--blue); color:#fff;}
 .wz-paso.hecho{border-color:var(--green-fg,#4CAF82); background:var(--green-bg,#E3F1EA); color:var(--green-fg,#2E7D53);}
 .wz-paso.hecho .wz-paso-num{background:var(--green-fg,#4CAF82); color:#fff;}
@@ -1071,3 +1092,8 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 /* El diálogo de gasto es alto: se le deja scroll propio y algo más de ancho. */
 .modal.ancho .toggle-box{margin-bottom:12px;}
 .modal.ancho .form-actions{margin-top:18px;}
+
+/* Si el sistema pide menos animación, la barra deja de brillar. */
+@media (prefers-reduced-motion: reduce){
+  .wizard-progreso span{animation:none; transition:width .15s linear;}
+}
