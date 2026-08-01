@@ -1401,14 +1401,16 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
    Pulido sobre la estructura de siempre (el listado tipo Excel): la idea es
    que el año se lea de un vistazo sin cambiar la forma de trabajar. */
 
-/* Barra que compara cada mes con el mejor del año. */
+/* Barra de cobro del mes: el relleno verde es lo ya cobrado y el fondo ámbar
+   lo que queda por cobrar. Así cuadra con el texto que va justo al lado. */
 .mes-barra{
-  flex:0 0 76px; height:5px; border-radius:99px; background:var(--border);
+  flex:0 0 76px; height:5px; border-radius:99px; background:var(--amber-bg);
   overflow:hidden; margin-right:2px;
 }
+.mes-barra.vacia{background:var(--border);}
 .mes-barra i{
   display:block; height:100%; border-radius:99px;
-  background:linear-gradient(90deg, var(--blue), var(--navy-2));
+  background:var(--green-fg);
   transition:width .5s var(--ease);
 }
 .mes-hoy{
