@@ -101,11 +101,9 @@ export async function renderMensual(container) {
       <div class="card kpi dark"><div class="label">Gastos deducibles ${anio}</div><div class="value">${eur(r.gastosDeducibles)}</div><div class="stat-note">amortizaciones ya prorrateadas</div></div>
     `;
 
-    // Totales de los 12 meses primero: hacen falta para la barra que compara
-    // cada mes con el mejor del año, y para saber qué mes es el más fuerte.
+    // Totales de los 12 meses primero, para no recalcularlos en cada vuelta.
     const totalPorMes = MESES.map((_, i) =>
       round2(filasAnio.filter(f => new Date(f.fecha).getMonth() === i).reduce((s, f) => s + f.importeBase, 0)));
-    const mejorMes = Math.max(0, ...totalPorMes);
     const mesActual = (anio === new Date().getFullYear()) ? new Date().getMonth() : -1;
 
     const $body = container.querySelector("#meses-body");
@@ -126,17 +124,18 @@ export async function renderMensual(container) {
       const cobradoMes = round2(filasMes.filter(f => estadoEfectivo(f) === "pagada").reduce((s, f) => s + f.importeBase, 0));
       const pendienteMes = round2(totalMes - cobradoMes);
       const nCobrados = filasMes.filter(f => estadoEfectivo(f) === "pagada").length;
-      const pesoMes = mejorMes ? Math.round(totalMes / mejorMes * 100) : 0;
+      const pctCobrado = totalMes ? Math.round(cobradoMes / totalMes * 100) : 0;
       // Nombre e importe en columnas de ancho fijo y la acción anclada a la
       // derecha: así los 12 meses quedan alineados entre sí (antes cada fila
       // colocaba el botón en una posición distinta, ver comentario en el CSS).
-      // La barra compara el mes con el mejor del año: de un vistazo se ve la
-      // forma de la temporada sin tener que leer los doce importes.
+      // La barra dice qué parte del mes está ya cobrada: verde lo cobrado,
+      // ámbar lo que falta. Antes comparaba el mes con el mejor del año, un
+      // dato que no casaba con el texto de al lado y confundía más que ayudaba.
       const cabecera = `
         <summary>
           <span class="mes-nombre">${nombreMes}${idx === mesActual ? `<span class="mes-hoy">actual</span>` : ""}</span>
           <span class="mes-total">${eur(totalMes)}</span>
-          <span class="mes-barra" title="${totalMes ? `${pesoMes}% del mejor mes del año` : "sin facturación"}"><i style="width:${pesoMes}%"></i></span>
+          <span class="mes-barra${totalMes ? "" : " vacia"}" title="${totalMes ? `Cobrado ${eur(cobradoMes)} de ${eur(totalMes)} (${pctCobrado}%)` : "sin facturación"}"><i style="width:${pctCobrado}%"></i></span>
           <span class="mes-meta">${
             filasMes.length
               ? `${filasMes.length} proyecto${filasMes.length === 1 ? "" : "s"}` +
