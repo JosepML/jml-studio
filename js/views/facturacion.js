@@ -66,7 +66,17 @@ async function renderLista(container, cfg) {
   ]);
   if (error) { container.innerHTML = `<p class="muted">Error: ${error}</p>`; return; }
   const clientesMap = Object.fromEntries((clientes || []).map(c => [c.id, c]));
-  const documentos = (todos || []).filter(f => f.tipo === cfg.tipo);
+  // Orden del listado: por número, el más alto arriba. Antes iba por fecha, y
+  // como Josep emite varios el mismo día el orden salía arbitrario (y al
+  // revés de como los piensa: el último es el de arriba). El secuencial manda;
+  // la fecha solo desempata cuando un número no encaja con el formato.
+  const documentos = (todos || []).filter(f => f.tipo === cfg.tipo).sort((a, b) => {
+    const na = secuencialDe(a.numero), nb = secuencialDe(b.numero);
+    if (na != null && nb != null && na !== nb) return nb - na;
+    if (na != null && nb == null) return -1;
+    if (na == null && nb != null) return 1;
+    return String(b.fecha || "").localeCompare(String(a.fecha || ""));
+  });
 
   const anio = new Date().getFullYear();
   let kpisHtml = "";
@@ -214,10 +224,27 @@ async function sincronizarFacturaProyectos(facturaId, lineas) {
   if (filas.length) await db.from("factura_proyectos").insert(filas).exec();
 }
 
+// Saca el secuencial de un número de documento: "PRE-16-2026" → 16,
+// "01-2026" → 1. Devuelve null si no encaja con el formato.
+export function secuencialDe(numero) {
+  const m = String(numero || "").trim().match(/^(?:PRE-)?0*(\d+)-(\d{4})$/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+// El siguiente número es el MÁXIMO usado + 1, no "cuántos hay" + 1. Contar
+// filas parecía funcionar hasta que se borraba un documento: entonces el
+// siguiente repetía un número ya emitido, que en facturas es un problema
+// fiscal serio.
+async function siguienteSecuencial(tipo, year) {
+  const { data } = await db.from("facturas").select("numero").eq("tipo", tipo)
+    .gte("fecha", `${year}-01-01`).lte("fecha", `${year}-12-31`).exec();
+  const usados = (data || []).map(f => secuencialDe(f.numero)).filter(n => n != null);
+  return (usados.length ? Math.max(...usados) : 0) + 1;
+}
+
 export async function nextNumero() {
   const year = new Date().getFullYear();
-  const { data } = await db.from("facturas").select("id").eq("tipo", "factura").gte("fecha", `${year}-01-01`).lte("fecha", `${year}-12-31`).exec();
-  const n = (data?.length || 0) + 1;
+  const n = await siguienteSecuencial("factura", year);
   return `${String(n).padStart(2, "0")}-${year}`;
 }
 
@@ -230,8 +257,7 @@ export async function nextNumero() {
 const PRIMER_NUMERO_PRESUPUESTO = 16;
 export async function nextNumeroPresupuesto() {
   const year = new Date().getFullYear();
-  const { data } = await db.from("facturas").select("id").eq("tipo", "presupuesto").gte("fecha", `${year}-01-01`).lte("fecha", `${year}-12-31`).exec();
-  const n = Math.max((data?.length || 0) + 1, PRIMER_NUMERO_PRESUPUESTO);
+  const n = Math.max(await siguienteSecuencial("presupuesto", year), PRIMER_NUMERO_PRESUPUESTO);
   return `PRE-${String(n).padStart(2, "0")}-${year}`;
 }
 
@@ -243,7 +269,7 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
     listarServicios({ soloActivos: true }),
     listarCondiciones({ soloActivas: true }),
   ]);
-  let draft = { numero: "", tipo: tipoDefecto || "factura", fecha: todayIso(), fecha_vencimiento: "", cliente_id: clientes?.[0]?.id || "", proyecto_id: null, lineas: [{ concepto: "", cantidad: 1, precio: 0, proyecto_id: "", descripcion: "", descuento_tipo: "porcentaje", descuento_valor: 0 }], iva_pct: 21, retencion_pct: 0, estado: "borrador", descuento_tipo: "porcentaje", descuento_valor: 0, condiciones: [] };
+  let draft = { numero: "", tipo: tipoDefecto || "factura", fecha: todayIso(), fecha_vencimiento: "", cliente_id: clientes?.[0]?.id || "", proyecto_id: null, proyecto_nombre: "", lineas: [{ concepto: "", cantidad: 1, precio: 0, proyecto_id: "", descripcion: "", descuento_tipo: "porcentaje", descuento_valor: 0 }], iva_pct: 21, retencion_pct: 0, estado: "borrador", descuento_tipo: "porcentaje", descuento_valor: 0, condiciones: [] };
   let origenProyectoTexto = "";
 
   if (facturaId) {
@@ -316,6 +342,14 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
             <div class="field"><label>Fecha</label><input type="date" id="f-fecha" value="${draft.fecha}"></div>
             <div class="field"><label>Vencimiento</label><input type="date" id="f-vencimiento" value="${draft.fecha_vencimiento || ""}"></div>
           </div>
+          ${draft.tipo === "presupuesto" ? `
+          <div class="row">
+            <div class="field" style="flex:1;">
+              <label>Proyecto</label>
+              <input id="f-proyecto-nombre" placeholder="Ej. Videoclip — Grupo X" value="${escapeAttr(draft.proyecto_nombre || "")}">
+              <p class="hint" style="margin:6px 0 0;">Es el nombre que sale en el PDF. Texto libre: el proyecto todavía no existe, nace si aceptan el presupuesto.</p>
+            </div>
+          </div>` : ""}
         </div>
 
         <div class="card">
@@ -326,10 +360,11 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
                 <button class="btn btn-ghost" type="button" data-menu-btn>Añadir servicio <span class="caret">▾</span></button>
                 <div class="menu-panel" data-menu-panel></div>
               </div>
+              ${draft.tipo === "presupuesto" ? "" : `
               <div class="menu" id="menu-proyectos">
                 <button class="btn btn-ghost" type="button" data-menu-btn>Añadir proyecto <span class="caret">▾</span></button>
                 <div class="menu-panel" data-menu-panel></div>
-              </div>
+              </div>`}
               <button class="btn btn-primary" id="btn-add-linea" type="button">+ Línea manual</button>
             </div>
           </div>
@@ -418,6 +453,7 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
             <button class="btn btn-primary" id="btn-guardar">Guardar</button>
             <button class="btn btn-dark" id="btn-pdf">Descargar PDF</button>
             ${puedeConvertir ? `<button class="btn btn-ghost" id="btn-convertir" type="button" style="border-color:var(--green-fg); color:var(--green-fg);">Convertir en factura →</button>` : ""}
+            ${puedeConvertir ? `<button class="btn btn-ghost" id="btn-convertir-proyecto" type="button" style="border-color:var(--blue); color:var(--blue);">${draft.proyecto_id ? "Ver el proyecto →" : "Convertir en proyecto →"}</button>` : ""}
             ${(!esNuevo && draft.tipo === "presupuesto") ? `<button class="btn btn-ghost" id="btn-borrar-doc" type="button" style="border-color:var(--red-fg,#B4453A); color:var(--red-fg,#B4453A);">Eliminar</button>` : ""}
           </div>
         </div>
@@ -426,15 +462,24 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
 
   // --- Menús desplegables (servicios, proyectos, condiciones) ---
   // Uno solo abierto a la vez, y se cierran al pulsar fuera o con Escape.
+  // La tarjeta que contiene el menú abierto se eleva mientras dura. Sin esto el
+  // panel salía POR DEBAJO de las tarjetas siguientes: la animación de entrada
+  // (animarVista) deja transform/opacity en cada tarjeta, y eso crea un
+  // contexto de apilamiento propio contra el que no puede competir el z-index
+  // del panel.
   function cerrarMenus() {
     container.querySelectorAll(".menu.abierto").forEach(m => m.classList.remove("abierto"));
+    container.querySelectorAll(".card.con-menu-abierto").forEach(c => c.classList.remove("con-menu-abierto"));
   }
   container.querySelectorAll(".menu").forEach(menu => {
     menu.querySelector("[data-menu-btn]").addEventListener("click", (e) => {
       e.stopPropagation();
       const abierto = menu.classList.contains("abierto");
       cerrarMenus();
-      if (!abierto) menu.classList.add("abierto");
+      if (!abierto) {
+        menu.classList.add("abierto");
+        menu.closest(".card")?.classList.add("con-menu-abierto");
+      }
     });
   });
   document.addEventListener("click", cerrarMenus);
@@ -447,6 +492,58 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
     return { concepto: "", cantidad: 1, precio: 0, proyecto_id: "", descripcion: "", descuento_tipo: "porcentaje", descuento_valor: 0 };
   }
 
+  // Reordenar: mover un elemento de una posición a otra dentro de un array.
+  // Se usa igual para las líneas y para las condiciones.
+  function moverEn(lista, desde, hasta) {
+    if (hasta < 0 || hasta >= lista.length || desde === hasta) return false;
+    const [item] = lista.splice(desde, 1);
+    lista.splice(hasta, 0, item);
+    return true;
+  }
+
+  function moverLinea(desde, hasta) {
+    if (!moverEn(draft.lineas, desde, hasta)) return;
+    pintarLineas();
+    actualizar();
+  }
+
+  // Arrastrar y soltar sobre filas. El tirador activa `draggable` en la fila
+  // (así la imagen que se arrastra es la fila entera, no solo el icono) y lo
+  // desactiva al soltar, para no interferir con la selección de texto de los
+  // inputs.
+  function engancharArrastre(contenedor, selectorFila, selectorTirador, alSoltar) {
+    let origen = null;
+    contenedor.querySelectorAll(selectorFila).forEach(fila => {
+      const tirador = fila.querySelector(selectorTirador);
+      if (!tirador) return;
+      tirador.addEventListener("mousedown", () => { fila.draggable = true; });
+      fila.addEventListener("dragstart", (e) => {
+        origen = fila;
+        fila.classList.add("arrastrando");
+        e.dataTransfer.effectAllowed = "move";
+        try { e.dataTransfer.setData("text/plain", ""); } catch {}
+      });
+      fila.addEventListener("dragend", () => {
+        fila.draggable = false;
+        fila.classList.remove("arrastrando");
+        contenedor.querySelectorAll(".soltar-aqui").forEach(x => x.classList.remove("soltar-aqui"));
+        origen = null;
+      });
+      fila.addEventListener("dragover", (e) => {
+        if (!origen || origen === fila) return;
+        e.preventDefault();
+        fila.classList.add("soltar-aqui");
+      });
+      fila.addEventListener("dragleave", () => fila.classList.remove("soltar-aqui"));
+      fila.addEventListener("drop", (e) => {
+        if (!origen || origen === fila) return;
+        e.preventDefault();
+        fila.classList.remove("soltar-aqui");
+        alSoltar(Number(origen.dataset.idx ?? origen.dataset.i), Number(fila.dataset.idx ?? fila.dataset.i));
+      });
+    });
+  }
+
   function pintarLineas() {
     if (!draft.lineas.length) {
       $lineasWrap.innerHTML = `<div class="empty-state" style="padding:28px 10px;">Todavía no hay líneas. Añade un servicio guardado, un proyecto o una línea manual.</div>`;
@@ -457,18 +554,26 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
       <table class="tabla-lineas">
         <thead>
           <tr>
+            <th class="col-mover"></th>
             <th>Concepto${esPresupuestoDraft ? " y descripción" : ""}</th>
-            <th class="col-num">Cant.</th>
-            <th class="col-num">Precio</th>
-            <th class="col-num">Dto.</th>
-            <th>Proyecto</th>
-            <th class="col-num">Total</th>
+            <th class="col-num col-cant">Cant.</th>
+            <th class="col-num col-precio">Precio</th>
+            <th class="col-num col-dto">Dto.</th>
+            ${esPresupuestoDraft ? "" : `<th class="col-proy">Proyecto</th>`}
+            <th class="col-num col-total">Total</th>
             <th class="col-acc"></th>
           </tr>
         </thead>
         <tbody>
         ${draft.lineas.map((l, i) => `
           <tr data-idx="${i}">
+            <td class="col-mover">
+              <span class="mover-tirador" title="Arrastra para reordenar">⠿</span>
+              <span class="mover-flechas">
+                <button class="icon-btn btn-subir" type="button" title="Subir" ${i === 0 ? "disabled" : ""}>↑</button>
+                <button class="icon-btn btn-bajar" type="button" title="Bajar" ${i === draft.lineas.length - 1 ? "disabled" : ""}>↓</button>
+              </span>
+            </td>
             <td data-label="Concepto">
               <input class="linea-concepto" placeholder="Concepto" value="${escapeAttr(l.concepto)}">
               ${esPresupuestoDraft ? `
@@ -477,9 +582,9 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
                 <button class="btn btn-ghost btn-mejorar-ia" type="button" title="${tieneClaveGemini() ? "Mejorar esta descripción con IA" : "Añade tu clave de Gemini en Configuración para usar esto"}">✨ IA</button>
               </div>` : ""}
             </td>
-            <td data-label="Cant." class="col-num"><input class="linea-cantidad" type="number" step="1" value="${l.cantidad}"></td>
-            <td data-label="Precio" class="col-num"><input class="linea-precio" type="number" step="0.01" value="${l.precio}"></td>
-            <td data-label="Dto." class="col-num">
+            <td data-label="Cant." class="col-num col-cant"><input class="linea-cantidad" type="number" step="1" value="${l.cantidad}"></td>
+            <td data-label="Precio" class="col-num col-precio"><input class="linea-precio" type="number" step="0.01" value="${l.precio}"></td>
+            <td data-label="Dto." class="col-num col-dto">
               <div class="dto-cell">
                 <input class="linea-desc-valor" type="number" step="0.01" min="0" value="${Number(l.descuento_valor || 0)}">
                 <select class="linea-desc-tipo">
@@ -488,13 +593,14 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
                 </select>
               </div>
             </td>
-            <td data-label="Proyecto">
+            ${esPresupuestoDraft ? "" : `
+            <td data-label="Proyecto" class="col-proy">
               <select class="linea-proyecto">
                 <option value="">(sin proyecto)</option>
                 ${(proyectosDisponibles || []).map(p => `<option value="${p.id}" ${p.id === l.proyecto_id ? "selected" : ""}>${escapeHtml(p.nombre)}</option>`).join("")}
               </select>
-            </td>
-            <td data-label="Total" class="col-num"><span class="linea-total"></span></td>
+            </td>`}
+            <td data-label="Total" class="col-num col-total"><span class="linea-total"></span></td>
             <td class="col-acc"><button class="icon-btn btn-quitar-linea" type="button" title="Quitar línea">✕</button></td>
           </tr>`).join("")}
         </tbody>
@@ -506,7 +612,11 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
       row.querySelector(".linea-concepto").addEventListener("input", e => { draft.lineas[idx].concepto = e.target.value; actualizar(); });
       row.querySelector(".linea-cantidad").addEventListener("input", e => { draft.lineas[idx].cantidad = Number(e.target.value || 0); actualizar(); });
       row.querySelector(".linea-precio").addEventListener("input", e => { draft.lineas[idx].precio = Number(e.target.value || 0); actualizar(); });
-      row.querySelector(".linea-proyecto").addEventListener("change", e => { draft.lineas[idx].proyecto_id = e.target.value; });
+      // En presupuestos ya no hay proyecto por línea: el documento entero tiene
+      // uno solo, en el campo "Proyecto" de arriba.
+      row.querySelector(".linea-proyecto")?.addEventListener("change", e => { draft.lineas[idx].proyecto_id = e.target.value; });
+      row.querySelector(".btn-subir").addEventListener("click", () => moverLinea(idx, idx - 1));
+      row.querySelector(".btn-bajar").addEventListener("click", () => moverLinea(idx, idx + 1));
       row.querySelector(".linea-desc-valor").addEventListener("input", e => { draft.lineas[idx].descuento_valor = Number(e.target.value || 0); actualizar(); });
       row.querySelector(".linea-desc-tipo").addEventListener("change", e => { draft.lineas[idx].descuento_tipo = e.target.value; actualizar(); });
       row.querySelector(".btn-quitar-linea").addEventListener("click", () => { draft.lineas.splice(idx, 1); pintarLineas(); actualizar(); });
@@ -532,6 +642,8 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
         }
       });
     });
+
+    engancharArrastre($lineasWrap, "tr[data-idx]", ".mover-tirador", moverLinea);
   }
 
   function actualizar() {
@@ -577,8 +689,11 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
     const activos = (servicios || []).filter(s => s.activo !== false);
     $panel.innerHTML = `
       ${activos.length
-        ? activos.map(s => `<button class="menu-item" type="button" data-servicio="${s.id}">
-             <span class="menu-item-nombre">${escapeHtml(etiquetaServicio(s))}</span>
+        ? activos.map(s => `<button class="menu-item es-servicio" type="button" data-servicio="${s.id}">
+             <span class="servicio-info">
+               <span class="servicio-nombre">${escapeHtml(s.nombre || "")}</span>
+               ${s.unidad ? `<span class="servicio-unidad">${escapeHtml(s.unidad)}</span>` : ""}
+             </span>
              <span class="menu-item-precio">${eur(Number(s.precio || 0))}</span>
            </button>`).join("")
         : `<p class="menu-vacio">Todavía no tienes tarifas guardadas.</p>`}
@@ -604,7 +719,10 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
 
   // --- Desplegable de proyectos ---
   function pintarMenuProyectos() {
+    // En presupuestos este menú no se pinta: el proyecto es uno solo y va en
+    // su propio campo, no por línea.
     const $panel = container.querySelector("#menu-proyectos [data-menu-panel]");
+    if (!$panel) return;
     const yaUsados = new Set(draft.lineas.map(l => l.proyecto_id).filter(Boolean));
     const disponibles = (proyectosDisponibles || []).filter(p => !yaUsados.has(p.id));
     $panel.innerHTML = `
@@ -678,12 +796,22 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
     draft.condiciones = textosPorDefecto(condicionesGuardadas);
   }
 
+  function moverCondicion(desde, hasta) {
+    if (!moverEn(draft.condiciones, desde, hasta)) return;
+    pintarCondiciones();
+  }
+
   function pintarCondiciones() {
     const $elegidas = container.querySelector("#condiciones-elegidas");
     if (!$elegidas) return;
     $elegidas.innerHTML = draft.condiciones.length
       ? draft.condiciones.map((c, i) => `
         <div class="cond-row" data-i="${i}">
+          <span class="cond-mover">
+            <span class="mover-tirador" title="Arrastra para reordenar">⠿</span>
+            <button class="icon-btn btn-subir-cond" type="button" title="Subir" ${i === 0 ? "disabled" : ""}>↑</button>
+            <button class="icon-btn btn-bajar-cond" type="button" title="Bajar" ${i === draft.condiciones.length - 1 ? "disabled" : ""}>↓</button>
+          </span>
           <textarea class="cond-texto" rows="2">${escapeHtml(c)}</textarea>
           <button class="icon-btn btn-quitar-cond" type="button" title="Quitar de este presupuesto">✕</button>
         </div>`).join("")
@@ -697,7 +825,10 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
         draft.condiciones.splice(i, 1);
         pintarCondiciones();
       });
+      row.querySelector(".btn-subir-cond").addEventListener("click", () => moverCondicion(i, i - 1));
+      row.querySelector(".btn-bajar-cond").addEventListener("click", () => moverCondicion(i, i + 1));
     });
+    engancharArrastre($elegidas, ".cond-row", ".mover-tirador", moverCondicion);
     pintarMenuCondiciones();
   }
 
@@ -840,6 +971,7 @@ pintarCondiciones();
       descuento_tipo: draft.descuento_tipo || "porcentaje",
       descuento_valor: Number(draft.descuento_valor || 0),
       condiciones: draft.condiciones || [],
+      proyecto_nombre: (container.querySelector("#f-proyecto-nombre")?.value || draft.proyecto_nombre || "").trim() || null,
       ...calc,
       ...payloadExtra,
     };
@@ -893,6 +1025,44 @@ pintarCondiciones();
     }
   });
 
+  // Un presupuesto aceptado es el nacimiento de un proyecto. Esto lo crea sin
+  // tener que teclearlo otra vez y lo deja vinculado, de modo que a partir de
+  // ahí aparece en Proyectos y en Facturación mensual.
+  container.querySelector("#btn-convertir-proyecto")?.addEventListener("click", async () => {
+    if (draft.proyecto_id) { location.hash = `#/proyectos/${draft.proyecto_id}`; return; }
+    const nombre = (container.querySelector("#f-proyecto-nombre")?.value || "").trim();
+    if (!nombre) {
+      toastError("Ponle nombre al proyecto arriba, en el campo Proyecto, antes de convertirlo.");
+      container.querySelector("#f-proyecto-nombre")?.focus();
+      return;
+    }
+    const calc = actualizar();
+    const precio = Number(calc?.base_imponible || 0);
+    if (!await confirmar({
+      titulo: "¿Crear el proyecto?",
+      mensaje: `Se creará "${nombre}" con un precio acordado de ${eur(precio)} y quedará vinculado a este presupuesto, que pasará a "Aceptado".`,
+      confirmar: "Crear proyecto",
+    })) return;
+
+    const { data, error } = await db.from("proyectos").insert({
+      nombre,
+      cliente_id: container.querySelector("#f-cliente").value || null,
+      precio_acordado: precio,
+      fecha_inicio: container.querySelector("#f-fecha").value || todayIso(),
+      estado: "en_curso",
+    }).exec();
+    if (error) { toastError("No se ha podido crear el proyecto: " + error); return; }
+    const nuevoId = Array.isArray(data) ? data[0]?.id : data?.id;
+    if (!nuevoId) { toastError("El proyecto se ha creado pero no ha devuelto id; revísalo en Proyectos."); return; }
+
+    draft.proyecto_id = nuevoId;
+    const idGuardada = await guardar({ proyecto_id: nuevoId, estado: "pagada" });
+    if (idGuardada) {
+      toastOk(`Proyecto "${nombre}" creado y vinculado al presupuesto.`);
+      location.hash = `#/proyectos/${nuevoId}`;
+    }
+  });
+
   // Una factura sin NIF o sin dirección del cliente no es válida ante Hacienda.
   // Antes se podía exportar igual, con los huecos en blanco y sin avisar, así
   // que era fácil mandarla a un cliente creyendo que estaba completa.
@@ -928,9 +1098,10 @@ pintarCondiciones();
     // Nombre del proyecto REAL: antes el PDF ponía en "Proyecto" el primer
     // concepto de la lista, que casi nunca coincide con el proyecto elegido.
     const idsProyecto = [...new Set(draft.lineas.map(l => l.proyecto_id).filter(Boolean))];
-    const proyectoNombre = idsProyecto.length === 1
-      ? (proyectosDisponibles || []).find(p => p.id === idsProyecto[0])?.nombre
-      : null;
+    const proyectoNombre = (container.querySelector("#f-proyecto-nombre")?.value || "").trim()
+      || (idsProyecto.length === 1
+            ? (proyectosDisponibles || []).find(p => p.id === idsProyecto[0])?.nombre
+            : null);
     const docParaPdf = {
       numero: container.querySelector("#f-numero").value.trim(),
       tipo: draft.tipo,
@@ -982,7 +1153,7 @@ async function descargarPdfDocumento(doc, cliente) {
       // concepto del desglose. Se resuelve, por este orden: el nombre que pase
       // el editor, el proyecto vinculado en la BD, y solo como último recurso
       // el primer concepto.
-      let proyectoNombre = doc.proyectoNombre;
+      let proyectoNombre = doc.proyectoNombre || doc.proyecto_nombre;
       if (!proyectoNombre) {
         const idsProyecto = [...new Set((doc.lineas || []).map(l => l.proyecto_id).filter(Boolean))];
         const idUnico = doc.proyecto_id || (idsProyecto.length === 1 ? idsProyecto[0] : null);
