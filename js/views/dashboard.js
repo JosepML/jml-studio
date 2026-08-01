@@ -1,7 +1,7 @@
 import { db } from "../supabase.js";
 import { eur, ESTADOS_PROYECTO, ESTADOS_COBRO } from "../utils/format.js";
 import { calcularModelo130Trimestral, gastoDificilJustificacion, round2 } from "../utils/invoice-calc.js";
-import { construirLedger, resumenPeriodo, resumenTrimestre, rangoMes, rangoAnio, conIva, estadoEfectivo } from "../utils/resumen.js";
+import { construirLedger, resumenPeriodo, resumenTrimestre, rangoMes, rangoAnio, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
 import { escapeHtml } from "./clientes.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { skeletonPagina, animarVista } from "../utils/ui.js";
@@ -87,7 +87,7 @@ export async function renderDashboard(container) {
   // basan en el estado de cobro real del ledger (no en el campo kanban
   // `proyectos.estado`, que no refleja si ya se ha facturado o cobrado).
   const pendientes = ledger.filter(f => estadoEfectivo(f) === "emitida");
-  const pendienteTotal = pendientes.reduce((s,f)=>s+conIva(f.importeBase),0);
+  const pendienteTotal = pendientes.reduce((s,f)=>s+conIvaSegunPago(f.importeBase, f.proyecto.forma_pago),0);
   const enCurso = ledger.filter(f => estadoEfectivo(f) === "pendiente").slice(0, 8);
 
   const porEstado = Object.keys(ESTADOS_COBRO).map(k => ({ key: k, label: ESTADOS_COBRO[k].label, fg: ESTADOS_COBRO[k].fg, count: ledger.filter(f=>estadoEfectivo(f)===k).length }));
@@ -144,7 +144,7 @@ export async function renderDashboard(container) {
         <div class="card-head"><h3>Pendiente de cobro</h3><span class="help-tip" title="Proyectos ya facturados/emitidos que todavía no se han cobrado.">i</span></div>
         <table>
           <thead><tr><th>Proyecto</th><th>Cliente</th><th class="money">Importe c/IVA</th></tr></thead>
-          <tbody>${pendientes.slice(0,8).map(f => `<tr class="clickable" data-proyecto-id="${f.proyecto.id}"><td><strong>${escapeHtml(f.proyecto.nombre)}</strong></td><td>${escapeHtml(clientesMap[f.proyecto.cliente_id]||"—")}</td><td class="money">${eur(conIva(f.importeBase))}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Nada pendiente 🎉</td></tr>`}</tbody>
+          <tbody>${pendientes.slice(0,8).map(f => `<tr class="clickable" data-proyecto-id="${f.proyecto.id}"><td><strong>${escapeHtml(f.proyecto.nombre)}</strong></td><td>${escapeHtml(clientesMap[f.proyecto.cliente_id]||"—")}</td><td class="money">${eur(conIvaSegunPago(f.importeBase, f.proyecto.forma_pago))}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Nada pendiente 🎉</td></tr>`}</tbody>
         </table>
         ${pendientes.length ? `<p style="margin-top:10px;"><a href="#/mensual">Ver y marcar como pagadas →</a></p>` : ""}
       </div>

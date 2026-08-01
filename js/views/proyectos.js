@@ -1,6 +1,6 @@
 import { db } from "../supabase.js";
 import { ESTADOS_FACTURA, ESTADOS_COBRO, FORMAS_PAGO, CATEGORIAS_SERVICIO, eur, dateEs, todayIso } from "../utils/format.js";
-import { construirLedger, conIva, estadoEfectivo, rangoAnio, resumenPeriodo } from "../utils/resumen.js";
+import { construirLedger, conIva, estadoEfectivo, rangoAnio, resumenPeriodo, conIvaSegunPago } from "../utils/resumen.js";
 import { round2 } from "../utils/invoice-calc.js";
 import { escapeHtml, escapeAttr } from "./clientes.js";
 import { toastOk, toastError, confirmarBorrado, skeletonPagina } from "../utils/ui.js";
@@ -77,7 +77,7 @@ export async function renderProyectos(container, param) {
       const k = p.categoria_servicio || "otros";
       (porCategoriaServicio[k] ||= { count: 0, total: 0 }).count++;
       const f = ledgerPorProyecto[p.id];
-      porCategoriaServicio[k].total = round2(porCategoriaServicio[k].total + conIva(f ? f.importeBase : (p.precio_acordado||0)));
+      porCategoriaServicio[k].total = round2(porCategoriaServicio[k].total + conIvaSegunPago(f ? f.importeBase : (p.precio_acordado||0), p.forma_pago));
     });
     const entradas = Object.entries(porCategoriaServicio).sort((a,b)=>b[1].count-a[1].count);
     const $catChips = container.querySelector("#categoria-chips");
@@ -99,7 +99,7 @@ export async function renderProyectos(container, param) {
       if (!p.cliente_id) return;
       (porCliente[p.cliente_id] ||= { count: 0, total: 0 }).count++;
       const f = ledgerPorProyecto[p.id];
-      porCliente[p.cliente_id].total = round2(porCliente[p.cliente_id].total + conIva(f ? f.importeBase : (p.precio_acordado||0)));
+      porCliente[p.cliente_id].total = round2(porCliente[p.cliente_id].total + conIvaSegunPago(f ? f.importeBase : (p.precio_acordado||0), p.forma_pago));
     });
     const topClientes = Object.entries(porCliente).sort((a,b)=>b[1].count-a[1].count).slice(0,5);
     container.querySelector("#top-clientes").innerHTML = topClientes.length ? `
@@ -160,7 +160,7 @@ export async function renderProyectos(container, param) {
       const estado = f ? estadoEfectivo(f) : "pendiente";
       const cat = ESTADOS_COBRO[estado];
       const catServicio = CATEGORIAS_SERVICIO[p.categoria_servicio] || CATEGORIAS_SERVICIO.otros;
-      const importeConIva = f ? conIva(f.importeBase) : conIva(p.precio_acordado);
+      const importeConIva = conIvaSegunPago(f ? f.importeBase : p.precio_acordado, p.forma_pago);
       const nGastos = (gastos||[]).filter(g => g.proyecto_id === p.id).length;
       return `<tr>
         <td class="link-proyecto" data-id="${p.id}" style="padding-left:18px; cursor:pointer; color:var(--blue); font-weight:600;">${escapeHtml(p.nombre)}${nGastos?` <span class="muted" style="font-weight:400; font-size:11px;">· ${nGastos} gasto${nGastos===1?"":"s"}</span>`:""}</td>

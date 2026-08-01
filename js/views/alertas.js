@@ -10,7 +10,7 @@
 
 import { db } from "../supabase.js";
 import { eur, dateEs, todayIso } from "../utils/format.js";
-import { construirLedger, rangoMes, conIva, estadoEfectivo } from "../utils/resumen.js";
+import { construirLedger, rangoMes, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
 import { escapeHtml, escapeAttr } from "./clientes.js";
 
 const CLIENTE_GENERICO = "por clasificar";
@@ -57,7 +57,7 @@ export async function calcularAlertas() {
     .forEach(f => alertas.push({
       id: `cobro:${f.proyecto.id}`,
       tipo: "cobro",
-      texto: `"${f.proyecto.nombre}" (${clientesMap[f.proyecto.cliente_id] || "—"}) lleva ${diasDesde(f.fecha)} días emitido sin marcarse como pagado — ${eur(conIva(f.importeBase))}.`,
+      texto: `"${f.proyecto.nombre}" (${clientesMap[f.proyecto.cliente_id] || "—"}) lleva ${diasDesde(f.fecha)} días emitido sin marcarse como pagado — ${eur(conIvaSegunPago(f.importeBase, f.proyecto.forma_pago))}.`,
       href: "#/mensual",
     }));
 

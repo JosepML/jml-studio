@@ -10,7 +10,7 @@
 // además en localStorage, así que también aguantan un F5 o cerrar la app.
 
 import { db } from "../supabase.js";
-import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo } from "../utils/resumen.js";
+import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { round2 } from "../utils/invoice-calc.js";
 import { escapeHtml } from "./clientes.js";
@@ -108,7 +108,7 @@ async function cargarContexto() {
       beneficio_real: anual.beneficioReal,
     },
     pendiente_de_cobro: {
-      importe_con_iva: round2(pendientes.reduce((s, f) => s + conIva(f.importeBase), 0)),
+      importe_con_iva: round2(pendientes.reduce((s, f) => s + conIvaSegunPago(f.importeBase, f.proyecto.forma_pago), 0)),
       num_proyectos: pendientes.length,
     },
     facturacion_por_mes: MESES.map((m, i) => {
