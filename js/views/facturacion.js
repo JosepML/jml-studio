@@ -1391,6 +1391,10 @@ async function descargarPdfDocumento(doc, cliente) {
           concepto: l.concepto || "—",
           descripcion: l.descripcion || "",
           importe: d.neto,
+          // El PDF decide solo si pinta las columnas de precio y cantidad:
+          // solo aparecen si alguna línea tiene más de una unidad.
+          cantidad: Number(l.cantidad || 1),
+          precio: Number(l.precio || 0),
           // Para que el PDF pueda pintar el precio original tachado encima del
           // final. Solo se manda si hay descuento; si no, va a null y la línea
           // se dibuja como siempre, con un único importe.
