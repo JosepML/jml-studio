@@ -24,10 +24,12 @@ export const DEFAULTS = {
   // Gasto fijo mensual: honorarios de la gestoría (con IVA).
   gestoria_importe: 60.71,
   gestoria_iva_soportado: 10.54,
-  // Clave de API gratuita de Google Gemini (aistudio.google.com) para el
-  // botón "Mejorar con IA" de las descripciones de presupuesto. Vacía por
-  // defecto: sin clave, ese botón se desactiva y lo explica.
-  gemini_api_key: "",
+  // Clave de API gratuita de Mistral (console.mistral.ai) para el chat del
+  // Asistente y el botón "Mejorar con IA" de los presupuestos. Vacía por
+  // defecto: sin clave, esas funciones se desactivan y lo explican.
+  // Antes esto era una clave de Gemini, pero Google no deja usar su capa
+  // gratuita desde España/UE y siempre devolvía error de cuota.
+  ia_api_key: "",
   // Biblioteca de condiciones adicionales para los presupuestos. Son las que
   // Josep repite de un presupuesto a otro (láseres, time-code...) y que no
   // están entre las condiciones fijas de config-negocio.js. Vive aquí, en
