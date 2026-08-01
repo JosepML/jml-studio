@@ -9,7 +9,7 @@ import { renderMensual } from "./views/mensual.js";
 import { renderAsistente } from "./views/asistente.js";
 import { renderConfiguracion } from "./views/configuracion.js";
 import { asegurarGastosFijosMensuales } from "./utils/gastos-recurrentes.js";
-import { animarVista } from "./utils/ui.js";
+import { animarVista, toastError } from "./utils/ui.js";
 import { cargarEmisor, olvidarEmisor } from "./utils/config-negocio.js";
 
 const ROUTES = {
@@ -176,7 +176,7 @@ document.getElementById("setpass-btn").addEventListener("click", async () => {
 (async function boot() {
   const result = await auth.completeFromUrlHash();
   if (result.handled) {
-    if (result.error) { showLogin(); alert(result.error); return; }
+    if (result.error) { showLogin(); toastError(result.error); return; }
     if (result.needsPassword) { showSetPassword(); return; }
     showApp();
     return;
