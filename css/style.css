@@ -1133,3 +1133,73 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 /* Cinco bloques (fiscal, emisor, tarifas, condiciones, IA) en una sola página
    hacían un scroll interminable; ahora cada uno tiene su pestaña. */
 .cfg-tabs{margin-bottom:18px; flex-wrap:wrap;}
+
+/* ============================================================ CALENDARIO
+   Rejilla mensual sincronizada con Google Calendar. La semana empieza en
+   lunes (L M X J V S D), como en España, no en domingo. */
+.cal-head{display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:16px;}
+.cal-titulo{display:flex; align-items:center; gap:12px;}
+.cal-titulo h3{margin:0; font-size:16px; letter-spacing:-.02em;}
+.cal-titulo small{font-size:12px;}
+.cal-icono{
+  width:36px; height:36px; border-radius:var(--radius-xs); display:grid; place-items:center;
+  background:var(--purple-bg); color:var(--blue); flex:0 0 auto;
+}
+.cal-icono svg{width:19px; height:19px;}
+.cal-acciones{display:flex; align-items:center; gap:6px;}
+.cal-icon-btn{width:34px; padding:0; justify-content:center; font-size:16px; line-height:1;}
+
+.cal-estado{
+  background:var(--amber-bg); color:var(--amber-fg); border-radius:var(--radius-xs);
+  padding:11px 13px; font-size:12.5px; line-height:1.55; margin-bottom:14px;
+}
+.cal-estado a{color:inherit; font-weight:600;}
+.cal-estado .btn{margin-left:6px;}
+
+.cal-mes{font-size:15px; font-weight:700; letter-spacing:-.02em; margin-bottom:10px;}
+.cal-semana{
+  display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:8px;
+  margin-bottom:8px; font-size:11px; font-weight:600; color:var(--grey);
+  text-transform:uppercase; letter-spacing:.06em; text-align:center;
+}
+.cal-rejilla{display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:8px;}
+
+.cal-dia{
+  min-height:104px; border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:8px; background:#fff; cursor:pointer; overflow:hidden;
+  transition:border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.cal-dia:hover{border-color:#C8D2E8; box-shadow:var(--shadow-xs);}
+.cal-dia.fuera{background:#FAFBFC; border-color:#EDEFF4;}
+.cal-dia.fuera .cal-num{color:#B4BCCB;}
+.cal-dia.hoy{border-color:var(--blue); background:#F5F8FF; box-shadow:0 0 0 1px var(--blue) inset;}
+
+.cal-dia-cab{display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:6px;}
+.cal-num{font-size:13px; font-weight:600; color:var(--text);}
+.cal-hoy{
+  font-size:9.5px; font-weight:700; letter-spacing:.06em; color:var(--blue);
+  background:#fff; border:1px solid #C7D6FA; border-radius:99px; padding:2px 7px;
+}
+
+.cal-evs{display:flex; flex-direction:column; gap:3px;}
+.cal-ev{
+  display:flex; align-items:center; gap:5px; width:100%; text-align:left;
+  background:var(--light); border:0; border-radius:6px; padding:3px 6px; cursor:pointer;
+  font:inherit; font-size:11px; color:var(--text); line-height:1.35;
+  transition:background-color var(--dur) var(--ease);
+}
+.cal-ev:hover{background:#E7ECFB;}
+.cal-ev i{width:6px; height:6px; border-radius:99px; flex:0 0 auto;}
+.cal-ev span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.cal-ev b{font-weight:600; color:var(--grey-fg);}
+.cal-mas{font-size:10.5px; color:var(--grey); padding-left:6px;}
+
+.cal-fila-fecha{display:flex; gap:6px;}
+.cal-fila-fecha input{min-width:0;}
+
+@media (max-width:900px){
+  .cal-dia{min-height:78px; padding:6px; border-radius:var(--radius-xs);}
+  .cal-rejilla, .cal-semana{gap:5px;}
+  .cal-ev span{font-size:10px;}
+  .cal-acciones{width:100%; justify-content:flex-end;}
+}
