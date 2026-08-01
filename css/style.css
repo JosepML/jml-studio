@@ -699,14 +699,7 @@ details.card table input[type="checkbox"]{width:auto; padding:0;}
 .tabla-lineas td.col-num{text-align:right;}
 .tabla-lineas td.col-num input{text-align:right;}
 .tabla-lineas .col-acc{width:34px; padding-left:0; padding-right:0;}
-/* Anchos por CLASE y no por posición: al quitar la columna de proyecto en los
-   presupuestos, los nth-child se desplazaban y descuadraban toda la tabla. */
-.tabla-lineas .col-mover{width:34px; padding-left:0; padding-right:0;}
-.tabla-lineas .col-cant{width:74px;}
-.tabla-lineas .col-precio{width:96px;}
-.tabla-lineas .col-dto{width:112px;}
-.tabla-lineas .col-proy{width:150px;}
-.tabla-lineas .col-total{width:104px;}
+.tabla-lineas .col-mover{padding-left:0; padding-right:0;}
 .linea-total{display:inline-block; font-size:13.5px; font-variant-numeric:tabular-nums; line-height:1.35;}
 .importe-tachado{color:var(--grey); text-decoration:line-through; font-size:11.5px;}
 .linea-desc-wrap{display:flex; gap:6px; align-items:flex-start; margin-top:6px;}
@@ -803,7 +796,8 @@ details.card table input[type="checkbox"]{width:auto; padding:0;}
 /* Ajustes de ancho detectados al probar en vivo -------------------------- */
 /* Dto.: el valor y el selector %/€ no cabían en 112px y el número salía
    recortado ("(" en vez de "0"). */
-.tabla-lineas th:nth-child(4), .tabla-lineas td:nth-child(4){width:134px;}
+/* (Sustituido por .col-dto más abajo: los nth-child se rompían al quitar la
+   columna de proyecto en los presupuestos.) */
 
 /* La tabla de tarifas de Configuración reutiliza .tabla-lineas, pero sus
    columnas son otras, así que heredaba anchos pensados para Cant./Precio y
@@ -824,7 +818,6 @@ details.card table input[type="checkbox"]{width:auto; padding:0;}
    sitio para las flechitas incluso cuando no se ven, así que el "0" quedaba
    recortado. Se ocultan las flechas (aquí no aportan: se teclea el número) y
    se ensancha la columna. Medido en vivo: el valor y el %/€ ya entran. */
-.tabla-lineas th:nth-child(4), .tabla-lineas td:nth-child(4){width:150px;}
 .dto-cell input::-webkit-outer-spin-button,
 .dto-cell input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
 .dto-cell input{appearance:textfield; min-width:0; padding-left:8px; padding-right:8px;}
@@ -835,12 +828,18 @@ details.card table input[type="checkbox"]{width:auto; padding:0;}
    ancho como quiere y en pantallas grandes seguía estrujando Dto. Con fixed,
    las medidas se respetan igual en un portátil y en un monitor de 27". */
 .tabla-lineas{table-layout:fixed;}
-.tabla-lineas th:nth-child(1), .tabla-lineas td:nth-child(1){width:auto;}
-.tabla-lineas th:nth-child(2), .tabla-lineas td:nth-child(2){width:68px;}
-.tabla-lineas th:nth-child(3), .tabla-lineas td:nth-child(3){width:94px;}
-.tabla-lineas th:nth-child(4), .tabla-lineas td:nth-child(4){width:158px;}
-.tabla-lineas th:nth-child(5), .tabla-lineas td:nth-child(5){width:152px;}
-.tabla-lineas th:nth-child(6), .tabla-lineas td:nth-child(6){width:104px;}
+/* Por CLASE, no por posición: al quitar la columna de proyecto en presupuestos
+   y añadir la del tirador, los nth-child apuntaban a la columna equivocada y
+   la tabla salía completamente descuadrada. Estas son las medidas buenas,
+   tomadas en vivo. La columna de concepto no lleva ancho: se queda con lo que
+   sobra. */
+.tabla-lineas .col-mover{width:34px;}
+.tabla-lineas .col-cant{width:68px;}
+.tabla-lineas .col-precio{width:94px;}
+.tabla-lineas .col-dto{width:158px;}
+.tabla-lineas .col-proy{width:152px;}
+.tabla-lineas .col-total{width:104px;}
+.tabla-lineas .col-acc{width:34px;}
 .dto-cell input{flex:1 1 auto;}
 .dto-cell select{width:60px; flex:0 0 60px;}
 
@@ -944,7 +943,9 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 @media (max-width:860px){
   .mover-tirador{display:none;}
   .mover-flechas{display:inline-flex; gap:6px;}
-  .tabla-lineas .col-mover{width:auto; text-align:left;}
+  .tabla-lineas .col-mover, .tabla-lineas .col-cant, .tabla-lineas .col-precio,
+  .tabla-lineas .col-dto, .tabla-lineas .col-proy, .tabla-lineas .col-total{width:auto;}
+  .tabla-lineas .col-mover{text-align:left;}
 }
 
 /* ---------- Tarjeta con un desplegable abierto ---------- */
