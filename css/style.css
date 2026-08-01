@@ -699,11 +699,14 @@ details.card table input[type="checkbox"]{width:auto; padding:0;}
 .tabla-lineas td.col-num{text-align:right;}
 .tabla-lineas td.col-num input{text-align:right;}
 .tabla-lineas .col-acc{width:34px; padding-left:0; padding-right:0;}
-.tabla-lineas th:nth-child(2), .tabla-lineas td:nth-child(2){width:74px;}
-.tabla-lineas th:nth-child(3), .tabla-lineas td:nth-child(3){width:96px;}
-.tabla-lineas th:nth-child(4), .tabla-lineas td:nth-child(4){width:112px;}
-.tabla-lineas th:nth-child(5), .tabla-lineas td:nth-child(5){width:150px;}
-.tabla-lineas th:nth-child(6), .tabla-lineas td:nth-child(6){width:104px;}
+/* Anchos por CLASE y no por posición: al quitar la columna de proyecto en los
+   presupuestos, los nth-child se desplazaban y descuadraban toda la tabla. */
+.tabla-lineas .col-mover{width:34px; padding-left:0; padding-right:0;}
+.tabla-lineas .col-cant{width:74px;}
+.tabla-lineas .col-precio{width:96px;}
+.tabla-lineas .col-dto{width:112px;}
+.tabla-lineas .col-proy{width:150px;}
+.tabla-lineas .col-total{width:104px;}
 .linea-total{display:inline-block; font-size:13.5px; font-variant-numeric:tabular-nums; line-height:1.35;}
 .importe-tachado{color:var(--grey); text-decoration:line-through; font-size:11.5px;}
 .linea-desc-wrap{display:flex; gap:6px; align-items:flex-start; margin-top:6px;}
@@ -912,3 +915,52 @@ details.card table input[type="checkbox"]{width:auto; padding:0;}
 }
 .menu-item.es-larga:hover .menu-item-precio{background:#fff;}
 .menu-item.es-pack{justify-content:space-between;}
+
+/* ---------- Reordenar líneas y condiciones ---------- */
+/* El tirador arrastra; las flechas hacen lo mismo con un clic y son las que
+   funcionan en móvil, donde arrastrar una fila es un suplicio. */
+.col-mover{white-space:nowrap; text-align:center; vertical-align:middle !important;}
+.mover-tirador{
+  display:inline-block; cursor:grab; color:var(--grey); font-size:14px;
+  line-height:1; padding:2px 1px; user-select:none;
+}
+.mover-tirador:active{cursor:grabbing;}
+.mover-flechas{display:none;}
+.col-mover .icon-btn, .cond-mover .icon-btn{
+  width:20px; height:18px; font-size:11px; padding:0; line-height:1;
+}
+.col-mover .icon-btn[disabled], .cond-mover .icon-btn[disabled]{opacity:.25; cursor:default;}
+tr.arrastrando, .cond-row.arrastrando{opacity:.45;}
+tr.soltar-aqui td{border-top:2px solid var(--blue);}
+.cond-row.soltar-aqui{outline:2px solid var(--blue); outline-offset:-2px;}
+.cond-row{position:relative;}
+.cond-mover{
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  flex-shrink:0; padding-top:2px;
+}
+
+/* En móvil la tabla se vuelve tarjetas: ahí el tirador no sirve y mandan las
+   flechas. */
+@media (max-width:860px){
+  .mover-tirador{display:none;}
+  .mover-flechas{display:inline-flex; gap:6px;}
+  .tabla-lineas .col-mover{width:auto; text-align:left;}
+}
+
+/* ---------- Tarjeta con un desplegable abierto ---------- */
+/* animarVista deja transform/opacity en cada .card, y eso crea un contexto de
+   apilamiento: el panel del menú quedaba por debajo de las tarjetas de abajo
+   por mucho z-index que tuviera. Se eleva la tarjeta mientras el menú está
+   abierto. */
+.card.con-menu-abierto{position:relative; z-index:70;}
+
+/* ---------- Servicios en el desplegable ---------- */
+.menu-item.es-servicio{align-items:flex-start; padding:9px 10px;}
+.servicio-info{display:flex; flex-direction:column; gap:3px; flex:1; min-width:0; text-align:left;}
+.servicio-nombre{font-weight:600; white-space:normal; line-height:1.35;}
+.servicio-unidad{
+  align-self:flex-start; font-size:10.5px; font-weight:600; color:var(--grey);
+  background:var(--light); border-radius:999px; padding:1px 7px;
+}
+.menu-item.es-servicio:hover .servicio-unidad{background:#fff;}
+.menu-item.es-servicio .menu-item-precio{padding-top:1px;}
