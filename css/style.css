@@ -1350,13 +1350,34 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 .campana-panel header button:hover{background:var(--border);}
 .campana-lista{overflow-y:auto; padding:6px;}
 .campana-vacio{margin:18px 12px; color:var(--grey); font-size:12.5px; text-align:center; line-height:1.6;}
+/* Cada aviso: el enlace ocupa todo y la "×" de descartar aparece al pasar
+   el ratón, para no llenar la lista de aspas. */
 .campana-item{
-  display:flex; gap:10px; align-items:flex-start;
-  padding:9px 10px; border-radius:var(--radius-xs);
-  color:var(--text); text-decoration:none; font-size:12.5px; line-height:1.5;
+  display:flex; align-items:flex-start; border-radius:var(--radius-xs);
   transition:background-color var(--dur) var(--ease);
 }
 .campana-item:hover{background:var(--light);}
+.campana-item > a{
+  flex:1 1 auto; display:flex; gap:10px; align-items:flex-start; min-width:0;
+  padding:9px 4px 9px 10px;
+  color:var(--text); text-decoration:none; font-size:12.5px; line-height:1.5;
+}
+.campana-x{
+  flex:0 0 auto; width:24px; height:24px; margin:7px 6px 0 0;
+  border:none; border-radius:6px; cursor:pointer;
+  background:transparent; color:var(--grey); font-size:15px; line-height:1;
+  opacity:0; transition:opacity var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.campana-item:hover .campana-x, .campana-x:focus-visible{opacity:1;}
+.campana-x:hover{background:var(--red-bg); color:var(--red-fg);}
+
+.campana-pie{border-top:1px solid var(--border); padding:8px 10px; flex:0 0 auto;}
+.campana-pie[hidden]{display:none !important;}
+.campana-pie button{
+  width:100%; padding:7px; border:none; border-radius:var(--radius-xs); cursor:pointer;
+  background:var(--light); color:var(--grey-fg); font:inherit; font-size:11.5px;
+}
+.campana-pie button:hover{background:var(--border); color:var(--text);}
 .campana-ico{
   flex:0 0 auto; width:22px; height:22px; border-radius:6px; margin-top:1px;
   display:grid; place-items:center; font-size:11px; font-style:normal; font-weight:700;
