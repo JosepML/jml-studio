@@ -1,7 +1,7 @@
 // Service worker mínimo: cachea el shell de la app para que abra al instante
 // (incluso con mala cobertura) y funcione para consultar datos ya cargados
 // sin conexión. Los datos en sí siempre se piden en vivo a Supabase.
-const CACHE = "jml-studio-v8";
+const CACHE = "jml-studio-v9";
 const ASSETS = [
   "./", "./index.html", "./manifest.json",
   "./css/style.css",
@@ -14,7 +14,7 @@ const ASSETS = [
   "./js/views/dashboard.js", "./js/views/clientes.js", "./js/views/proyectos.js",
   "./js/views/facturacion.js", "./js/views/financiero.js", "./js/views/asistente.js",
   "./js/views/gastos.js", "./js/views/mensual.js", "./js/views/configuracion.js",
-  "./js/views/calendario.js",
+  "./js/views/calendario.js", "./js/views/chat-flotante.js",
   "./icons/icon-192.png", "./icons/icon-512.png",
 ];
 
