@@ -168,15 +168,18 @@ export async function renderMensual(container) {
               const emitida = estado === "emitida" || estado === "pagada";
               const pagada = estado === "pagada";
               const facturaSeleccionada = vinculoPorProyecto[f.proyecto.id] || "";
-              // Semáforo junto al nombre: verde cobrada, ámbar emitida pero sin
-              // cobrar, gris todavía sin facturar. Va aquí y no al margen de la
-              // fila porque es donde mira el ojo, y con texto en el tooltip para
-              // que el color no sea la única pista.
+              // Estado de la fila. IMPORTANTE: Josep es daltónico, así que el
+              // color NUNCA puede ser la única pista. Lo que distingue los tres
+              // estados es la FORMA de la línea del margen izquierdo:
+              //   sin facturar → sin línea
+              //   emitida      → línea a trazos
+              //   cobrada      → línea continua (y el nombre en gris)
+              // El color solo refuerza, y el tooltip lo dice con palabras.
               const claseEstado = pagada ? "cobrada" : (emitida ? "emitida" : "sinfacturar");
               const tituloEstado = pagada ? "Cobrada" : (emitida ? "Emitida, pendiente de cobro" : "Sin facturar");
               return `<tr class="fila-${claseEstado}" data-row="${idx}-${i}" data-idx="${i}" data-mes-fila="${idx}">
                 <td class="col-mover"><span class="mover-tirador" title="Arrastra para cambiar el orden">⠿</span></td>
-                <td class="link-proyecto" data-proyecto-id="${f.proyecto.id}" style="cursor:pointer;"><span class="semaforo ${claseEstado}" title="${tituloEstado}"></span><span class="nombre-proyecto">${escapeHtml(f.proyecto.nombre)}</span></td>
+                <td class="link-proyecto" data-proyecto-id="${f.proyecto.id}" title="${tituloEstado}" style="cursor:pointer;"><span class="nombre-proyecto">${escapeHtml(f.proyecto.nombre)}</span></td>
                 <td>
                   <select class="sel-cliente cell-select" data-proyecto-id="${f.proyecto.id}" style="min-width:130px;">
                     <option value="">— Sin cliente —</option>
