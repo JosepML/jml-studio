@@ -2,7 +2,7 @@ import { db } from "../supabase.js";
 import { abrirFichaProyecto } from "./proyectos.js";
 import { eur, FORMAS_PAGO, todayIso } from "../utils/format.js";
 import { round2 } from "../utils/invoice-calc.js";
-import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo } from "../utils/resumen.js";
+import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
 import { escapeHtml } from "./clientes.js";
 import { nextNumero } from "./facturacion.js";
 import { toastOk, toastError, skeletonPagina, engancharArrastre } from "../utils/ui.js";
@@ -101,6 +101,13 @@ export async function renderMensual(container) {
       <div class="card kpi dark"><div class="label">Gastos deducibles ${anio}</div><div class="value">${eur(r.gastosDeducibles)}</div><div class="stat-note">amortizaciones ya prorrateadas</div></div>
     `;
 
+    // Totales de los 12 meses primero: hacen falta para la barra que compara
+    // cada mes con el mejor del año, y para saber qué mes es el más fuerte.
+    const totalPorMes = MESES.map((_, i) =>
+      round2(filasAnio.filter(f => new Date(f.fecha).getMonth() === i).reduce((s, f) => s + f.importeBase, 0)));
+    const mejorMes = Math.max(0, ...totalPorMes);
+    const mesActual = (anio === new Date().getFullYear()) ? new Date().getMonth() : -1;
+
     const $body = container.querySelector("#meses-body");
     $body.innerHTML = MESES.map((nombreMes, idx) => {
       // El orden lo manda la columna `orden` del proyecto, que Josep coloca
@@ -114,25 +121,40 @@ export async function renderMensual(container) {
           if (ob != null) return 1;
           return (a.proyecto.nombre || "").localeCompare(b.proyecto.nombre || "");
         });
-      const totalMes = round2(filasMes.reduce((s,f)=>s+f.importeBase,0));
+      const totalMes = totalPorMes[idx];
+      const totalConIvaMes = round2(filasMes.reduce((s, f) => s + conIvaSegunPago(f.importeBase, f.proyecto.forma_pago), 0));
+      const cobradoMes = round2(filasMes.filter(f => estadoEfectivo(f) === "pagada").reduce((s, f) => s + f.importeBase, 0));
+      const pendienteMes = round2(totalMes - cobradoMes);
+      const nCobrados = filasMes.filter(f => estadoEfectivo(f) === "pagada").length;
+      const pesoMes = mejorMes ? Math.round(totalMes / mejorMes * 100) : 0;
       // Nombre e importe en columnas de ancho fijo y la acción anclada a la
       // derecha: así los 12 meses quedan alineados entre sí (antes cada fila
       // colocaba el botón en una posición distinta, ver comentario en el CSS).
+      // La barra compara el mes con el mejor del año: de un vistazo se ve la
+      // forma de la temporada sin tener que leer los doce importes.
       const cabecera = `
         <summary>
-          <span class="mes-nombre">${nombreMes}</span>
+          <span class="mes-nombre">${nombreMes}${idx === mesActual ? `<span class="mes-hoy">actual</span>` : ""}</span>
           <span class="mes-total">${eur(totalMes)}</span>
-          <span class="mes-meta">${filasMes.length ? `${filasMes.length} proyecto${filasMes.length===1?"":"s"}` : "sin proyectos"}</span>
+          <span class="mes-barra" title="${totalMes ? `${pesoMes}% del mejor mes del año` : "sin facturación"}"><i style="width:${pesoMes}%"></i></span>
+          <span class="mes-meta">${
+            filasMes.length
+              ? `${filasMes.length} proyecto${filasMes.length === 1 ? "" : "s"}` +
+                (pendienteMes > 0
+                  ? ` · <span class="mes-pend">${eur(pendienteMes)} por cobrar</span>`
+                  : ` · <span class="mes-ok">todo cobrado</span>`)
+              : "sin proyectos"
+          }</span>
           <span class="mes-accion">
             <button class="btn btn-ghost btn-sm btn-add-mes" data-mes="${idx}" onclick="event.preventDefault(); event.stopPropagation();">+ Añadir proyecto</button>
           </span>
         </summary>`;
       const abierto = mesesAbiertos.has(idx) ? "open" : "";
       if (!filasMes.length) {
-        return `<details class="card" data-mes="${idx}" style="margin-bottom:10px;" ${abierto}>${cabecera}<div class="add-proyecto-mes" data-mes="${idx}"></div><p class="muted" style="margin-top:10px;">Sin proyectos este mes.</p></details>`;
+        return `<details class="card mes-vacio" data-mes="${idx}" style="margin-bottom:10px;" ${abierto}>${cabecera}<div class="add-proyecto-mes" data-mes="${idx}"></div><p class="muted" style="margin-top:10px;">Sin proyectos este mes.</p></details>`;
       }
       return `
-      <details class="card" data-mes="${idx}" style="margin-bottom:10px;" ${abierto}>
+      <details class="card${idx === mesActual ? " mes-actual" : ""}" data-mes="${idx}" style="margin-bottom:10px;" ${abierto}>
         ${cabecera}
         <div class="add-proyecto-mes" data-mes="${idx}"></div>
         <table style="margin-top:10px;">
@@ -147,7 +169,10 @@ export async function renderMensual(container) {
               const emitida = estado === "emitida" || estado === "pagada";
               const pagada = estado === "pagada";
               const facturaSeleccionada = vinculoPorProyecto[f.proyecto.id] || "";
-              return `<tr data-row="${idx}-${i}" data-idx="${i}" data-mes-fila="${idx}">
+              // Una franja de color a la izquierda dice el estado sin tener que
+              // ir a mirar las casillas del final de la fila.
+              const claseEstado = pagada ? "fila-cobrada" : (emitida ? "fila-emitida" : "fila-sinfacturar");
+              return `<tr class="${claseEstado}" data-row="${idx}-${i}" data-idx="${i}" data-mes-fila="${idx}">
                 <td class="col-mover"><span class="mover-tirador" title="Arrastra para cambiar el orden">⠿</span></td>
                 <td class="link-proyecto" data-proyecto-id="${f.proyecto.id}" style="cursor:pointer; color:var(--blue);">${escapeHtml(f.proyecto.nombre)}</td>
                 <td>
@@ -192,6 +217,14 @@ export async function renderMensual(container) {
               </tr>`;
             }).join("")}
           </tbody>
+          <tfoot>
+            <tr class="fila-total-mes">
+              <td colspan="4">Total ${nombreMes}${nCobrados ? ` · ${nCobrados} de ${filasMes.length} cobrado${nCobrados === 1 ? "" : "s"}` : ""}</td>
+              <td class="money">${eur(totalMes)}</td>
+              <td class="money">${eur(totalConIvaMes)}</td>
+              <td colspan="3"></td>
+            </tr>
+          </tfoot>
         </table>
       </details>`;
     }).join("");
