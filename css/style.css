@@ -1110,3 +1110,21 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
     transition-duration:.4s !important;
   }
 }
+
+/* Paso visitado que quedó a medias: ámbar y "!" en vez del visto verde. */
+.wz-paso.incompleto{
+  border-color:var(--orange-fg,#B4571C); background:var(--orange-bg,#FDEBD8); color:var(--orange-fg,#B4571C);
+}
+.wz-paso.incompleto .wz-paso-num{background:var(--orange-fg,#B4571C); color:#fff;}
+.wz-paso.incompleto .wz-num-cifra{opacity:0; transform:scale(.5);}
+.wz-paso.incompleto .wz-num-aviso{opacity:1; transform:none;}
+.wz-num-aviso{opacity:0; transform:scale(.5);}
+
+/* Etiqueta con acción a la derecha (p. ej. "Cliente  + Nuevo cliente"). */
+.campo-con-accion{display:flex; align-items:center; justify-content:space-between; gap:12px;}
+.campo-con-accion label{margin:0;}
+.btn.btn-sm{padding:4px 10px; font-size:11.5px;}
+
+@media (prefers-reduced-motion: reduce){
+  .wz-num-aviso{transition-duration:.3s !important;}
+}
