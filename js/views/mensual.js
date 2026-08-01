@@ -5,7 +5,7 @@ import { round2 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo } from "../utils/resumen.js";
 import { escapeHtml } from "./clientes.js";
 import { nextNumero } from "./facturacion.js";
-import { toastOk, toastError, skeletonPagina } from "../utils/ui.js";
+import { toastOk, toastError, skeletonPagina, engancharArrastre } from "../utils/ui.js";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
@@ -103,8 +103,17 @@ export async function renderMensual(container) {
 
     const $body = container.querySelector("#meses-body");
     $body.innerHTML = MESES.map((nombreMes, idx) => {
+      // El orden lo manda la columna `orden` del proyecto, que Josep coloca
+      // arrastrando las filas. Los que aún no se han ordenado a mano van
+      // detrás y entre ellos por nombre, como se hacía antes.
       const filasMes = filasAnio.filter(f => new Date(f.fecha).getMonth() === idx)
-        .sort((a,b) => (a.proyecto.nombre||"").localeCompare(b.proyecto.nombre||""));
+        .sort((a, b) => {
+          const oa = a.proyecto.orden, ob = b.proyecto.orden;
+          if (oa != null && ob != null) return oa - ob;
+          if (oa != null) return -1;
+          if (ob != null) return 1;
+          return (a.proyecto.nombre || "").localeCompare(b.proyecto.nombre || "");
+        });
       const totalMes = round2(filasMes.reduce((s,f)=>s+f.importeBase,0));
       // Nombre e importe en columnas de ancho fijo y la acción anclada a la
       // derecha: así los 12 meses quedan alineados entre sí (antes cada fila
@@ -127,7 +136,7 @@ export async function renderMensual(container) {
         ${cabecera}
         <div class="add-proyecto-mes" data-mes="${idx}"></div>
         <table style="margin-top:10px;">
-          <thead><tr><th>Proyecto</th><th>Cliente</th><th>Nº factura</th><th class="money">Importe</th><th class="money">Importe c/IVA</th><th>Forma de pago</th><th style="text-align:center;">Emitida</th><th style="text-align:center;">Pagada</th></tr></thead>
+          <thead><tr><th class="col-mover"></th><th>Proyecto</th><th>Cliente</th><th>Nº factura</th><th class="money">Importe</th><th class="money">Importe c/IVA</th><th>Forma de pago</th><th style="text-align:center;">Emitida</th><th style="text-align:center;">Pagada</th></tr></thead>
           <tbody>
             ${filasMes.map((f, i) => {
               const fp = FORMAS_PAGO[f.proyecto.forma_pago || "transferencia"];
@@ -138,7 +147,8 @@ export async function renderMensual(container) {
               const emitida = estado === "emitida" || estado === "pagada";
               const pagada = estado === "pagada";
               const facturaSeleccionada = vinculoPorProyecto[f.proyecto.id] || "";
-              return `<tr data-row="${idx}-${i}">
+              return `<tr data-row="${idx}-${i}" data-idx="${i}" data-mes-fila="${idx}">
+                <td class="col-mover"><span class="mover-tirador" title="Arrastra para cambiar el orden">⠿</span></td>
                 <td class="link-proyecto" data-proyecto-id="${f.proyecto.id}" style="cursor:pointer; color:var(--blue);">${escapeHtml(f.proyecto.nombre)}</td>
                 <td>
                   <select class="sel-cliente cell-select" data-proyecto-id="${f.proyecto.id}" style="min-width:130px;">
@@ -192,6 +202,42 @@ export async function renderMensual(container) {
       det.addEventListener("toggle", () => {
         const mes = Number(det.dataset.mes);
         if (det.open) mesesAbiertos.add(mes); else mesesAbiertos.delete(mes);
+      });
+    });
+
+    // --- Reordenar proyectos arrastrando, mes a mes ---
+    // El orden se guarda en la columna `orden` del proyecto (migración 010).
+    // Se renumera el mes entero de 1 a N en vez de tocar solo las dos filas
+    // movidas: así el orden queda siempre compacto y sin empates, aunque haya
+    // proyectos que nunca se hubieran ordenado a mano.
+    $body.querySelectorAll("details[data-mes] table tbody").forEach(tbody => {
+      const mesIdx = Number(tbody.closest("details[data-mes]").dataset.mes);
+      engancharArrastre(tbody, "tr[data-idx]", ".mover-tirador", async (desde, hasta) => {
+        if (desde === hasta || Number.isNaN(desde) || Number.isNaN(hasta)) return;
+        const delMes = filasAnio
+          .filter(f => new Date(f.fecha).getMonth() === mesIdx)
+          .sort((a, b) => {
+            const oa = a.proyecto.orden, ob = b.proyecto.orden;
+            if (oa != null && ob != null) return oa - ob;
+            if (oa != null) return -1;
+            if (ob != null) return 1;
+            return (a.proyecto.nombre || "").localeCompare(b.proyecto.nombre || "");
+          });
+        const [movida] = delMes.splice(desde, 1);
+        if (!movida) return;
+        delMes.splice(hasta, 0, movida);
+
+        // Se pinta ya con el orden nuevo y se guarda después: si Supabase
+        // falla, el aviso lo dice y el siguiente repintado devuelve la verdad.
+        delMes.forEach((f, i) => { f.proyecto.orden = i + 1; });
+        pintar(anio);
+        try {
+          await Promise.all(delMes.map(f =>
+            db.from("proyectos").update({ orden: f.proyecto.orden }).eq("id", f.proyecto.id).exec()
+          ));
+        } catch (e) {
+          toastError("No se ha podido guardar el orden.");
+        }
       });
     });
 
