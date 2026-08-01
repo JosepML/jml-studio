@@ -1215,13 +1215,22 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 #dash-calendario .cal-ev{font-size:10px; padding:2px 5px; gap:4px;}
 #dash-calendario .cal-mas{font-size:9.5px;}
 
-/* Calendario a la izquierda + las tres gráficas apiladas a su derecha. */
+/* Calendario a la izquierda + las tres gráficas apiladas a su derecha.
+   Las dos columnas se estiran a la misma altura y las tres tarjetas de la
+   derecha se reparten ese alto a partes iguales: así los bordes inferiores
+   coinciden y no queda el escalón que se veía antes. Por eso las gráficas
+   NO llevan altura fija: crecen con su tarjeta. */
 .dash-fila-cal{
   display:grid; grid-template-columns:minmax(0,800px) minmax(0,1fr);
-  gap:20px; align-items:start; margin-bottom:20px;
+  gap:20px; align-items:stretch; margin-bottom:20px;
 }
-.dash-graficas{display:grid; gap:20px;}
+.dash-graficas{display:grid; gap:20px; grid-template-rows:repeat(3, minmax(0,1fr));}
+.dash-graficas .card{display:flex; flex-direction:column; min-height:0; padding-bottom:14px;}
+.dash-graficas .card h3{margin-bottom:4px;}
+.dash-graficas .grafica{position:relative; flex:1 1 auto; min-height:118px;}
 @media (max-width:1250px){
   .dash-fila-cal{grid-template-columns:minmax(0,1fr);}
+  .dash-graficas{grid-template-rows:none;}
+  .dash-graficas .grafica{min-height:190px;}
   #dash-calendario{max-width:none;}
 }
