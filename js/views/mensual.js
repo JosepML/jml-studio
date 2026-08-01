@@ -168,12 +168,15 @@ export async function renderMensual(container) {
               const emitida = estado === "emitida" || estado === "pagada";
               const pagada = estado === "pagada";
               const facturaSeleccionada = vinculoPorProyecto[f.proyecto.id] || "";
-              // Una franja de color a la izquierda dice el estado sin tener que
-              // ir a mirar las casillas del final de la fila.
-              const claseEstado = pagada ? "fila-cobrada" : (emitida ? "fila-emitida" : "fila-sinfacturar");
-              return `<tr class="${claseEstado}" data-row="${idx}-${i}" data-idx="${i}" data-mes-fila="${idx}">
+              // Semáforo junto al nombre: verde cobrada, ámbar emitida pero sin
+              // cobrar, gris todavía sin facturar. Va aquí y no al margen de la
+              // fila porque es donde mira el ojo, y con texto en el tooltip para
+              // que el color no sea la única pista.
+              const claseEstado = pagada ? "cobrada" : (emitida ? "emitida" : "sinfacturar");
+              const tituloEstado = pagada ? "Cobrada" : (emitida ? "Emitida, pendiente de cobro" : "Sin facturar");
+              return `<tr class="fila-${claseEstado}" data-row="${idx}-${i}" data-idx="${i}" data-mes-fila="${idx}">
                 <td class="col-mover"><span class="mover-tirador" title="Arrastra para cambiar el orden">⠿</span></td>
-                <td class="link-proyecto" data-proyecto-id="${f.proyecto.id}" style="cursor:pointer; color:var(--blue);">${escapeHtml(f.proyecto.nombre)}</td>
+                <td class="link-proyecto" data-proyecto-id="${f.proyecto.id}" style="cursor:pointer;"><span class="semaforo ${claseEstado}" title="${tituloEstado}"></span><span class="nombre-proyecto">${escapeHtml(f.proyecto.nombre)}</span></td>
                 <td>
                   <select class="sel-cliente cell-select" data-proyecto-id="${f.proyecto.id}" style="min-width:130px;">
                     <option value="">— Sin cliente —</option>
