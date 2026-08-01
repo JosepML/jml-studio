@@ -100,25 +100,28 @@ export async function renderDashboard(container) {
       <div class="card kpi dark"><div class="label">Provisión Modelo 130 (T${qActual})</div><div class="value">${eur(provision.aIngresar)}</div></div>
     </div>
 
-    <div class="card" id="dash-calendario" style="margin-bottom:20px;"></div>
+    <!-- El calendario es un widget acotado a la izquierda y las tres gráficas
+         van apiladas a su derecha, para no dejar medio Dashboard en blanco. -->
+    <div class="dash-fila-cal">
+      <div class="card" id="dash-calendario"></div>
 
-    <div class="grid grid-2" style="margin-bottom:20px;">
-      <div class="card">
-        <h3>Facturación ${anio} <span class="muted" style="font-weight:400; font-size:12px;">(transferencia vs. efectivo)</span></h3>
-        <div style="position:relative; height:200px;"><canvas id="chart-dash-mensual"></canvas></div>
+      <div class="dash-graficas">
+        <div class="card">
+          <h3>Facturación ${anio} <span class="muted" style="font-weight:400; font-size:12px;">(transferencia vs. efectivo)</span></h3>
+          <div style="position:relative; height:150px;"><canvas id="chart-dash-mensual"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h3>Beneficio mensual ${anio} <span class="muted" style="font-weight:400; font-size:12px;">(facturado − gastos del mes)</span></h3>
+            <span class="help-tip" title="Solo meses ya cerrados. Los meses que aún no han llegado no se dibujan: llevan la cuota de autónomo y la gestoría dadas de alta por adelantado pero todavía no tienen ingresos, así que saldrían en rojo como si el negocio perdiera dinero.">i</span>
+          </div>
+          <div style="position:relative; height:150px;"><canvas id="chart-dash-beneficio"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Proyectos por estado</h3>
+          <div style="position:relative; height:150px;"><canvas id="chart-dash-estados"></canvas></div>
+        </div>
       </div>
-      <div class="card">
-        <h3>Proyectos por estado</h3>
-        <div style="position:relative; height:200px;"><canvas id="chart-dash-estados"></canvas></div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-bottom:20px;">
-      <div class="card-head">
-        <h3>Beneficio mensual ${anio} <span class="muted" style="font-weight:400; font-size:12px;">(facturado − gastos del mes)</span></h3>
-        <span class="help-tip" title="Solo meses ya cerrados. Los meses que aún no han llegado no se dibujan: llevan la cuota de autónomo y la gestoría dadas de alta por adelantado pero todavía no tienen ingresos, así que saldrían en rojo como si el negocio perdiera dinero.">i</span>
-      </div>
-      <div style="position:relative; height:200px;"><canvas id="chart-dash-beneficio"></canvas></div>
     </div>
 
     <div class="grid grid-2" style="margin-bottom:20px;">
