@@ -1392,3 +1392,7 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 @media (max-width:600px){
   .campana-panel{width:min(340px, calc(100vw - 24px));}
 }
+
+/* Tirador para reordenar los proyectos dentro de cada mes (Facturación
+   mensual). Estrecho, para no robarle sitio al nombre del proyecto. */
+#meses-body .col-mover{width:28px; padding-left:4px; padding-right:0;}
