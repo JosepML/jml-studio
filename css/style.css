@@ -1396,3 +1396,63 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 /* Tirador para reordenar los proyectos dentro de cada mes (Facturación
    mensual). Estrecho, para no robarle sitio al nombre del proyecto. */
 #meses-body .col-mover{width:28px; padding-left:4px; padding-right:0;}
+
+/* =============================================== FACTURACIÓN MENSUAL
+   Pulido sobre la estructura de siempre (el listado tipo Excel): la idea es
+   que el año se lea de un vistazo sin cambiar la forma de trabajar. */
+
+/* Barra que compara cada mes con el mejor del año. */
+.mes-barra{
+  flex:0 0 76px; height:5px; border-radius:99px; background:var(--border);
+  overflow:hidden; margin-right:2px;
+}
+.mes-barra i{
+  display:block; height:100%; border-radius:99px;
+  background:linear-gradient(90deg, var(--blue), var(--navy-2));
+  transition:width .5s var(--ease);
+}
+.mes-hoy{
+  margin-left:7px; padding:2px 7px; border-radius:99px; vertical-align:middle;
+  background:var(--purple-bg); color:var(--purple-fg);
+  font-size:9.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+}
+.mes-pend{color:var(--amber-fg); font-weight:600;}
+.mes-ok{color:var(--green-fg); font-weight:600;}
+
+/* Los meses sin nada pesan menos en la vista, pero siguen accesibles. */
+.mes-vacio > summary{opacity:.55;}
+.mes-vacio > summary:hover{opacity:1;}
+/* El mes en curso se distingue con un filo azul, sin gritar. */
+details.card.mes-actual{box-shadow:inset 3px 0 0 var(--blue), var(--shadow-xs);}
+
+/* Estado de cada fila con una franja de color a la izquierda: se sabe cómo va
+   un proyecto sin recorrer la fila hasta las casillas del final. */
+#meses-body tbody tr{transition:background-color var(--dur) var(--ease);}
+#meses-body tbody tr:hover{background:var(--light);}
+#meses-body tbody tr > td:first-child{position:relative;}
+#meses-body tbody tr > td:first-child::before{
+  content:""; position:absolute; left:0; top:6px; bottom:6px; width:3px; border-radius:99px;
+}
+#meses-body tr.fila-sinfacturar > td:first-child::before{background:var(--border);}
+#meses-body tr.fila-emitida > td:first-child::before{background:var(--amber-fg);}
+#meses-body tr.fila-cobrada > td:first-child::before{background:var(--green-fg);}
+
+/* Encabezado de la tabla del mes: más contraste para separarlo de las filas. */
+#meses-body thead th{
+  background:var(--light); border-bottom:1px solid var(--border);
+  font-size:10.5px; letter-spacing:.05em;
+}
+
+/* Pie con el total del mes, para no tener que sumar de cabeza. */
+#meses-body tfoot .fila-total-mes td{
+  border-top:2px solid var(--border); background:#FBFCFE;
+  font-weight:700; font-size:12.5px; padding-top:11px; padding-bottom:11px;
+}
+#meses-body tfoot .fila-total-mes td:first-child{color:var(--grey-fg); font-weight:600;}
+
+/* Las casillas de emitida/pagada, algo más grandes y con el cursor correcto. */
+#meses-body .chk-emitida, #meses-body .chk-pagada{width:16px; height:16px; cursor:pointer;}
+
+@media (max-width:900px){
+  .mes-barra{display:none;}
+}
