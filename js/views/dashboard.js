@@ -6,6 +6,7 @@ import { escapeHtml } from "./clientes.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { skeletonPagina, animarVista } from "../utils/ui.js";
 import { opcionesBase, opcionesDoughnut, barra, barraApilada } from "../utils/charts.js";
+import { montarCalendario } from "./calendario.js";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 let chartMensualDash = null;
@@ -98,6 +99,8 @@ export async function renderDashboard(container) {
       <div class="card kpi"><div class="label">Beneficio fiscal (cobrado, año)</div><div class="value pos">${eur(resumenAnualCobrado.beneficioFiscalPagado)}</div></div>
       <div class="card kpi dark"><div class="label">Provisión Modelo 130 (T${qActual})</div><div class="value">${eur(provision.aIngresar)}</div></div>
     </div>
+
+    <div class="card" id="dash-calendario" style="margin-bottom:20px;"></div>
 
     <div class="grid grid-2" style="margin-bottom:20px;">
       <div class="card">
@@ -235,6 +238,11 @@ export async function renderDashboard(container) {
       })(),
     });
   }
+
+  // El calendario se monta aparte porque habla con Google, no con Supabase:
+  // se pinta al momento y va rellenando los eventos cuando llegan.
+  const $cal = container.querySelector("#dash-calendario");
+  if ($cal) montarCalendario($cal);
 
   // Números que cuentan hasta su valor y tarjetas que entran escalonadas.
   animarVista(container);

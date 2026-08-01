@@ -5,6 +5,7 @@ import { listarServicios, crearServicio, actualizarServicio, borrarServicio } fr
 import { listarCondiciones, crearCondicion, actualizarCondicion, borrarCondicion, GRUPOS_CONDICION } from "../utils/condiciones.js";
 import { eur } from "../utils/format.js";
 import { auth } from "../supabase.js";
+import * as gcal from "../utils/gcal.js";
 
 export async function renderConfiguracion(container) {
   // El "modo vista" (entrar sin contrasena) existe para ensenar la interfaz sin
@@ -29,6 +30,7 @@ export async function renderConfiguracion(container) {
       <button data-tab="emisor" type="button">Emisor</button>
       <button data-tab="tarifas" type="button">Tarifas</button>
       <button data-tab="condiciones" type="button">Condiciones</button>
+      <button data-tab="calendario" type="button">Calendario</button>
       <button data-tab="ia" type="button">IA</button>
     </div>
 
@@ -55,6 +57,31 @@ export async function renderConfiguracion(container) {
       </div>
 
     </div>
+    </div>
+
+    <div data-panel="calendario" hidden>
+      <div class="card">
+        <div class="card-head"><h3>Google Calendar</h3><span class="help-tip" title="El calendario del Dashboard lee y escribe directamente en tu agenda de Google. No se guarda ninguna copia de tus eventos en la base de datos de la app.">i</span></div>
+        <p class="hint" style="margin-top:0;">
+          Se conecta sin servidor y sin coste. Solo hay que crear una vez un <strong>ID de cliente OAuth</strong> (gratis, sin tarjeta):<br>
+          1. Entra en <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">console.cloud.google.com</a> y crea un proyecto (nombre: JML Studio).<br>
+          2. En <em>APIs y servicios → Biblioteca</em>, busca <strong>Google Calendar API</strong> y pulsa Habilitar.<br>
+          3. En <em>Pantalla de consentimiento</em>: tipo <strong>Externo</strong>, y añádete a ti mismo como usuario de prueba.<br>
+          4. En <em>Credenciales → Crear credenciales → ID de cliente de OAuth</em>, tipo <strong>Aplicación web</strong>. En "Orígenes autorizados de JavaScript" pon exactamente:
+          <code>https://josepml.github.io</code><br>
+          5. Copia el ID que termina en <code>.apps.googleusercontent.com</code> y pégalo aquí.
+        </p>
+        <div class="field">
+          <label>ID de cliente de OAuth</label>
+          <input id="c-gcal-id" type="text" value="${escapeAttr(gcal.clientId())}" placeholder="1234567890-xxxx.apps.googleusercontent.com" autocomplete="off">
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="btn-guardar-gcal">Guardar</button>
+          <button class="btn btn-sec" id="btn-probar-gcal">Conectar y probar</button>
+        </div>
+        <div id="gcal-resultado" class="hint-box" style="margin-top:12px;" hidden></div>
+        <p class="hint-sm" style="margin-top:12px;">El ID no es un secreto (solo funciona desde josepml.github.io), pero se guarda igualmente en este navegador y nunca en el repositorio. Si usas la app desde el móvil, pégalo también allí.</p>
+      </div>
     </div>
 
     <div data-panel="ia" hidden>
@@ -167,6 +194,28 @@ export async function renderConfiguracion(container) {
       gestoria_iva_soportado: Number(container.querySelector("#c-gestoria-iva").value || DEFAULTS.gestoria_iva_soportado),
     });
     toastOk("Datos fiscales guardados.");
+  });
+
+  container.querySelector("#btn-guardar-gcal").addEventListener("click", () => {
+    gcal.guardarClientId(container.querySelector("#c-gcal-id").value);
+    toastOk("ID de Google guardado en este dispositivo.");
+  });
+
+  // "Probar" hace el recorrido completo (consentimiento + listar calendarios)
+  // para que el error salga aquí, con su mensaje, y no en el Dashboard.
+  container.querySelector("#btn-probar-gcal").addEventListener("click", async () => {
+    const $res = container.querySelector("#gcal-resultado");
+    gcal.guardarClientId(container.querySelector("#c-gcal-id").value);
+    $res.hidden = false;
+    $res.textContent = "Conectando con Google…";
+    try {
+      const cals = await gcal.conectar({ silencioso: false }).then(() => gcal.listarCalendarios());
+      $res.innerHTML = `Conectado. Calendarios con permiso de escritura: <strong>${cals.map(c => escapeHtml(c.nombre)).join(", ")}</strong>.`;
+      toastOk("Google Calendar conectado.");
+    } catch (e) {
+      $res.textContent = e.message || "No se ha podido conectar.";
+      toastError("No se ha podido conectar con Google.");
+    }
   });
 
   container.querySelector("#btn-guardar-ia").addEventListener("click", () => {
