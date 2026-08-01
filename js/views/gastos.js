@@ -40,7 +40,7 @@ export async function renderGastos(container) {
       </div>
       <div class="card">
         <h3>Reparto del gasto</h3>
-        <div style="position:relative; height:190px;"><canvas id="chart-categorias"></canvas></div>
+        <div style="position:relative; height:180px;"><canvas id="chart-categorias"></canvas></div>
       </div>
     </div>
     <div id="gastos-meses"></div>
@@ -75,10 +75,10 @@ export async function renderGastos(container) {
     // --- Totales ---
     // Estas cifras NO tienen por qué sumar entre sí, y antes se mostraban una
     // al lado de otra sin explicación, invitando a sumarlas y a pensar que algo
-    // fallaba: lo pagado es dinero que sale de la cuenta (con IVA incluido),
-    // mientras que la base deducible descuenta el IVA que sí se recupera y
-    // reparte las amortizaciones a lo largo de varios años. Ahora cada tarjeta
-    // lleva debajo qué significa.
+    // fallaba: "Total gastado" es dinero que sale de la cuenta (con IVA
+    // incluido), mientras que "Base deducible" descuenta el IVA que sí se
+    // recupera y reparte las amortizaciones a lo largo de varios años. Ahora
+    // cada tarjeta lleva debajo qué significa.
     const hoy = todayIso();
     const desdeAnio = `${anio}-01-01`;
     const hastaAnio = `${anio}-12-31`;
@@ -153,7 +153,7 @@ export async function renderGastos(container) {
         const cat = CATEGORIAS_GASTO[k] || CATEGORIAS_GASTO.otros;
         const activo = categoriaFiltro === k;
         return `<button class="chip-cat" data-cat="${k}" style="background:${activo?cat.fg:cat.bg}; color:${activo?"#fff":cat.fg};">${cat.label} · ${eur(v.total)} <span style="opacity:.7">(${v.count})</span></button>`;
-      }).join("") || `<p class="hint">Sin gastos en este filtro.</p>`}
+      }).join("") || `<p class="muted" style="font-size:12px;">Sin gastos en este filtro.</p>`}
     `;
     $chips.querySelectorAll(".chip-cat").forEach(btn => {
       btn.addEventListener("click", () => { categoriaFiltro = btn.dataset.cat; pintar(); });
@@ -237,10 +237,22 @@ function abrirFormulario(container, gasto, onGuardado) {
     categoria: "otros", deducible: true, con_factura: true, iva_soportado: 0, iva_deducible_pct: 100,
     es_amortizable: false, tipo_bien: null, meses_amortizacion: null, fecha_inicio_amortizacion: todayIso(),
   };
-  const $wrap = container.querySelector("#gasto-form-wrap");
+  // El formulario va en un diálogo, no empotrado en la página: antes se
+  // insertaba encima del listado y empujaba todo hacia abajo, así que había
+  // que hacer scroll para ver a la vez lo que escribías y el total.
+  const $wrap = document.createElement("div");
+  $wrap.className = "modal-backdrop";
+  document.body.appendChild($wrap);
+  const alPulsarEsc = e => { if (e.key === "Escape") cerrarFormulario(); };
+  function cerrarFormulario() {
+    $wrap.remove();
+    document.removeEventListener("keydown", alPulsarEsc);
+  }
+  document.addEventListener("keydown", alPulsarEsc);
+  $wrap.addEventListener("mousedown", e => { if (e.target === $wrap) cerrarFormulario(); });
 
   $wrap.innerHTML = `
-    <div class="card" style="margin-bottom:14px;">
+    <div class="modal ancho" role="dialog" aria-modal="true">
       <div class="card-head"><h3>${esNuevo ? "Nuevo gasto" : "Editar gasto"}</h3></div>
       <div class="row">
         <div class="field" style="flex:2"><label>Concepto</label><input id="g-concepto" value="${escapeAttr(gasto.concepto)}"></div>
@@ -294,7 +306,7 @@ function abrirFormulario(container, gasto, onGuardado) {
     if (!esMaterialAmortizable) { $amort.innerHTML = ""; return; }
 
     if (importe <= UMBRAL_AMORTIZACION) {
-      $amort.innerHTML = `<p class="hint">Por debajo de ${eur(UMBRAL_AMORTIZACION)}: se deduce de golpe, no hace falta amortizar.</p>`;
+      $amort.innerHTML = `<p class="muted" style="font-size:12px;">Por debajo de ${eur(UMBRAL_AMORTIZACION)}: se deduce de golpe, no hace falta amortizar.</p>`;
       return;
     }
     const tipoBien = gasto.tipo_bien || "equipo_audiovisual_informatico";
@@ -329,8 +341,8 @@ function abrirFormulario(container, gasto, onGuardado) {
     if (esDeducible) {
       const deducible = gastoDeducibleTotal({ importe, iva_soportado: ivaSoportado, iva_deducible_pct: pct });
       $wrap.querySelector("#g-totales").innerHTML = conFactura
-        ? `Deducible a efectos de IRPF: <strong class="pos">${eur(deducible)}</strong> · IVA no recuperable (coste real): <strong>${eur(round2(ivaSoportado*(1-pct/100)))}</strong>`
-        : `Deducible a efectos de IRPF: <strong class="pos">${eur(importe)}</strong> (sin factura, no hay IVA que desglosar).`;
+        ? `Deducible a efectos de IRPF: <strong style="color:var(--green-fg)">${eur(deducible)}</strong> · IVA no recuperable (coste real): <strong>${eur(round2(ivaSoportado*(1-pct/100)))}</strong>`
+        : `Deducible a efectos de IRPF: <strong style="color:var(--green-fg)">${eur(importe)}</strong> (sin factura, no hay IVA que desglosar).`;
     } else {
       $wrap.querySelector("#g-totales").innerHTML = `Gasto personal: <strong style="color:var(--orange-fg)">${eur(importe)}</strong> — no cuenta para Hacienda, solo para tu balance real.`;
     }
@@ -395,7 +407,7 @@ function abrirFormulario(container, gasto, onGuardado) {
   $wrap.querySelector("#g-hint-efectivo").style.display = gasto.con_factura !== false ? "none" : "flex";
   pintarImporte();
 
-  $wrap.querySelector("#btn-cancelar-gasto").addEventListener("click", () => { $wrap.innerHTML = ""; });
+  $wrap.querySelector("#btn-cancelar-gasto").addEventListener("click", cerrarFormulario);
 
   $wrap.querySelector("#btn-guardar-gasto").addEventListener("click", async () => {
     const categoria = $wrap.querySelector("#g-categoria").value;
@@ -425,6 +437,7 @@ function abrirFormulario(container, gasto, onGuardado) {
       : await db.from("gastos").update(payload).eq("id", gasto.id).exec();
     if (error) { toastError("No se ha podido guardar: " + error); return; }
     toastOk(esNuevo ? `Gasto "${payload.concepto}" añadido.` : "Gasto actualizado.");
+    cerrarFormulario();
     onGuardado();
   });
 
@@ -434,7 +447,8 @@ function abrirFormulario(container, gasto, onGuardado) {
       const { error } = await db.from("gastos").delete().eq("id", gasto.id).exec();
       if (error) { toastError("No se ha podido eliminar: " + error); return; }
       toastOk("Gasto eliminado.");
-      onGuardado();
+      cerrarFormulario();
+    onGuardado();
     });
   }
 
