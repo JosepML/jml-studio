@@ -191,10 +191,10 @@ export function montarChatFlotante() {
 
   function pintar() {
     $mensajes.innerHTML = historial.length
-      ? historial.map(m => `
-          <div class="chat-burbuja ${m.rol === "usuario" ? "mia" : "suya"}${m.error ? " err" : ""}">
-            ${m.rol === "usuario" ? escapeHtml(m.texto) : formatear(m.texto)}
-          </div>`).join("")
+      // Sin saltos ni sangría dentro del <div>: la burbuja usa white-space
+      // pre-wrap, así que cualquier espacio del propio HTML se vería como un
+      // hueco raro delante del texto.
+      ? historial.map(m => `<div class="chat-burbuja ${m.rol === "usuario" ? "mia" : "suya"}${m.error ? " err" : ""}">${m.rol === "usuario" ? escapeHtml(m.texto) : formatear(m.texto)}</div>`).join("")
       : `<p class="chat-vacio">Pregúntame lo que quieras sobre tu facturación, gastos, clientes o el Modelo 130.</p>`;
     $mensajes.scrollTop = $mensajes.scrollHeight;
   }
