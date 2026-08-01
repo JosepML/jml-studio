@@ -1214,3 +1214,14 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 #dash-calendario .cal-mes{font-size:14px;}
 #dash-calendario .cal-ev{font-size:10px; padding:2px 5px; gap:4px;}
 #dash-calendario .cal-mas{font-size:9.5px;}
+
+/* Calendario a la izquierda + las tres gráficas apiladas a su derecha. */
+.dash-fila-cal{
+  display:grid; grid-template-columns:minmax(0,800px) minmax(0,1fr);
+  gap:20px; align-items:start; margin-bottom:20px;
+}
+.dash-graficas{display:grid; gap:20px;}
+@media (max-width:1250px){
+  .dash-fila-cal{grid-template-columns:minmax(0,1fr);}
+  #dash-calendario{max-width:none;}
+}
