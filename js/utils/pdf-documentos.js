@@ -364,10 +364,19 @@ export function crearPresupuestoPdf(doc, cfg, numero, fechaStr, proyecto, lineas
   drawString(doc, MARGEN, yCursor, "Desglose de Servicio");
   yCursor -= 22;
 
-  const wConcepto = anchoTotal * 0.75;
-  const wImporte = anchoTotal - wConcepto;
+  // Columnas de precio y cantidad SOLO si alguna línea lleva más de una
+  // unidad. Con todo a 1 sobran: repetirían el importe y dejarían la tabla
+  // llena de ruido. En cuanto hay un "x3", el cliente necesita ver de dónde
+  // sale la cifra, así que aparecen las dos.
+  const conCantidades = lineas.some(l => Number(l.cantidad || 1) > 1);
+  const wConcepto = anchoTotal * (conCantidades ? 0.55 : 0.75);
+  const wPrecio = conCantidades ? anchoTotal * 0.16 : 0;
+  const wCantidad = conCantidades ? anchoTotal * 0.12 : 0;
+  const wImporte = anchoTotal - wConcepto - wPrecio - wCantidad;
   const xConcepto = tablaIzq;
-  const xImporte = xConcepto + wConcepto;
+  const xPrecio = xConcepto + wConcepto;
+  const xCantidad = xPrecio + wPrecio;
+  const xImporte = xCantidad + wCantidad;
 
   const filaHHeader = 26;
   if (yCursor - filaHHeader < 120) yCursor = nuevaPaginaPresupuesto(doc);
@@ -378,6 +387,10 @@ export function crearPresupuestoPdf(doc, cfg, numero, fechaStr, proyecto, lineas
     doc.setFont("Poppins", "bold"); doc.setFontSize(9.5);
     setText(doc, BLANCO);
     drawString(doc, xConcepto + 8, yCursor - filaHHeader + 9, "CONCEPTO / DESCRIPCIÓN");
+    if (conCantidades) {
+      drawCentredString(doc, xPrecio + wPrecio / 2, yCursor - filaHHeader + 9, "PRECIO");
+      drawCentredString(doc, xCantidad + wCantidad / 2, yCursor - filaHHeader + 9, "CANTIDAD");
+    }
     drawRightString(doc, xImporte + wImporte - 8, yCursor - filaHHeader + 9, "IMPORTE");
     yCursor -= filaHHeader;
   };
@@ -448,6 +461,22 @@ export function crearPresupuestoPdf(doc, cfg, numero, fechaStr, proyecto, lineas
       doc.setFont("Poppins", "bold"); doc.setFontSize(9.5);
       setText(doc, NEGRO);
       drawRightString(doc, xDer, yCursor - altoFila / 2 + 3, eur(importe));
+    }
+
+    if (conCantidades) {
+      const yMedio = yCursor - altoFila / 2 + 3;
+      doc.setFont("Poppins", "normal"); doc.setFontSize(9.5);
+      setText(doc, NEGRO);
+      drawCentredString(doc, xPrecio + wPrecio / 2, yMedio, eur(Number(linea.precio || 0)));
+      doc.setFont("Poppins", "bold");
+      drawCentredString(doc, xCantidad + wCantidad / 2, yMedio, formatCantidad(linea.cantidad || 1));
+
+      // Rayas verticales suaves, solo mientras haya columnas que separar.
+      setStroke(doc, BORDE_PRESUPUESTO);
+      doc.setLineWidth(0.5);
+      lineRL(doc, xPrecio, yCursor, xPrecio, yCursor - altoFila);
+      lineRL(doc, xCantidad, yCursor, xCantidad, yCursor - altoFila);
+      lineRL(doc, xImporte, yCursor, xImporte, yCursor - altoFila);
     }
 
     yCursor -= altoFila;
