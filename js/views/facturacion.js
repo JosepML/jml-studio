@@ -324,23 +324,30 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
     </div>
     ${origenProyectoTexto ? `<div class="ai-banner">✨ ${escapeHtml(origenProyectoTexto)}</div>` : ""}
 
+    <div class="wizard-head card">
+      <div class="wizard-head-top">
+        <div>
+          <p class="wizard-kicker">${esNuevo ? "Proceso guiado" : "Edición"}</p>
+          <h2 class="wizard-titulo">${esNuevo ? (draft.tipo === "presupuesto" ? "Crear presupuesto" : "Crear factura") : `${draft.tipo === "presupuesto" ? "Presupuesto" : "Factura"} ${escapeHtml(draft.numero)}`}</h2>
+        </div>
+        <p class="wizard-ayuda">${esNuevo
+          ? "Completa los datos paso a paso. El total se actualiza en tiempo real a la derecha."
+          : "Salta a la sección que quieras: no hace falta pasar por todas."}</p>
+      </div>
+      <div class="wizard-progreso"><span id="wz-barra"></span></div>
+      <div class="wizard-pasos" id="wz-pasos"></div>
+    </div>
+
     <div class="editor-layout">
       <div class="editor-main">
 
+        <section class="paso" data-paso="cliente">
         <div class="card">
-          <div class="card-head"><h3>${draft.tipo === "presupuesto" ? "Datos del presupuesto" : "Datos de la factura"}</h3></div>
+          <div class="card-head"><h3>Cliente</h3></div>
           <div class="row">
             <div class="field" style="flex:2;"><label>Cliente</label>
               <select id="f-cliente">${(clientes || []).map(c => `<option value="${c.id}" ${c.id === draft.cliente_id ? "selected" : ""}>${escapeHtml(c.nombre)}</option>`).join("")}</select>
             </div>
-            <div class="field"><label>Nº</label><input id="f-numero" value="${escapeAttr(draft.numero)}"></div>
-            <div class="field"><label>Estado</label>
-              <select id="f-estado">${Object.entries(estadosDoc).map(([k, v]) => `<option value="${k}" ${k === draft.estado ? "selected" : ""}>${v.label}</option>`).join("")}</select>
-            </div>
-          </div>
-          <div class="row">
-            <div class="field"><label>Fecha</label><input type="date" id="f-fecha" value="${draft.fecha}"></div>
-            <div class="field"><label>Vencimiento</label><input type="date" id="f-vencimiento" value="${draft.fecha_vencimiento || ""}"></div>
           </div>
           ${draft.tipo === "presupuesto" ? `
           <div class="row">
@@ -351,7 +358,25 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
             </div>
           </div>` : ""}
         </div>
+        </section>
 
+        <section class="paso" data-paso="datos">
+        <div class="card">
+          <div class="card-head"><h3>${draft.tipo === "presupuesto" ? "Datos del presupuesto" : "Datos de la factura"}</h3></div>
+          <div class="row">
+            <div class="field"><label>Nº</label><input id="f-numero" value="${escapeAttr(draft.numero)}"></div>
+            <div class="field"><label>Estado</label>
+              <select id="f-estado">${Object.entries(estadosDoc).map(([k, v]) => `<option value="${k}" ${k === draft.estado ? "selected" : ""}>${v.label}</option>`).join("")}</select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field"><label>Fecha</label><input type="date" id="f-fecha" value="${draft.fecha}"></div>
+            <div class="field"><label>Vencimiento</label><input type="date" id="f-vencimiento" value="${draft.fecha_vencimiento || ""}"></div>
+          </div>
+        </div>
+        </section>
+
+        <section class="paso" data-paso="lineas">
         <div class="card">
           <div class="card-head">
             <h3>Líneas ${draft.tipo === "presupuesto" ? "del presupuesto" : "de la factura"}</h3>
@@ -403,8 +428,10 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
 
           <div id="lineas-wrap"></div>
         </div>
+        </section>
 
         ${draft.tipo === "presupuesto" ? `
+        <section class="paso" data-paso="condiciones">
         <div class="card">
           <div class="card-head">
             <h3>Condiciones del presupuesto</h3>
@@ -422,8 +449,10 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
             </div>
           </div>
           <div id="condiciones-elegidas"></div>
-        </div>` : ""}
+        </div>
+        </section>` : ""}
 
+        <section class="paso" data-paso="confirmacion">
         <div class="card">
           <div class="card-head"><h3>Impuestos y descuento</h3></div>
           <div class="row">
@@ -441,6 +470,12 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
             </div>
           </div>
         </div>
+
+        <div class="card" id="repaso-final">
+          <div class="card-head"><h3>Todo listo</h3></div>
+          <div id="repaso-contenido"></div>
+        </div>
+        </section>
       </div>
 
       <aside class="editor-aside">
@@ -458,6 +493,15 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
           </div>
         </div>
       </aside>
+    </div>
+
+    <div class="wizard-footer" id="wz-footer">
+      <span class="wizard-footer-paso" id="wz-etiqueta"></span>
+      <div class="wizard-footer-acciones">
+        <button class="btn btn-ghost" id="wz-anterior" type="button">← Anterior</button>
+        <a class="btn btn-ghost" href="${volver}">Cancelar</a>
+        <button class="btn btn-primary" id="wz-siguiente" type="button">Continuar →</button>
+      </div>
     </div>`;
 
   // --- Menús desplegables (servicios, proyectos, condiciones) ---
@@ -484,6 +528,94 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
   });
   document.addEventListener("click", cerrarMenus);
   document.addEventListener("keydown", e => { if (e.key === "Escape") cerrarMenus(); });
+
+  // --- Proceso guiado por pasos ---
+  // Todas las secciones siguen en el DOM y solo se ocultan: actualizar() lee
+  // #f-iva, #f-cliente y compañía en cualquier momento, así que desmontarlas
+  // rompería el cálculo del total en cuanto cambiaras de paso.
+  const PASOS = [
+    { id: "cliente", label: "Cliente" },
+    { id: "datos", label: draft.tipo === "presupuesto" ? "Datos del presupuesto" : "Datos de la factura" },
+    { id: "lineas", label: "Líneas" },
+    ...(draft.tipo === "presupuesto" ? [{ id: "condiciones", label: "Condiciones" }] : []),
+    { id: "confirmacion", label: "Confirmación" },
+  ];
+  let pasoActual = 0;
+  const $wzPasos = container.querySelector("#wz-pasos");
+  const $wzBarra = container.querySelector("#wz-barra");
+  const $wzAnterior = container.querySelector("#wz-anterior");
+  const $wzSiguiente = container.querySelector("#wz-siguiente");
+  const $wzEtiqueta = container.querySelector("#wz-etiqueta");
+
+  function pintarPasos() {
+    $wzPasos.innerHTML = PASOS.map((p, i) => {
+      const estado = i === pasoActual ? "activo" : (esNuevo && i < pasoActual ? "hecho" : "");
+      const texto = !esNuevo ? "" : (i === pasoActual ? "En curso" : i < pasoActual ? "Completado" : "Pendiente");
+      return `<button class="wz-paso ${estado}" data-i="${i}" type="button">
+          <span class="wz-paso-num">${estado === "hecho" ? "✓" : i + 1}</span>
+          <span class="wz-paso-txt"><strong>${p.label}</strong>${texto ? `<small>${texto}</small>` : ""}</span>
+        </button>`;
+    }).join("");
+    $wzPasos.querySelectorAll("[data-i]").forEach(b => {
+      b.addEventListener("click", () => irAPaso(Number(b.dataset.i)));
+    });
+  }
+
+  // Solo se valida al AVANZAR en un documento nuevo. Editando uno ya hecho no
+  // tiene sentido bloquear: puedes querer entrar a cambiar solo la fecha.
+  function puedeAvanzar() {
+    const id = PASOS[pasoActual].id;
+    if (id === "lineas" && !draft.lineas.some(l => String(l.concepto || "").trim())) {
+      toastError("Añade al menos un concepto antes de continuar.");
+      return false;
+    }
+    return true;
+  }
+
+  function irAPaso(i) {
+    if (i === pasoActual) return;
+    if (esNuevo && i > pasoActual && !puedeAvanzar()) return;
+    pasoActual = Math.max(0, Math.min(PASOS.length - 1, i));
+    mostrarPaso();
+  }
+
+  function mostrarPaso() {
+    const idActual = PASOS[pasoActual].id;
+    container.querySelectorAll(".paso").forEach(s => { s.hidden = s.dataset.paso !== idActual; });
+    pintarPasos();
+    $wzBarra.style.width = `${((pasoActual + 1) / PASOS.length) * 100}%`;
+    $wzEtiqueta.textContent = `Paso ${pasoActual + 1} de ${PASOS.length} · ${PASOS[pasoActual].label}`;
+    $wzAnterior.hidden = pasoActual === 0;
+    const ultimo = pasoActual === PASOS.length - 1;
+    $wzSiguiente.textContent = ultimo ? "Guardar y terminar" : "Continuar →";
+    if (ultimo) pintarRepaso();
+    container.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
+  function pintarRepaso() {
+    const calc = actualizar();
+    const cliente = (clientes || []).find(c => c.id === container.querySelector("#f-cliente").value);
+    const faltan = camposClienteQueFaltan();
+    const conConcepto = draft.lineas.filter(l => String(l.concepto || "").trim()).length;
+    container.querySelector("#repaso-contenido").innerHTML = `
+      <div class="repaso-grid">
+        <div><span>Cliente</span><strong>${escapeHtml(cliente?.nombre || "—")}</strong></div>
+        <div><span>Número</span><strong>${escapeHtml(container.querySelector("#f-numero").value)}</strong></div>
+        <div><span>Fecha</span><strong>${dateEs(container.querySelector("#f-fecha").value)}</strong></div>
+        ${draft.tipo === "presupuesto" ? `<div><span>Proyecto</span><strong>${escapeHtml(container.querySelector("#f-proyecto-nombre")?.value || "—")}</strong></div>` : ""}
+        <div><span>Conceptos</span><strong>${conConcepto}</strong></div>
+        ${draft.tipo === "presupuesto" ? `<div><span>Condiciones</span><strong>${draft.condiciones.length}</strong></div>` : ""}
+        <div><span>Total</span><strong>${eur(Number(calc?.total || 0))}</strong></div>
+      </div>
+      ${faltan.length ? `<div class="ai-banner" style="margin-top:14px;">Al cliente le falta ${faltan.join(", ")}. Puedes guardar igual, pero el PDF saldrá con la marca de borrador.</div>` : ""}`;
+  }
+
+  $wzAnterior.addEventListener("click", () => irAPaso(pasoActual - 1));
+  $wzSiguiente.addEventListener("click", () => {
+    if (pasoActual === PASOS.length - 1) { container.querySelector("#btn-guardar").click(); return; }
+    if (!puedeAvanzar()) return;
+    irAPaso(pasoActual + 1);
+  });
 
   const $lineasWrap = container.querySelector("#lineas-wrap");
   const esPresupuestoDraft = draft.tipo === "presupuesto";
@@ -920,6 +1052,7 @@ pintarCondiciones();
 
   pintarLineas();
   actualizar();
+  mostrarPaso();
   container.querySelector("#btn-add-linea").addEventListener("click", () => { draft.lineas.push(lineaVacia()); pintarLineas(); actualizar(); });
   ["#f-iva", "#f-retencion", "#f-cliente", "#f-numero", "#f-descuento-valor"].forEach(sel => container.querySelector(sel)?.addEventListener("input", actualizar));
   container.querySelector("#f-descuento-tipo")?.addEventListener("change", actualizar);
