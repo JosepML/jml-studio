@@ -547,17 +547,30 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
   const $wzSiguiente = container.querySelector("#wz-siguiente");
   const $wzEtiqueta = container.querySelector("#wz-etiqueta");
 
+  // Los botones se pintan UNA vez y luego solo se les cambian las clases. Si se
+  // rehiciera el HTML en cada paso, el navegador tiraría los nodos viejos y las
+  // transiciones de color no llegarían a ejecutarse: el cambio se vería "a
+  // corte" en vez de progresivo.
   function pintarPasos() {
-    $wzPasos.innerHTML = PASOS.map((p, i) => {
-      const estado = i === pasoActual ? "activo" : (esNuevo && i < pasoActual ? "hecho" : "");
-      const texto = !esNuevo ? "" : (i === pasoActual ? "En curso" : i < pasoActual ? "Completado" : "Pendiente");
-      return `<button class="wz-paso ${estado}" data-i="${i}" type="button">
-          <span class="wz-paso-num">${estado === "hecho" ? "✓" : i + 1}</span>
-          <span class="wz-paso-txt"><strong>${p.label}</strong>${texto ? `<small>${texto}</small>` : ""}</span>
-        </button>`;
-    }).join("");
+    $wzPasos.innerHTML = PASOS.map((p, i) => `
+      <button class="wz-paso" data-i="${i}" type="button">
+        <span class="wz-paso-num"><span class="wz-num-cifra">${i + 1}</span><span class="wz-num-check">✓</span></span>
+        <span class="wz-paso-txt"><strong>${p.label}</strong>${esNuevo ? `<small></small>` : ""}</span>
+      </button>`).join("");
     $wzPasos.querySelectorAll("[data-i]").forEach(b => {
       b.addEventListener("click", () => irAPaso(Number(b.dataset.i)));
+    });
+    actualizarPasos();
+  }
+
+  function actualizarPasos() {
+    $wzPasos.querySelectorAll("[data-i]").forEach(b => {
+      const i = Number(b.dataset.i);
+      const hecho = esNuevo && i < pasoActual;
+      b.classList.toggle("activo", i === pasoActual);
+      b.classList.toggle("hecho", hecho);
+      const $small = b.querySelector("small");
+      if ($small) $small.textContent = i === pasoActual ? "En curso" : hecho ? "Completado" : "Pendiente";
     });
   }
 
@@ -582,7 +595,7 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
   function mostrarPaso() {
     const idActual = PASOS[pasoActual].id;
     container.querySelectorAll(".paso").forEach(s => { s.hidden = s.dataset.paso !== idActual; });
-    pintarPasos();
+    actualizarPasos();
     $wzBarra.style.width = `${((pasoActual + 1) / PASOS.length) * 100}%`;
     $wzEtiqueta.textContent = `Paso ${pasoActual + 1} de ${PASOS.length} · ${PASOS[pasoActual].label}`;
     $wzAnterior.hidden = pasoActual === 0;
@@ -1052,6 +1065,7 @@ pintarCondiciones();
 
   pintarLineas();
   actualizar();
+  pintarPasos();
   mostrarPaso();
   container.querySelector("#btn-add-linea").addEventListener("click", () => { draft.lineas.push(lineaVacia()); pintarLineas(); actualizar(); });
   ["#f-iva", "#f-retencion", "#f-cliente", "#f-numero", "#f-descuento-valor"].forEach(sel => container.querySelector(sel)?.addEventListener("input", actualizar));
