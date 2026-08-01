@@ -965,3 +965,30 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 }
 .menu-item.es-servicio:hover .servicio-unidad{background:#fff;}
 .menu-item.es-servicio .menu-item-precio{padding-top:1px;}
+
+/* ---------- Clientes: ficha con pestañas y alta en modal ---------- */
+/* Aviso en el listado: un cliente sin NIF o sin dirección no sirve para emitir
+   una factura válida, y eso antes solo se descubría al ir a exportarla. */
+.cli-incompleto{
+  display:inline-block; margin-left:8px; font-size:10.5px; font-weight:700;
+  color:var(--orange-fg); background:var(--orange-bg); border-radius:999px; padding:1px 8px;
+  vertical-align:middle; letter-spacing:.01em;
+}
+.cli-resumen{display:flex; gap:28px; flex-wrap:wrap;}
+.cli-resumen div{display:flex; flex-direction:column; gap:2px;}
+.cli-resumen strong{font-size:19px; font-weight:700; letter-spacing:-.02em; color:var(--navy);}
+.cli-resumen-label{
+  font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--grey);
+}
+/* El modal de alta lleva un formulario entero, no cabe en los 430px del
+   diálogo de confirmación. Y con scroll propio: en portátiles pequeños el
+   formulario completo no entra en pantalla. */
+.modal.ancho{max-width:640px; max-height:88vh; overflow-y:auto;}
+.modal.ancho p{margin-bottom:14px;}
+/* Campo rellenado por el analizador de texto: se marca para que se revise. */
+.campo-detectado{
+  background:var(--green-bg,#E3F1EA);
+  border-color:var(--green-fg,#4CAF82);
+  animation:campo-detectado-flash .9s var(--ease);
+}
+@keyframes campo-detectado-flash{from{background:#CFE9DA;} to{background:var(--green-bg,#E3F1EA);}}
