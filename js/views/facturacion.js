@@ -5,7 +5,7 @@ import { escapeHtml, escapeAttr } from "./clientes.js";
 import { CONFIG_NEGOCIO } from "../utils/config-negocio.js";
 import { crearFacturaPdf, crearPresupuestoPdf, cargarLogoDataUrl } from "../utils/pdf-documentos.js";
 import { mejorarDescripcionConIA, tieneClaveGemini } from "../ai/gemini.js";
-import { toastOk, toastError, confirmar, confirmarBorrado } from "../utils/ui.js";
+import { toastOk, toastError, confirmar, confirmarBorrado, skeletonTabla } from "../utils/ui.js";
 import { listarCondiciones, crearCondicion, borrarCondicion, textosPorDefecto, textosFijasDeGrupo, GRUPOS_CONDICION } from "../utils/condiciones.js";
 import { listarServicios, crearServicio, etiquetaServicio, servicioALinea } from "../utils/servicios.js";
 
@@ -142,7 +142,7 @@ async function renderLista(container, cfg) {
           <button class="btn btn-primary" id="btn-nueva">${cfg.nuevoLabel}</button>
         </div>
       </div>` : ""}
-      <div id="facturas-list">Cargando…</div>
+      <div id="facturas-list">${skeletonTabla(6)}</div>
     </div>`;
 
   container.querySelector("#btn-nueva")?.addEventListener("click", () => location.hash = `${cfg.volverA}/nuevo`);

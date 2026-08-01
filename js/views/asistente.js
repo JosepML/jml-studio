@@ -6,6 +6,7 @@ import { construirLedger, resumenPeriodo, resumenTrimestre, rangoMes, rangoAnio,
 import { escapeHtml, escapeAttr } from "./clientes.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { preguntarAsistenteFinanciero, tieneClaveGemini } from "../ai/gemini.js";
+import { toastOk, toastError } from "../utils/ui.js";
 
 const CLIENTE_GENERICO = "por clasificar";
 const MESES_CORTO = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
@@ -327,10 +328,14 @@ function pintarResultado(container, campos) {
       direccion: $res.querySelector("#a-direccion").value.trim(),
       notas: $res.querySelector("#a-notas").value.trim(),
     };
-    if (!payload.nombre) { alert("Falta el nombre del cliente."); return; }
+    if (!payload.nombre) {
+      toastError("Falta el nombre del cliente.");
+      $res.querySelector("#a-nombre").focus();
+      return;
+    }
     const { error } = await db.from("clientes").insert(payload).exec();
-    if (error) { alert("Error guardando: " + error); return; }
-    alert("Cliente guardado. Puedes verlo en la sección Clientes.");
+    if (error) { toastError("Error guardando: " + error); return; }
+    toastOk(`Cliente "${payload.nombre}" guardado. Ya lo tienes en Clientes.`);
     container.querySelector("#texto-cliente").value = "";
     $res.innerHTML = "";
   });

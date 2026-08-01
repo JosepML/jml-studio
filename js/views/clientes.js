@@ -2,7 +2,7 @@ import { db } from "../supabase.js";
 import { eur, dateEs, ESTADOS_FACTURA, ESTADOS_PRESUPUESTO } from "../utils/format.js";
 import { construirLedger } from "../utils/resumen.js";
 import { round2 } from "../utils/invoice-calc.js";
-import { toastOk, toastError, confirmarBorrado, animarVista } from "../utils/ui.js";
+import { toastOk, toastError, confirmarBorrado, animarVista, skeletonTabla } from "../utils/ui.js";
 import { opcionesDoughnut } from "../utils/charts.js";
 import { parseClienteDesdeTexto } from "../ai/parser.js";
 
@@ -17,7 +17,7 @@ export async function renderClientes(container, param) {
       <button class="btn btn-primary toolbar-action" id="btn-nuevo-cliente">+ Nuevo cliente</button>
     </div>
     <div class="grid grid-side" style="margin-bottom:20px; align-items:start;">
-      <div class="card"><div id="clientes-list">Cargando…</div></div>
+      <div class="card"><div id="clientes-list">${skeletonTabla(8)}</div></div>
       <div class="card">
         <div class="card-head"><h3>Clientes por valor</h3><span class="help-tip" title="Total facturado real por cliente (transferencia + efectivo, incluyendo proyectos aún sin factura formal), de más a menos.">i</span></div>
         <div id="clientes-chart-wrap" style="position:relative; height:260px;"><canvas id="chart-clientes"></canvas></div>
