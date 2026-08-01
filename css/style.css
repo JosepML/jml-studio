@@ -1065,3 +1065,9 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 /* El atributo `hidden` lo pisaba cualquier regla con display propio (.btn es
    inline-flex), así que "Anterior" seguía viéndose en el primer paso. */
 [hidden]{display:none !important;}
+
+/* ---------- Ficha de proyecto ---------- */
+.ficha-cabecera{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;}
+/* El diálogo de gasto es alto: se le deja scroll propio y algo más de ancho. */
+.modal.ancho .toggle-box{margin-bottom:12px;}
+.modal.ancho .form-actions{margin-top:18px;}
