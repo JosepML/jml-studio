@@ -6,9 +6,9 @@ import { renderFacturacion, renderPresupuestos } from "./views/facturacion.js";
 import { renderFinanciero } from "./views/financiero.js";
 import { renderGastos } from "./views/gastos.js";
 import { renderMensual } from "./views/mensual.js";
-import { renderAsistente } from "./views/asistente.js";
 import { renderConfiguracion } from "./views/configuracion.js";
 import { montarChatFlotante, olvidarChat } from "./views/chat-flotante.js";
+import { montarCampana, olvidarAlertas } from "./views/alertas.js";
 import { asegurarGastosFijosMensuales } from "./utils/gastos-recurrentes.js";
 import { animarVista, toastError } from "./utils/ui.js";
 import { cargarEmisor, olvidarEmisor } from "./utils/config-negocio.js";
@@ -22,7 +22,6 @@ const ROUTES = {
   presupuestos: { title: "Presupuestos", render: renderPresupuestos },
   gastos: { title: "Gastos", render: renderGastos },
   financiero: { title: "Financiero", render: renderFinanciero },
-  asistente: { title: "Asistente", render: renderAsistente },
   configuracion: { title: "Configuración", render: renderConfiguracion },
 };
 
@@ -120,6 +119,8 @@ function showApp() {
     // El chat vive colgado del <body>, fuera de #content, para que no se
     // destruya al navegar de una sección a otra.
     montarChatFlotante();
+    // Los avisos viven en la barra superior, no en una sección aparte.
+    montarCampana();
     asegurarGastosFijosMensuales().catch(err => console.error(err));
     // Datos de emisor: viven en Supabase (migración 008), no en el código.
     // Al llegar, repinta: la vista puede haberse dibujado antes de tenerlos.
@@ -160,6 +161,7 @@ document.getElementById("logout-btn").addEventListener("click", () => {
   auth.signOut();
   olvidarEmisor();
   olvidarChat();
+  olvidarAlertas();
   previewMode = false;
   showLogin();
 });
