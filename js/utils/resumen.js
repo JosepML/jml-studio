@@ -25,6 +25,19 @@ export function conIva(base, ivaPct = IVA_PCT_DEFECTO) {
   return round2(Number(base || 0) * (1 + ivaPct / 100));
 }
 
+/**
+ * Lo que el cliente paga de verdad, según cómo cobre ese proyecto.
+ *
+ * En efectivo no se repercute IVA: no hay factura y no entra en el Modelo 303,
+ * así que su "importe con IVA" es su propia base. Aplicarle el 21% a todo
+ * inflaba los cobros en efectivo en "Pendiente de cobro" y en Proyectos.
+ */
+export function conIvaSegunPago(base, formaPago, ivaPct = IVA_PCT_DEFECTO) {
+  return (formaPago || "transferencia") === "transferencia"
+    ? conIva(base, ivaPct)
+    : round2(Number(base || 0));
+}
+
 // --- Rangos de fechas ---
 export function rangoMes(anio, mesIdx) {
   const desde = `${anio}-${String(mesIdx + 1).padStart(2, "0")}-01`;
