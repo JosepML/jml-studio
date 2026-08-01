@@ -1061,3 +1061,7 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
   .wizard-footer-acciones{justify-content:space-between;}
   .editor-aside{position:static;}
 }
+
+/* El atributo `hidden` lo pisaba cualquier regla con display propio (.btn es
+   inline-flex), así que "Anterior" seguía viéndose en el primer paso. */
+[hidden]{display:none !important;}
