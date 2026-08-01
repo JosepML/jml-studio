@@ -1128,3 +1128,8 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 @media (prefers-reduced-motion: reduce){
   .wz-num-aviso{transition-duration:.3s !important;}
 }
+
+/* ---------- Configuración por pestañas ---------- */
+/* Cinco bloques (fiscal, emisor, tarifas, condiciones, IA) en una sola página
+   hacían un scroll interminable; ahora cada uno tiene su pestaña. */
+.cfg-tabs{margin-bottom:18px; flex-wrap:wrap;}
