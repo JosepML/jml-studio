@@ -24,6 +24,15 @@ export async function renderConfiguracion(container) {
   const emisor = CONFIG_NEGOCIO.emisor;
 
   container.innerHTML = `
+    <div class="tabs cfg-tabs" id="cfg-tabs">
+      <button data-tab="fiscal" class="active" type="button">Datos fiscales</button>
+      <button data-tab="emisor" type="button">Emisor</button>
+      <button data-tab="tarifas" type="button">Tarifas</button>
+      <button data-tab="condiciones" type="button">Condiciones</button>
+      <button data-tab="ia" type="button">IA</button>
+    </div>
+
+    <div data-panel="fiscal">
     <div class="grid grid-2" style="align-items:start; margin-bottom:16px;">
       <div class="card">
         <div class="card-head"><h3>Datos fiscales</h3><span class="help-tip" title="Estos valores cambian con el tiempo (p. ej. la cuota de autónomo reducida sube a partir del año que viene) — actualízalos aquí cuando toque, sin tener que tocar código.">i</span></div>
@@ -45,6 +54,10 @@ export async function renderConfiguracion(container) {
         </div>
       </div>
 
+    </div>
+    </div>
+
+    <div data-panel="ia" hidden>
       <div class="card">
         <div class="card-head"><h3>IA para presupuestos</h3><span class="help-tip" title="Clave gratuita de Google Gemini (aistudio.google.com) para el botón 'Mejorar con IA' en las líneas de presupuesto. Se guarda solo en este navegador, nunca en el repositorio.">i</span></div>
         <p class="hint" style="margin-top:0;">
@@ -65,6 +78,7 @@ export async function renderConfiguracion(container) {
       </div>
     </div>
 
+    <div data-panel="emisor" hidden>
     <div class="card">
       <div class="card-head">
         <h3>Datos de emisor (los que salen en tus facturas)</h3>
@@ -83,8 +97,10 @@ export async function renderConfiguracion(container) {
       </div>
       <p class="hint-sm" style="margin-top:12px;">Se aplican a las facturas y presupuestos que generes a partir de ahora. Los PDFs ya descargados no cambian.</p>
     </div>
+    </div>
 
-    <div class="card" style="margin-top:16px;">
+    <div data-panel="tarifas" hidden>
+    <div class="card">
       <div class="card-head">
         <h3>Tarifas de servicios</h3>
         <button class="btn btn-primary btn-sm" id="btn-nueva-tarifa" type="button">+ Nueva tarifa</button>
@@ -104,8 +120,10 @@ export async function renderConfiguracion(container) {
       </div>
       <div id="tarifas-lista"></div>
     </div>
+    </div>
 
-    <div class="card" style="margin-top:16px;">
+    <div data-panel="condiciones" hidden>
+    <div class="card">
       <div class="card-head">
         <h3>Condiciones de presupuesto</h3>
         <button class="btn btn-primary btn-sm" id="btn-nueva-condicion" type="button">+ Nueva condición</button>
@@ -127,7 +145,19 @@ export async function renderConfiguracion(container) {
         </div>
       </div>
       <div id="condiciones-lista-cfg"></div>
+    </div>
     </div>`;
+
+  // Cinco secciones muy distintas en una sola página obligaban a un scroll
+  // larguísimo para llegar a las condiciones. Con pestañas, cada cosa está a
+  // un clic y la página no crece.
+  const $cfgTabs = container.querySelector("#cfg-tabs");
+  $cfgTabs.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      $cfgTabs.querySelectorAll("button").forEach(b => b.classList.toggle("active", b === btn));
+      container.querySelectorAll("[data-panel]").forEach(p => { p.hidden = p.dataset.panel !== btn.dataset.tab; });
+    });
+  });
 
   container.querySelector("#btn-guardar-fiscal").addEventListener("click", () => {
     setConfig({
