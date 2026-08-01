@@ -258,9 +258,23 @@ export async function renderAsistente(container) {
   const $chatInput = container.querySelector("#chat-input");
   const $chatAviso = container.querySelector("#chat-aviso");
 
+  // La IA contesta en Markdown (**negrita**, listas con guiones). Sin esto se
+  // veían los asteriscos en crudo. Se escapa PRIMERO el HTML y solo después se
+  // aplica el formato, así un texto con < o > no puede inyectar etiquetas.
+  function formatearRespuesta(texto) {
+    return escapeHtml(texto)
+      .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[\s(])\*([^*\n]+?)\*(?=[\s.,;:)!?]|$)/g, "$1<em>$2</em>")
+      .replace(/`([^`\n]+?)`/g, "<code>$1</code>")
+      // Viñetas: se dejan como línea con topo, sin montar un <ul> entero.
+      .replace(/^\s*[-*+]\s+/gm, "• ")
+      .replace(/^\s*#{1,6}\s+(.+)$/gm, "<strong>$1</strong>");
+  }
+
   function pintarChat() {
     $chatMensajes.innerHTML = historialChat.map(m => `
-      <div style="align-self:${m.rol === "usuario" ? "flex-end" : "flex-start"}; max-width:82%; background:${m.rol === "usuario" ? "var(--blue)" : "var(--light)"}; color:${m.rol === "usuario" ? "#fff" : "var(--text)"}; padding:10px 13px; border-radius:12px; font-size:13px; line-height:1.55; white-space:pre-wrap;">${escapeHtml(m.texto)}</div>
+      <div style="align-self:${m.rol === "usuario" ? "flex-end" : "flex-start"}; max-width:82%; background:${m.rol === "usuario" ? "var(--blue)" : "var(--light)"}; color:${m.rol === "usuario" ? "#fff" : "var(--text)"}; padding:10px 13px; border-radius:12px; font-size:13px; line-height:1.55; white-space:pre-wrap;">${m.rol === "usuario" ? escapeHtml(m.texto) : formatearRespuesta(m.texto)}</div>
     `).join("") || `<p class="muted" style="font-size:12px;">Pregúntame lo que quieras sobre tu facturación, gastos, clientes o el Modelo 130 — respondo con tus cifras reales.</p>`;
     $chatMensajes.scrollTop = $chatMensajes.scrollHeight;
   }
