@@ -567,6 +567,42 @@ Asistente y uno más en `app.js` (error al entrar por enlace de invitación de
 Supabase) son toasts. Clientes y Facturas usan ya `skeletonTabla` como el
 resto de secciones.
 
+### Rediseño de navegación (2026-08-01, lo último)
+
+Josep dijo que la web era «un mazacote» de scroll. Decisión tomada con él:
+**pasos al crear, pestañas al editar.**
+
+**Asistente por pasos en `facturacion.js`.** El editor de factura/presupuesto
+ya no es un scroll: es un wizard. `PASOS` = Cliente → Datos → Líneas
+→ (Condiciones, solo en presupuesto) → Confirmación. Reglas:
+- Se puede avanzar con campos vacíos. Un paso incompleto NO recibe el tick
+  verde: se marca `.wz-paso.incompleto` (ámbar). `pasoCompleto(id)` decide.
+- La **fecha de vencimiento no cuenta** para el completado, y ya no es un
+  `date`: es un selector **30 / 15 días / otro**, por defecto 30 en nuevos.
+  `diasEntre(fecha, fecha_vencimiento)` recalcula el plazo al abrir uno viejo.
+- `pintarPasos()` se ejecuta UNA vez; `actualizarPasos()` solo togglea clases.
+  Si repintas los chips con `innerHTML` en cada paso, **matas la transición**
+  de la barra de progreso (pasó, y se ve como un corte).
+
+**Diálogos en vez de páginas.** Tienen ya su modal propio, exportado y
+reutilizable desde varios sitios:
+- `abrirModalNuevoCliente(alCrear)` (`clientes.js`) — se llama desde el
+  desplegable de cliente del editor, sin salir del presupuesto.
+- `abrirFichaProyecto(proyecto, clientes, onGuardado)` (`proyectos.js`) — se
+  usa desde Proyectos y desde Facturación mensual; si no le pasas `clientes`
+  los carga él.
+- El formulario de Gastos también es modal (antes escribía en un hueco fijo).
+
+**Configuración por pestañas.** Cinco paneles (`fiscal`, `emisor`, `tarifas`,
+`condiciones`, `ia`) con `#cfg-tabs` y `[data-panel]`; el handler togglea
+`hidden`. `pintarTarifas()` y `pintarCondicionesCfg()` siguen corriendo al
+cargar aunque su panel esté oculto — verificado en producción, pintan bien.
+
+**`prefers-reduced-motion` está ACTIVO en el Windows de Josep** y la hoja
+tiene un `*{transition-duration:.001ms !important}` global. Cualquier
+animación que él pida necesita su **override explícito con `!important`
+dentro de esa media query**, o no se ve. Vale también para el futuro.
+
 ## 7.1 Dos trampas de CSS que costaron caro
 
 **1. Anchos por `nth-child`.** La tabla de líneas tenía los anchos definidos
