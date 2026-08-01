@@ -1,7 +1,7 @@
 // Service worker mínimo: cachea el shell de la app para que abra al instante
 // (incluso con mala cobertura) y funcione para consultar datos ya cargados
 // sin conexión. Los datos en sí siempre se piden en vivo a Supabase.
-const CACHE = "jml-studio-v6";
+const CACHE = "jml-studio-v7";
 const ASSETS = [
   "./", "./index.html", "./manifest.json",
   "./css/style.css",
@@ -9,11 +9,12 @@ const ASSETS = [
   "./js/utils/format.js", "./js/utils/invoice-calc.js", "./js/utils/resumen.js",
   "./js/utils/config-usuario.js", "./js/utils/config-negocio.js", "./js/utils/amortizacion.js",
   "./js/utils/ui.js", "./js/utils/charts.js", "./js/utils/servicios.js", "./js/utils/condiciones.js",
-  "./js/utils/gastos-recurrentes.js", "./js/utils/pdf-documentos.js", "./js/utils/pdf-fonts.js",
+  "./js/utils/gastos-recurrentes.js", "./js/utils/gcal.js", "./js/utils/pdf-documentos.js", "./js/utils/pdf-fonts.js",
   "./js/ai/parser.js", "./js/ai/gemini.js",
   "./js/views/dashboard.js", "./js/views/clientes.js", "./js/views/proyectos.js",
   "./js/views/facturacion.js", "./js/views/financiero.js", "./js/views/asistente.js",
   "./js/views/gastos.js", "./js/views/mensual.js", "./js/views/configuracion.js",
+  "./js/views/calendario.js",
   "./icons/icon-192.png", "./icons/icon-512.png",
 ];
 
@@ -33,6 +34,8 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   // Nunca cachear llamadas a Supabase: siempre datos en vivo.
   if (url.hostname.endsWith("supabase.co")) return;
+  // Ni a Google: los tokens y los eventos del calendario siempre en vivo.
+  if (url.hostname.endsWith("googleapis.com") || url.hostname.endsWith("google.com")) return;
   // Los ficheros propios de la app se piden SIEMPRE revalidando contra el
   // servidor. Sin esto no bastaba con "red primero": GitHub Pages los sirve
   // con max-age, así que el navegador los daba por buenos desde su propia
