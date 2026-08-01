@@ -1309,3 +1309,65 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
   .chat-fab{right:14px; bottom:14px; padding:11px 15px;}
   .chat-fab span{display:none;}
 }
+
+/* ==================================================== CAMPANA DE AVISOS
+   Vive en la barra superior, montada desde JS (fuera de #content). */
+.topbar{justify-content:space-between;}
+.campana-wrap{position:relative; margin-left:auto;}
+.campana{
+  position:relative; width:38px; height:38px; border-radius:var(--radius-xs);
+  border:1px solid var(--border); background:#fff; color:var(--grey-fg);
+  display:grid; place-items:center; cursor:pointer;
+  transition:background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.campana:hover{background:var(--light); color:var(--text);}
+.campana svg{width:19px; height:19px;}
+.campana-num{
+  position:absolute; top:-5px; right:-5px; min-width:18px; height:18px; padding:0 5px;
+  border-radius:99px; background:var(--red-fg); color:#fff;
+  font-size:10.5px; font-weight:700; line-height:18px; text-align:center;
+  box-shadow:0 0 0 2px #fff;
+}
+.campana-num[hidden]{display:none !important;}
+
+.campana-panel{
+  position:absolute; top:calc(100% + 8px); right:0; z-index:130;
+  width:380px; max-width:calc(100vw - 32px); max-height:min(460px, 70vh);
+  display:flex; flex-direction:column; overflow:hidden;
+  background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-lg);
+}
+.campana-panel[hidden]{display:none !important;}
+.campana-panel header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:11px 13px; border-bottom:1px solid var(--border); flex:0 0 auto;
+}
+.campana-panel header strong{font-size:13px;}
+.campana-panel header button{
+  width:26px; height:26px; border:none; border-radius:7px; cursor:pointer;
+  background:var(--light); color:var(--grey-fg); font-size:14px; line-height:1;
+}
+.campana-panel header button:hover{background:var(--border);}
+.campana-lista{overflow-y:auto; padding:6px;}
+.campana-vacio{margin:18px 12px; color:var(--grey); font-size:12.5px; text-align:center; line-height:1.6;}
+.campana-item{
+  display:flex; gap:10px; align-items:flex-start;
+  padding:9px 10px; border-radius:var(--radius-xs);
+  color:var(--text); text-decoration:none; font-size:12.5px; line-height:1.5;
+  transition:background-color var(--dur) var(--ease);
+}
+.campana-item:hover{background:var(--light);}
+.campana-ico{
+  flex:0 0 auto; width:22px; height:22px; border-radius:6px; margin-top:1px;
+  display:grid; place-items:center; font-size:11px; font-style:normal; font-weight:700;
+  background:var(--grey-bg); color:var(--grey-fg);
+}
+.campana-ico.cobro{background:var(--amber-bg); color:var(--amber-fg);}
+.campana-ico.cliente{background:var(--purple-bg); color:var(--purple-fg);}
+.campana-ico.gasto{background:var(--orange-bg); color:var(--orange-fg);}
+.campana-ico.factura{background:var(--red-bg); color:var(--red-fg);}
+.campana-ico.amortizacion{background:var(--green-bg); color:var(--green-fg);}
+
+@media (max-width:600px){
+  .campana-panel{width:min(340px, calc(100vw - 24px));}
+}
