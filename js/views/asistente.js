@@ -5,7 +5,7 @@ import { calcularModelo130, round2 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, resumenTrimestre, rangoMes, rangoAnio, conIva, estadoEfectivo } from "../utils/resumen.js";
 import { escapeHtml, escapeAttr } from "./clientes.js";
 import { getConfig } from "../utils/config-usuario.js";
-import { preguntarAsistenteFinanciero, tieneClaveGemini } from "../ai/gemini.js";
+import { preguntarAsistenteFinanciero, tieneClaveIA } from "../ai/mistral.js";
 import { toastOk, toastError } from "../utils/ui.js";
 
 const CLIENTE_GENERICO = "por clasificar";
@@ -158,7 +158,7 @@ export async function renderAsistente(container) {
     gastosPorCategoriaAnio[k] = round2((gastosPorCategoriaAnio[k] || 0) + Number(g.importe || 0));
   });
 
-  // Contexto financiero que se envía a Gemini junto con cada pregunta del
+  // Contexto financiero que se envía a la IA junto con cada pregunta del
   // chat — así puede responder con cifras reales en vez de inventar datos.
   const contextoChat = {
     fecha_hoy: hoyIso,
@@ -229,13 +229,13 @@ export async function renderAsistente(container) {
     </div>
 
     <div class="card" style="margin-bottom:20px;">
-      <div class="card-head"><h3>Chat financiero</h3><span class="help-tip" title="Le pasamos tus cifras reales (facturación, gastos, Modelo 130, clientes...) para que pueda responder preguntas concretas sobre tu negocio. Usa tu clave gratuita de Gemini de Configuración — sin coste.">i</span></div>
+      <div class="card-head"><h3>Chat financiero</h3><span class="help-tip" title="Le pasamos tus cifras reales (facturación, gastos, Modelo 130, clientes...) para que pueda responder preguntas concretas sobre tu negocio. Usa tu clave gratuita de Mistral de Configuración — sin coste.">i</span></div>
       <div id="chat-mensajes" style="display:flex; flex-direction:column; gap:10px; max-height:380px; overflow-y:auto; margin-bottom:14px; padding-right:4px;"></div>
       <div style="display:flex; gap:8px;">
         <input type="text" id="chat-input" placeholder="Ej: ¿Cuánto me beneficiaría fiscalmente gastar en material este trimestre?" style="flex:1;">
         <button class="btn btn-primary" id="chat-enviar">Enviar</button>
       </div>
-      <p class="muted" id="chat-aviso" style="font-size:11px; margin-top:8px;">${tieneClaveGemini() ? "Respuestas orientativas — confirma con tu gestoría antes de tomar decisiones fiscales." : "Falta la clave de Gemini — añádela gratis en Configuración para activar el chat."}</p>
+      <p class="muted" id="chat-aviso" style="font-size:11px; margin-top:8px;">${tieneClaveIA() ? "Respuestas orientativas — confirma con tu gestoría antes de tomar decisiones fiscales." : "Falta la clave de IA — añádela gratis en Configuración para activar el chat."}</p>
     </div>
 
     <div class="card">
@@ -269,7 +269,7 @@ export async function renderAsistente(container) {
   async function enviarPregunta() {
     const pregunta = $chatInput.value.trim();
     if (!pregunta) return;
-    if (!tieneClaveGemini()) { $chatAviso.textContent = "Falta la clave de Gemini — añádela gratis en Configuración."; return; }
+    if (!tieneClaveIA()) { $chatAviso.textContent = "Falta la clave de IA — añádela gratis en Configuración."; return; }
     $chatInput.value = "";
     historialChat.push({ rol: "usuario", texto: pregunta });
     pintarChat();

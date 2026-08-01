@@ -4,7 +4,7 @@ import { ESTADOS_FACTURA, ESTADOS_PRESUPUESTO, eur, dateEs, todayIso, CATEGORIAS
 import { escapeHtml, escapeAttr, abrirModalNuevoCliente } from "./clientes.js";
 import { CONFIG_NEGOCIO } from "../utils/config-negocio.js";
 import { crearFacturaPdf, crearPresupuestoPdf, cargarLogoDataUrl } from "../utils/pdf-documentos.js";
-import { mejorarDescripcionConIA, tieneClaveGemini } from "../ai/gemini.js";
+import { mejorarDescripcionConIA, tieneClaveIA } from "../ai/mistral.js";
 import { toastOk, toastError, confirmar, confirmarBorrado, skeletonTabla } from "../utils/ui.js";
 import { listarCondiciones, crearCondicion, borrarCondicion, textosPorDefecto, textosFijasDeGrupo, GRUPOS_CONDICION } from "../utils/condiciones.js";
 import { listarServicios, crearServicio, etiquetaServicio, servicioALinea } from "../utils/servicios.js";
@@ -792,7 +792,7 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
               ${esPresupuestoDraft ? `
               <div class="linea-desc-wrap">
                 <textarea class="linea-descripcion" rows="2" placeholder="Descripción (opcional) — sale bajo el concepto en el PDF">${escapeHtml(l.descripcion || "")}</textarea>
-                <button class="btn btn-ghost btn-mejorar-ia" type="button" title="${tieneClaveGemini() ? "Mejorar esta descripción con IA" : "Añade tu clave de Gemini en Configuración para usar esto"}">✨ IA</button>
+                <button class="btn btn-ghost btn-mejorar-ia" type="button" title="${tieneClaveIA() ? "Mejorar esta descripción con IA" : "Añade tu clave de IA en Configuración para usar esto"}">✨ IA</button>
               </div>` : ""}
             </td>
             <td data-label="Cant." class="col-num col-cant"><input class="linea-cantidad" type="number" step="1" value="${l.cantidad}"></td>
@@ -837,7 +837,7 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
       if ($desc) $desc.addEventListener("input", e => { draft.lineas[idx].descripcion = e.target.value; });
       const $btnIA = row.querySelector(".btn-mejorar-ia");
       if ($btnIA) $btnIA.addEventListener("click", async () => {
-        if (!tieneClaveGemini()) { toastError("Añade tu clave gratuita de Gemini en Configuración → IA para presupuestos antes de usar esto."); return; }
+        if (!tieneClaveIA()) { toastError("Añade tu clave gratuita de Mistral en Configuración → IA antes de usar esto."); return; }
         const notaActual = $desc.value.trim();
         if (!notaActual) { toastError("Escribe primero una nota breve (p. ej. 'grabación 4h pista padel') y luego pulsa IA."); return; }
         $btnIA.disabled = true;

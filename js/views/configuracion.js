@@ -86,21 +86,24 @@ export async function renderConfiguracion(container) {
 
     <div data-panel="ia" hidden>
       <div class="card">
-        <div class="card-head"><h3>IA para presupuestos</h3><span class="help-tip" title="Clave gratuita de Google Gemini (aistudio.google.com) para el botón 'Mejorar con IA' en las líneas de presupuesto. Se guarda solo en este navegador, nunca en el repositorio.">i</span></div>
+        <div class="card-head"><h3>IA (Mistral)</h3><span class="help-tip" title="Clave gratuita de Mistral para el chat del Asistente y el botón 'Mejorar con IA' de los presupuestos. Se guarda solo en este navegador, nunca en el repositorio.">i</span></div>
         <p class="hint" style="margin-top:0;">
-          1. Ve a <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a> (gratis, sin tarjeta).<br>
-          2. Crea una clave y pégala aquí.
+          1. Entra en <a href="https://console.mistral.ai/api-keys" target="_blank" rel="noopener">console.mistral.ai/api-keys</a> y crea una cuenta (gratis, sin tarjeta; pide un móvil para verificar).<br>
+          2. Elige el plan <strong>Experiment</strong>, que es el gratuito.<br>
+          3. Crea una clave y pégala aquí.
         </p>
         <div class="field">
-          <label>Clave de API de Gemini</label>
-          <input id="c-gemini-key" type="password" value="${escapeAttr(cfg.gemini_api_key)}" placeholder="AIza…" autocomplete="off">
+          <label>Clave de API de Mistral</label>
+          <input id="c-ia-key" type="password" value="${escapeAttr(cfg.ia_api_key)}" placeholder="Pega aquí tu clave…" autocomplete="off">
         </div>
         <div class="form-actions">
           <button class="btn btn-primary" id="btn-guardar-ia">Guardar</button>
+          <button class="btn btn-sec" id="btn-probar-ia">Probar</button>
         </div>
-        <p class="hint-sm" style="margin-top:12px;">Esta clave se guarda solo en este dispositivo (localStorage del navegador). Si usas la app desde el móvil y el ordenador, pégala en los dos.</p>
+        <div id="ia-resultado" class="hint-box" style="margin-top:12px;" hidden></div>
+        <p class="hint-sm" style="margin-top:12px;">La clave se guarda solo en este dispositivo (localStorage del navegador). Si usas la app desde el móvil y el ordenador, pégala en los dos.</p>
         <div class="hint-box" style="margin-top:10px;">
-          Aviso: Google no permite usar la capa gratuita de su API para usuarios de España/UE, así que el chat del Asistente devolverá error de cuota aunque la clave sea correcta. El botón "Mejorar con IA" de los presupuestos sí suele funcionar.
+          Antes esto usaba Google Gemini, pero Google no permite su capa gratuita a usuarios de España/UE y siempre devolvía error de cuota. Mistral es francesa: la capa gratuita funciona aquí y tus datos no salen de la UE. Va limitada a unas pocas peticiones por minuto, así que si preguntas muy seguido puede pedirte que esperes unos segundos.
         </div>
       </div>
     </div>
@@ -219,8 +222,26 @@ export async function renderConfiguracion(container) {
   });
 
   container.querySelector("#btn-guardar-ia").addEventListener("click", () => {
-    setConfig({ gemini_api_key: container.querySelector("#c-gemini-key").value.trim() });
+    setConfig({ ia_api_key: container.querySelector("#c-ia-key").value.trim() });
     toastOk("Clave guardada en este dispositivo.");
+  });
+
+  // Una llamada real y mínima, para que sepa si la clave sirve sin tener que
+  // irse a Presupuestos a probar el botón de IA.
+  container.querySelector("#btn-probar-ia").addEventListener("click", async () => {
+    const $res = container.querySelector("#ia-resultado");
+    setConfig({ ia_api_key: container.querySelector("#c-ia-key").value.trim() });
+    $res.hidden = false;
+    $res.textContent = "Probando…";
+    try {
+      const { mejorarDescripcionConIA } = await import("../ai/mistral.js");
+      const texto = await mejorarDescripcionConIA("Grabación", "prueba de conexión, 1 cámara");
+      $res.textContent = `Funciona. Ejemplo devuelto: “${texto}”`;
+      toastOk("La IA responde correctamente.");
+    } catch (e) {
+      $res.textContent = e.message || "No se ha podido conectar con la IA.";
+      toastError("La IA no ha respondido.");
+    }
   });
 
   container.querySelector("#btn-guardar-emisor").addEventListener("click", async () => {
