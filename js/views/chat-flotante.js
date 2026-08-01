@@ -81,7 +81,8 @@ async function cargarContexto() {
 
   const porCliente = {};
   ledger.filter(f => (f.fecha || "").startsWith(String(anio))).forEach(f => {
-    const n = nombres[f.cliente_id] || "sin clasificar";
+    // Ojo: el cliente cuelga del proyecto, no de la fila del ledger.
+    const n = nombres[f.proyecto?.cliente_id] || "sin clasificar";
     porCliente[n] = round2((porCliente[n] || 0) + f.importeBase);
   });
 
