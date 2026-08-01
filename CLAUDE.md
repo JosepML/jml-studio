@@ -521,68 +521,98 @@ puede leer entera con la clave pública.
 
 # 7. Estado actual y trabajo pendiente
 
-## Último trabajo cerrado (2026-07-30 / 31)
+## Último trabajo cerrado (2026-08-01)
 
-**Condiciones y tarifas reales** (migración 007, ya ejecutada): columna `grupo`
-en `condiciones` (`generales` | `rodaje` | `postproduccion`), las **18
-condiciones reales del anexo** de Josep (generales fijas 5, rodaje 4+2,
-postproducción 3+4) y sus **14 tarifas reales** (Servicio Express 150 €, Media
-Jornada 220 €, Jornada Completa 390 €, Jornada de Edición 280 €, Pack 5 Reels
-300 €, Pack 10 Reels 500 €, Ronda extra 15 €, Fotografía Express / Media
-Jornada / Jornada Completa…).
+### Presupuestos, reparación a fondo
+Josep lo resumió como "prácticamente roto". Ocho puntos, todos cerrados:
 
-- **Packs de condiciones** en el editor: el menú "Añadir condición" abre con
-  `Pack: condiciones de rodaje / grabación (+N)` y `Pack: condiciones de
-  postproducción (+N)`, que añaden de golpe las fijas de ese grupo que falten.
-  Solo se ofrecen si queda alguna. Las generales fijas se precargan solas.
-- **Botón "Guardar cambios" por tarifa** en Configuración. Ojo: la fila de
-  tarifas usa `.t-guardar` y la de condiciones `.k-guardar`; el CSS tiene que
-  ocultar **las dos** hasta que haya cambios. Se olvidó y el botón se veía
-  siempre.
-- **Columna Grupo** y "Fija del grupo" en la lista de condiciones.
-- **Botón "+ Crear"** encima del menú lateral (factura, presupuesto, proyecto,
-  cliente, gasto). Vive fuera de `#content`, con su propio manejador en
-  `app.js`.
-- **Limpieza de seguridad completa** (ver §6).
-- `sw.js` → **cache v6**.
+- **Numeración por máximo, no por conteo.** `nextNumero` y
+  `nextNumeroPresupuesto` contaban filas y sumaban 1, así que al borrar un
+  documento el siguiente repetía número — en facturas, un problema fiscal.
+  Ahora usan `siguienteSecuencial()`, que parsea el número más alto con
+  `secuencialDe()` (`"PRE-16-2026"` → 16) y suma 1.
+- **Orden del listado** por secuencial descendente (el último arriba); la
+  fecha solo desempata.
+- **`facturas.proyecto_nombre`** (migración 009): texto libre a nivel de
+  documento. Antes el PDF ponía en "Proyecto" el primer concepto, porque no
+  había dónde guardar el nombre — y deducirlo del proyecto vinculado no vale:
+  el presupuesto se hace ANTES de que el proyecto exista.
+- **Sin proyecto por línea en presupuestos** (ni el menú "Añadir proyecto").
+  **Las facturas lo conservan**: la factura mensual agrupa varios proyectos y
+  quitarlo rompería Facturación mensual. Decisión expresa de Josep.
+- **"Convertir en proyecto"**: crea el proyecto con el nombre y el cliente del
+  presupuesto, `precio_acordado` = base imponible, lo vincula y deja el
+  presupuesto en "Aceptado" (`estado: "pagada"`). Si ya está vinculado, el
+  botón pasa a "Ver el proyecto".
+- **Reordenar líneas y condiciones**: tirador `⠿` que arrastra (`moverEn`,
+  `engancharArrastre`) más flechas ↑↓, que son las que sirven en móvil.
+- **Menús desplegables**: ver §7.1.
+- **Servicios en el desplegable**: nombre, unidad como etiqueta y precio.
 
-## Pendiente — por orden de lo que pidió Josep
+### Clientes, rediseñado
+- **Ficha con pestañas** (Datos · Proyectos · Facturas y presupuestos) con
+  cabecera de resumen. Sustituye al formulario que colgaba bajo la lista.
+  Las filas de proyectos y documentos llevan a su editor.
+- **Alta en modal** (`.modal.ancho`) con caja de **pegar texto**: reutiliza
+  `parseClienteDesdeTexto` del Flujo A. Los campos que rellena se marcan con
+  `.campo-detectado` para que se revisen.
+- **Aviso "datos incompletos"** en el listado y en la ficha cuando falta NIF o
+  dirección: son los que bloquean al emitir factura, y antes solo se
+  descubría al exportarla.
+- `#/clientes/<id>` abre la ficha directamente.
 
-### 1. Rediseño de Clientes (lo más pedido, sin empezar)
-- Ficha de cliente **con pestañas** en vez de la lista plana actual.
-- **Alta completa en un modal**, no el formulario reducido de ahora.
-- **Importar clientes desde texto pegado** (pegar los datos de un email o un
-  PDF y que se rellenen los campos solos, como el parser de gastos).
+### Fase 4 cerrada
+No queda **ningún `alert()` nativo** en la app: los tres del Flujo A del
+Asistente y uno más en `app.js` (error al entrar por enlace de invitación de
+Supabase) son toasts. Clientes y Facturas usan ya `skeletonTabla` como el
+resto de secciones.
 
-### 2. Pulido visual general
-Su queja literal es que la interfaz se ve **"plana y estática"**. Falta rematar
-la Fase 4 que quedó a medias: **diálogos propios, toasts y skeletons de carga**.
-Relacionado: quedan **tres `alert()` nativos en `js/views/asistente.js`**
-(~líneas 330-333) que hay que sustituir por el diálogo de la app.
+## 7.1 Dos trampas de CSS que costaron caro
 
-### 3. Revisión en móvil
-Nunca validada con rigor (§4.3). `resize_window` no cambia el viewport
-renderizado, así que hace falta otro método para comprobarlo de verdad.
+**1. Anchos por `nth-child`.** La tabla de líneas tenía los anchos definidos
+por POSICIÓN, y encima repartidos en tres bloques distintos del fichero de
+sesiones anteriores. Al añadir la columna del tirador y quitar la de proyecto,
+todos apuntaban a la columna equivocada y la tabla salió completamente
+descuadrada en producción. Ahora van por CLASE (`.col-mover`, `.col-cant`,
+`.col-precio`, `.col-dto`, `.col-proy`, `.col-total`, `.col-acc`).
+**Nunca uses `nth-child` para anchos en una tabla cuyas columnas cambian.**
+Y si añades una regla, comprueba que no hay otra igual más abajo pisándola:
 
-### 4. Chat del Asistente (bloqueado por decisión de Josep)
+```bash
+grep -n "tabla-lineas th:nth-child" css/style.css
+```
+
+**2. Contextos de apilamiento.** Los paneles de los menús salían POR DEBAJO de
+las tarjetas siguientes pese a su `z-index:40`. La causa: `animarVista` deja
+`transform`/`opacity` en cada `.card`, y eso crea un contexto de apilamiento
+propio contra el que ningún `z-index` interno puede competir. La solución es
+elevar el ANCESTRO: al abrir un menú se le pone `.con-menu-abierto` a su
+`.card` (`position:relative; z-index:70`).
+
+## Pendiente
+
+### 1. Revisión en móvil (la única grande que queda)
+Nunca validada con rigor (§4.3). Ojo: `resize_window` **no** cambia el viewport
+que se renderiza, así que desde la sesión no se puede comprobar de verdad. Lo
+práctico es pedirle a Josep que abra la app en su teléfono y diga qué falla.
+
+### 2. Chat del Asistente (bloqueado por decisión suya)
 Usa Gemini, que Google no sirve a usuarios de la UE. Falta que Josep decida si
-migrar a Mistral AI. Restricción suya, literal: *"No quiero tener que pagar por
+migrar a Mistral AI. Restricción literal: *"No quiero tener que pagar por
 tokens, eso prohibido."*
 
-### 5. Seguridad — sugerido, no hecho
-Activar **verificación en dos pasos** en las cuentas de Supabase y de GitHub.
-Es donde está el poder real: quien entre ahí puede desactivar el RLS.
+### 3. Seguridad — sugerido, no hecho
+Activar verificación en dos pasos en Supabase y en GitHub. Es donde está el
+poder real: quien entre ahí puede desactivar el RLS.
 
 ### Cosas menores / conocidas
-- **Saltos de página del presupuesto**: el presupuesto típico necesita ~150 pt
-  más de los que quedan en la página. Josep decidió **dejarlo así** antes que
-  comprimir el diseño. No lo "arregles" por tu cuenta.
-- `LEEME.md` está **obsoleto** (habla de Netlify y de una constante `EMISOR`
-  que ya no existe) y además **ya no está en el repositorio**. No lo cites.
-- La copia local de la sesión y `main` estaban desincronizadas en varios
-  ficheros. Al recrear el repositorio se subió **la versión de `main`**, que
-  es la que funciona. Si encuentras diferencias con una copia local vieja,
-  gana el repositorio.
+- **Arrastrar líneas no está verificado de punta a punta.** La lógica de
+  reordenar sí (es la misma de las flechas, probada en vivo), pero simular un
+  drag & drop real desde la sesión no es fiable.
+- **Saltos de página del presupuesto**: el típico necesita ~150 pt más de los
+  que quedan. Josep decidió **dejarlo así**. No lo "arregles" por tu cuenta.
+- `LEEME.md` ya no está en el repositorio y estaba obsoleto. No lo cites.
+- Si una copia local vieja no cuadra con `main`, **gana el repositorio**.
 
 ## Restricciones del usuario
 
