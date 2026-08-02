@@ -559,6 +559,21 @@ propio clic. Si antes hay un `await` que descarga el script de Google, Chrome
 responde `popup_failed_to_open`. Por eso hay `gcal.preparar()` (al montar la
 vista) separado de `gcal.pedirToken()` (pegado al clic).
 
+**No existe renovación silenciosa en este flujo.** El token dura una hora y no
+hay refresh token sin servidor. Se probaron en producción las dos vías que
+prometen silencio y las DOS contestan `popup_failed_to_open`: `prompt: "none"`
+a secas, y `prompt: "none"` + `hint` con su correo. Google exige gesto siempre.
+La salida (a petición suya, 2026-08-02) es `enPrimerClic()`: si ya autorizó
+antes (`jml_gcal_autorizado` en localStorage), se deja un oyente `once` en
+`document` y el token se pide en el primer clic que haga en cualquier parte de
+la app, con `prompt: "none"`, sin enseñarle ningún botón. El botón "Conectar"
+solo aparece si ese intento falla. El token vive ahora en **localStorage**
+(antes en sessionStorage, y por eso se perdía al cerrar el navegador).
+
+⚠️ **Sin verificar de punta a punta:** que el clic real produzca el token no se
+pudo comprobar desde la sesión —los clics sintéticos no llegaban a la página—.
+Si Josep dice que sigue apareciendo el botón, empieza por ahí.
+
 ### La IA pasó de Gemini a Mistral
 Google no sirve su capa gratuita a la UE. `js/ai/gemini.js` está BORRADO;
 ahora es `js/ai/mistral.js` (`mistral-small-latest`, API compatible con OpenAI,
