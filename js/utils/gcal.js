@@ -13,6 +13,9 @@
 const CLAVE_ID = "jml_gcal_client_id";
 const CLAVE_CALS = "jml_gcal_calendarios";
 const CLAVE_TOKEN = "jml_gcal_token";
+// Marca de que Google ya dio el consentimiento alguna vez en este navegador.
+// Es lo que permite renovar el token en silencio sin enseñarle el botón.
+const CLAVE_AUTORIZADO = "jml_gcal_autorizado";
 
 // calendar.events = leer y escribir eventos. calendar.readonly = poder listar
 // los calendarios que tiene. No se pide nada más.
@@ -34,8 +37,8 @@ export function guardarClientId(valor) {
   const v = (valor || "").trim();
   if (v) localStorage.setItem(CLAVE_ID, v);
   else localStorage.removeItem(CLAVE_ID);
-  // Cambiar de ID invalida cualquier token anterior.
-  desconectar();
+  // Cambiar de ID invalida cualquier token anterior y el permiso dado.
+  desconectar({ olvidarPermiso: true });
 }
 
 export function calendariosElegidos() {
@@ -52,7 +55,7 @@ export function guardarCalendariosElegidos(ids) {
 function recuperarToken() {
   if (token && Date.now() < expira) return true;
   try {
-    const guardado = JSON.parse(sessionStorage.getItem(CLAVE_TOKEN) || "null");
+    const guardado = JSON.parse(localStorage.getItem(CLAVE_TOKEN) || "null");
     if (guardado && guardado.token && Date.now() < guardado.expira) {
       token = guardado.token;
       expira = guardado.expira;
@@ -66,10 +69,16 @@ export function estaConectado() {
   return recuperarToken();
 }
 
-export function desconectar() {
+export function desconectar({ olvidarPermiso = false } = {}) {
   token = null;
   expira = 0;
-  sessionStorage.removeItem(CLAVE_TOKEN);
+  localStorage.removeItem(CLAVE_TOKEN);
+  if (olvidarPermiso) localStorage.removeItem(CLAVE_AUTORIZADO);
+}
+
+/** ¿Ya autorizó Google en este navegador alguna vez? */
+export function yaAutorizado() {
+  return localStorage.getItem(CLAVE_AUTORIZADO) === "1";
 }
 
 // El script de Google se carga solo cuando hace falta, no en el index: así el
@@ -126,9 +135,10 @@ export function pedirToken({ silencioso = false } = {}) {
     tokenClient.callback = (res) => {
       if (res.error) { reject(new Error(res.error_description || res.error)); return; }
       token = res.access_token;
+      localStorage.setItem(CLAVE_AUTORIZADO, "1");
       // 60 s de margen para no usar un token que caduca a mitad de petición.
       expira = Date.now() + ((Number(res.expires_in) || 3600) - 60) * 1000;
-      try { sessionStorage.setItem(CLAVE_TOKEN, JSON.stringify({ token, expira })); } catch { /* nada */ }
+      try { localStorage.setItem(CLAVE_TOKEN, JSON.stringify({ token, expira })); } catch { /* nada */ }
       resolve(token);
     };
     tokenClient.error_callback = (err) => reject(new Error(err?.type || "Ventana de Google cerrada."));
@@ -138,9 +148,36 @@ export function pedirToken({ silencioso = false } = {}) {
   });
 }
 
+/**
+ * Renueva el token SIN enseñar nada, si Google ya dio el permiso antes.
+ *
+ * Josep se quejó (con razón) de tener que pulsar "Conectar con Google" cada
+ * vez que entraba. El token de acceso solo dura una hora y este flujo no tiene
+ * refresh token, pero `prompt: "none"` renueva en un iframe invisible mientras
+ * su sesión de Google siga viva. Al no abrir ventana, no necesita el gesto del
+ * clic y se puede lanzar solo al montar la vista.
+ *
+ * Devuelve el token, o null si hace falta que pulse él (sesión de Google
+ * cerrada, cookies borradas o permiso nunca concedido).
+ */
+export async function reconectarSilencio() {
+  if (recuperarToken()) return token;
+  if (!clientId() || !yaAutorizado()) return null;
+  try {
+    await preparar();
+    return await pedirToken({ silencioso: true });
+  } catch {
+    return null;
+  }
+}
+
 /** Camino completo: preparar + pedir. Para cuando no hay prisa por el gesto. */
 export async function conectar(opciones = {}) {
   if (recuperarToken()) return token;
+  // Antes de rendirse, el intento silencioso: así una llamada a la API que
+  // pilla el token recién caducado se recupera sola en vez de dar error.
+  const t = await reconectarSilencio();
+  if (t) return t;
   await preparar();
   return pedirToken(opciones);
 }
