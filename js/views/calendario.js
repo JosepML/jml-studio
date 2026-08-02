@@ -129,18 +129,22 @@ export function montarCalendario(host) {
       pintar();
       return;
     }
-    // El token de Google dura una hora. Antes de eso se le enseñaba el botón
-    // "Conectar" en cada visita, que es justo lo que molestaba. Ahora se
-    // intenta primero la renovación silenciosa (iframe invisible, sin ventana
-    // y sin necesitar su clic) y solo si falla se le pide que pulse.
+    // El token de Google dura una hora y no se puede renovar en silencio en un
+    // flujo sin servidor (ver gcal.reconectarSilencio). Antes eso significaba
+    // un botón "Conectar" en cada visita, que es lo que molestaba. Ahora la
+    // renovación se cuelga del primer clic que haga, sin pedirle nada: solo si
+    // ese intento falla se le enseña el botón.
     if (!gcal.estaConectado()) {
       if (gcal.yaAutorizado()) {
         estado("Reconectando con Google…");
-        const t = await gcal.reconectarSilencio();
-        if (!t) { pedirConexion(); pintar(); return; }
-      } else {
-        pedirConexion(); pintar(); return;
+        pintar();
+        gcal.reconectarSilencio().then(t => {
+          if (t) { estado(""); cargar(); }
+          else { pedirConexion(); pintar(); }
+        });
+        return;
       }
+      pedirConexion(); pintar(); return;
     }
     cargando = true;
     try {
