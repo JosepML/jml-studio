@@ -233,7 +233,9 @@ export async function renderProyectos(container, param) {
 
   // "nuevo" viene del botón "+ Crear" del menú lateral: la sección se abre ya
   // con el diálogo delante, en vez de dejarte en el listado buscando el botón.
-  if (param === "nuevo") {
+  // Ojo: el arranque pinta la vista dos veces (la segunda al llegar los datos
+  // del emisor), así que sin esta guarda el diálogo se abría por duplicado.
+  if (param === "nuevo" && !document.querySelector(".modal-backdrop")) {
     abrirFichaProyecto(null, clientes || [], recargarYPintar);
   } else if (param && proyectos) {
     const p = proyectos.find(x => x.id === param);

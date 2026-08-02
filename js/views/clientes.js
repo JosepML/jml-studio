@@ -35,7 +35,9 @@ export async function renderClientes(container, param) {
   const $list = container.querySelector("#clientes-list");
   if (error) { $list.innerHTML = `<p class="muted">Error cargando clientes: ${error}</p>`; return; }
 
-  if (param === "nuevo") abrirModalNuevoCliente(() => renderClientes(container));
+  // Ojo: el arranque pinta la vista dos veces (la segunda al llegar los datos
+  // del emisor), así que sin esta guarda el diálogo se abría por duplicado.
+  if (param === "nuevo" && !document.querySelector(".modal-backdrop")) abrirModalNuevoCliente(() => renderClientes(container));
 
   if (!data || !data.length) {
     container.querySelector("#clientes-chart-wrap").innerHTML = `<p class="muted" style="padding-top:20px;">Sin datos todavía.</p>`;

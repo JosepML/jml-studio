@@ -50,7 +50,9 @@ export async function renderGastos(container, param) {
 
   // Igual que en Proyectos y Clientes: "+ Crear → Nuevo gasto" entra por
   // #/gastos/nuevo y el formulario aparece solo.
-  if (param === "nuevo") abrirFormulario(container, null, () => renderGastos(container));
+  // Ojo: el arranque pinta la vista dos veces (la segunda al llegar los datos
+  // del emisor), así que sin esta guarda el diálogo se abría por duplicado.
+  if (param === "nuevo" && !document.querySelector(".modal-backdrop")) abrirFormulario(container, null, () => renderGastos(container));
   container.querySelector("#sel-anio").addEventListener("change", () => pintar());
 
   let categoriaFiltro = "";
