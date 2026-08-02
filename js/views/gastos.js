@@ -9,7 +9,7 @@ import { opcionesDoughnut } from "../utils/charts.js";
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 let chartCategorias = null;
 
-export async function renderGastos(container) {
+export async function renderGastos(container, param) {
   container.innerHTML = skeletonPagina({ kpis: 4, filas: 8 });
 
   const { data: gastos, error } = await db.from("gastos").select("*").order("fecha", { ascending: false }).exec();
@@ -47,6 +47,10 @@ export async function renderGastos(container) {
   `;
 
   container.querySelector("#btn-nuevo-gasto").addEventListener("click", () => abrirFormulario(container, null, () => renderGastos(container)));
+
+  // Igual que en Proyectos y Clientes: "+ Crear → Nuevo gasto" entra por
+  // #/gastos/nuevo y el formulario aparece solo.
+  if (param === "nuevo") abrirFormulario(container, null, () => renderGastos(container));
   container.querySelector("#sel-anio").addEventListener("change", () => pintar());
 
   let categoriaFiltro = "";

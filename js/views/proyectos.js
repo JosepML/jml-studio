@@ -231,7 +231,11 @@ export async function renderProyectos(container, param) {
 
   pintarTabla();
 
-  if (param && proyectos) {
+  // "nuevo" viene del botón "+ Crear" del menú lateral: la sección se abre ya
+  // con el diálogo delante, en vez de dejarte en el listado buscando el botón.
+  if (param === "nuevo") {
+    abrirFichaProyecto(null, clientes || [], recargarYPintar);
+  } else if (param && proyectos) {
     const p = proyectos.find(x => x.id === param);
     if (p) abrirFichaProyecto(p, clientes || [], recargarYPintar);
   }
