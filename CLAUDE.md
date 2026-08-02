@@ -122,6 +122,11 @@ mira la página `blob` del fichero (nº de líneas y KB) en vez de fiarte del ra
 
 ### Trampas conocidas del despliegue
 
+- **Un commit puede no registrarse.** Pulsas "Commit changes", la página se
+  queda igual y no ha pasado nada. Ocurrió una docena de veces en la sesión del
+  2 de agosto. **Verifica siempre** que el commit entró (la carpeta debe decir
+  "now") antes de dar el despliegue por bueno; repetir la subida suele
+  funcionar a la segunda.
 - **La vista `blob` de GitHub cachea.** Tras hacer commit puede seguir
   mostrando la versión anterior. Para verificar de verdad, usa
   `raw.githubusercontent.com/josepml/jml-studio/main/<ruta>?v=<timestamp>` con
@@ -417,8 +422,7 @@ móvil. No afirmes que el móvil está bien.
   vínculos, y eso destruía el trabajo del usuario…"). Mantenlo: es lo que hace
   navegable este repositorio sin historial de git útil.
 - Nada de `alert()` / `confirm()` nativos: usa `toastOk`, `toastError`,
-  `confirmar`, `confirmarBorrado` de `js/utils/ui.js`. (Quedan tres `alert()`
-  por migrar en `asistente.js`.)
+  `confirmar`, `confirmarBorrado` de `js/utils/ui.js`.
 - Dinero: siempre `round2()` y `eur()` de `format.js`. Nunca `toFixed` suelto.
 - Estados y etiquetas centralizados en `format.js` (`ESTADOS_PROYECTO`,
   `CATEGORIAS_GASTO`, `FORMAS_PAGO`, `CATEGORIAS_SERVICIO`…). No repitas
@@ -426,6 +430,25 @@ móvil. No afirmes que el móvil está bien.
 - CSS: un único `css/style.css`, sin preprocesador. Las reglas nuevas se
   añaden al final; con igualdad de especificidad gana la última. Cuidado con
   `.field`, que fuerza `flex-direction: column` a sus hijos.
+
+## 5.1 Accesibilidad — Josep es daltónico
+
+Se enteró uno por accidente en esta sesión. **El color no puede ser nunca la
+única pista.** Lo que se hizo en Facturación mensual y hay que repetir en el
+resto de la app:
+
+- Los tres estados de una fila se distinguen por la LÍNEA del margen izquierdo,
+  y los tonos se eligieron con mucha diferencia de luminosidad y saturación:
+  `--estado-sin:#C9D0DE` (gris apagado) · `--estado-emitida:#FFC300` (amarillo
+  puro y brillante) · `--estado-cobrada:#06A77D` (verde oscuro tirando a azul).
+  Están en `:root`, cámbialos ahí y se actualiza toda la app.
+- El nombre del proyecto se apaga cuando ya está cobrado: contraste, no color.
+- Todo estado lleva además su `title` con palabras.
+- **Rechazó** los círculos de semáforo (prefiere la línea) y las líneas a trazos
+  (prefiere las tres continuas, con color).
+
+Pendiente de dar el mismo repaso: los estados de Proyectos, y las gráficas del
+Dashboard y de Financiero.
 
 ---
 
@@ -521,7 +544,61 @@ puede leer entera con la clave pública.
 
 # 7. Estado actual y trabajo pendiente
 
-## Último trabajo cerrado (2026-08-01)
+## Último trabajo cerrado (2026-08-02) — lo más reciente
+
+### Google Calendar en el Dashboard
+`js/utils/gcal.js` + `js/views/calendario.js`. Lee y ESCRIBE en su agenda real
+(crear, editar y borrar eventos) con Google Identity Services, sin servidor.
+El proyecto de Google Cloud (`jml-studio`), la API de Calendar, la pantalla de
+consentimiento en modo prueba y el cliente OAuth ya están creados y funcionando;
+el ID de cliente vive en localStorage (Configuración → Calendario), nunca en el
+repo. Origen autorizado: `https://josepml.github.io`.
+
+**Trampa que costó un rato:** `requestAccessToken` SOLO puede abrirse desde el
+propio clic. Si antes hay un `await` que descarga el script de Google, Chrome
+responde `popup_failed_to_open`. Por eso hay `gcal.preparar()` (al montar la
+vista) separado de `gcal.pedirToken()` (pegado al clic).
+
+### La IA pasó de Gemini a Mistral
+Google no sirve su capa gratuita a la UE. `js/ai/gemini.js` está BORRADO;
+ahora es `js/ai/mistral.js` (`mistral-small-latest`, API compatible con OpenAI,
+CORS comprobado desde el navegador). La clave está en `ia_api_key`
+(antes `gemini_api_key`) y ya está puesta y probada. Configuración → IA tiene
+un botón "Probar" que hace una llamada real.
+
+### Fuera la página del Asistente
+Borrada. Sus dos funciones vivían ya en otro sitio:
+- El **chat** es ahora `js/views/chat-flotante.js`: panel flotante disponible
+  desde cualquier sección, con estados cerrado / abierto / minimizado.
+- Las **alertas** son `js/views/alertas.js`: campanita en la barra superior,
+  con contador, y se pueden **descartar** una a una (se guardan por id estable,
+  no por texto, y hay "Restaurar los descartados").
+Los dos se montan UNA vez colgados de `<body>` desde `app.js`, fuera de
+`#content`, para sobrevivir a la navegación.
+
+### Facturación mensual
+- **Orden manual** de los proyectos dentro de cada mes, arrastrando (migración
+  `010_proyecto_orden.sql`, ya ejecutada en Supabase). Al soltar se renumera el
+  mes entero de 1 a N. Los que nunca se han ordenado van detrás, por nombre.
+- Cabecera de mes con barra de cobro (verde = cobrado, hueco = pendiente),
+  etiqueta "actual" en el mes en curso y meses vacíos atenuados.
+- Pie con el total del mes y "N de M cobrados".
+- Línea de estado a la izquierda de cada fila (ver accesibilidad, abajo).
+
+### Contabilidad: el efectivo no lleva IVA
+Bug real corregido. `conIvaSegunPago(base, formaPago)` en `resumen.js` es ahora
+la ÚNICA forma correcta de calcular el "importe con IVA": en efectivo no hay
+IVA repercutido, así que el con-IVA es la propia base. Antes se aplicaba el 21%
+a todo y "Pendiente de cobro" salía inflado (229,90 € cuando eran 190,00 €).
+Aplicado en Dashboard, Proyectos, la campana y el chat. **Si añades un sitio
+nuevo que muestre importes con IVA, usa esta función.**
+
+### PDF de presupuesto: precio y cantidad
+Las columnas PRECIO y CANTIDAD aparecen solas si alguna línea tiene más de una
+unidad; con todo a 1 el desglose se queda como siempre. Lo decide el propio
+PDF mirando las líneas.
+
+## Sesión anterior (2026-08-01)
 
 ### Presupuestos, reparación a fondo
 Josep lo resumió como "prácticamente roto". Ocho puntos, todos cerrados:
@@ -625,34 +702,76 @@ propio contra el que ningún `z-index` interno puede competir. La solución es
 elevar el ANCESTRO: al abrir un menú se le pone `.con-menu-abierto` a su
 `.card` (`position:relative; z-index:70`).
 
+## 7.2 El error más caro de la sesión: refactorizar sin probar
+
+Al mover `engancharArrastre` de `facturacion.js` a `ui.js`, el script de Python
+que borraba la función se comió también `pintarLineas` entera — la que dibuja
+la tabla de conceptos del editor. `node --check` pasó (el fichero seguía siendo
+JS válido) y se desplegó. Resultado: **el editor de facturas y presupuestos
+estuvo roto en producción varias horas** con `pintarLineas is not defined`, y
+Josep lo descubrió antes que yo.
+
+Dos reglas que salen de ahí:
+
+1. **Después de tocar un fichero, abre en producción la pantalla que usa ese
+   fichero.** El chequeo de sintaxis no dice nada de lo que falta.
+2. Cuando borres código con un script, **comprueba qué has borrado**
+   (`grep -c` de las funciones que debían seguir ahí) antes de desplegar.
+
+Se recuperó bajando el fichero de un commit anterior con
+`mcp__workspace__web_fetch` sobre `raw.githubusercontent.com/<repo>/<sha>/...`
+— el resultado se guarda en un fichero local que se puede leer por trozos con
+`Read`, sin volcar 78 KB al contexto. **Guarda ese truco: es la vía para
+recuperar cualquier versión anterior.**
+
 ## Pendiente
 
 ### 1. Revisión en móvil (la única grande que queda)
 Nunca validada con rigor (§4.3). Ojo: `resize_window` **no** cambia el viewport
 que se renderiza, así que desde la sesión no se puede comprobar de verdad. Lo
 práctico es pedirle a Josep que abra la app en su teléfono y diga qué falla.
+Cosas que ya se sabe que fallarán ahí: el tirador para reordenar proyectos en
+Facturación mensual no se muestra en móvil (haría falta flechas arriba/abajo,
+como las que ya tienen las líneas de presupuesto), y la clave de Mistral y el
+ID de Google Calendar hay que pegarlos también en el navegador del teléfono
+(viven en localStorage, por dispositivo).
 
-### 2. Chat del Asistente (bloqueado por decisión suya)
-Usa Gemini, que Google no sirve a usuarios de la UE. Falta que Josep decida si
-migrar a Mistral AI. Restricción literal: *"No quiero tener que pagar por
-tokens, eso prohibido."*
+### 2. Accesibilidad daltónica en el resto de la app
+Ver la sección de arriba. Faltan los estados de Proyectos y las gráficas del
+Dashboard y de Financiero.
 
-### 3. Seguridad — sugerido, no hecho
+### 3. Facturación mensual — lo siguiente que más ganaría
+Se lo propuse y le interesó, pero no dio tiempo:
+- **Buscador del año**: encontrar un proyecto sin abrir mes por mes.
+- **Marcar todo un mes como cobrado** de una vez.
+
+### 4. Seguridad — sugerido, no hecho
 Activar verificación en dos pasos en Supabase y en GitHub. Es donde está el
 poder real: quien entre ahí puede desactivar el RLS.
 
 ### Cosas menores / conocidas
-- **Arrastrar líneas no está verificado de punta a punta.** La lógica de
-  reordenar sí (es la misma de las flechas, probada en vivo), pero simular un
-  drag & drop real desde la sesión no es fiable.
+- **Arrastrar líneas del editor no está verificado de punta a punta.** El de
+  Facturación mensual sí (se probó simulando el drag y comprobando que el orden
+  aguanta una recarga).
 - **Saltos de página del presupuesto**: el típico necesita ~150 pt más de los
   que quedan. Josep decidió **dejarlo así**. No lo "arregles" por tu cuenta.
+- En Google Cloud quedó un proyecto vacío de más, `My Project 77215JML Studio`,
+  creado por error al teclear el nombre sobre un campo que ya tenía texto. Se
+  le ofreció borrarlo y no contestó.
+- Las facturas siguen mostrando siempre las columnas de precio y unidades (es
+  como son sus facturas reales). Solo el presupuesto las oculta cuando todo va
+  a 1 unidad. Se le ofreció igualarlo y lo dejó así.
 - `LEEME.md` ya no está en el repositorio y estaba obsoleto. No lo cites.
 - Si una copia local vieja no cuadra con `main`, **gana el repositorio**.
 
 ## Restricciones del usuario
 
 - Nada de APIs de IA de pago.
+- **Es daltónico.** Ver §5.1: el color nunca es la única pista.
+- **Crear cuentas, escribir contraseñas y verificar identidad lo hace él.** Tú
+  puedes configurar lo que ya está creado (crear la clave de API dentro de una
+  cuenta suya abierta, por ejemplo), pero no registrarle en ningún sitio ni
+  aceptar condiciones legales en su nombre sin preguntar.
 - Claude in Chrome se reserva para visualizar y desplegar la web, no para
   navegación general.
 - El presupuesto de créditos de sesión está ajustado: prefiere el camino barato
