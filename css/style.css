@@ -21,7 +21,7 @@
      barra de cada mes). Tres tonos elegidos para que se distingan también con
      daltonismo: además del tono cambian mucho de luminosidad y de saturación
      —gris apagado, amarillo claro y brillante, verde oscuro y saturado—. */
-  --estado-sin:#C9D0DE; --estado-emitida:#F0B429; --estado-cobrada:#12B76A;
+  --estado-sin:#C9D0DE; --estado-emitida:#FFC300; --estado-cobrada:#06A77D;
 
   --radius:16px; --radius-sm:10px; --radius-xs:8px;
   /* Curva de aceleración única para toda la app: sale rápido y frena suave.
