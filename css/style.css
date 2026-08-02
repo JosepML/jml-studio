@@ -17,6 +17,12 @@
   --shadow-lg:0 24px 48px -12px rgba(31,42,68,.20), 0 8px 20px -8px rgba(31,42,68,.10);
   --shadow-glow:0 6px 20px -4px rgba(62,111,224,.45);
 
+  /* Estados de facturación (la línea de cada fila en Facturación mensual y la
+     barra de cada mes). Tres tonos elegidos para que se distingan también con
+     daltonismo: además del tono cambian mucho de luminosidad y de saturación
+     —gris apagado, amarillo claro y brillante, verde oscuro y saturado—. */
+  --estado-sin:#C9D0DE; --estado-emitida:#F0B429; --estado-cobrada:#12B76A;
+
   --radius:16px; --radius-sm:10px; --radius-xs:8px;
   /* Curva de aceleración única para toda la app: sale rápido y frena suave.
      Es lo que separa una transición que "se nota" de una que parece natural. */
@@ -1401,9 +1407,9 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
    Pulido sobre la estructura de siempre (el listado tipo Excel): la idea es
    que el año se lea de un vistazo sin cambiar la forma de trabajar. */
 
-/* Barra de cobro del mes: la parte llena y oscura es lo ya cobrado; lo que
-   queda por cobrar es el hueco claro. Monocroma a propósito — se entiende por
-   contraste, no por color — y el texto de al lado dice la cifra exacta. */
+/* Barra de cobro del mes: el relleno verde es lo cobrado y el hueco gris lo
+   que falta. Mismo verde que la línea de las filas cobradas, para que los dos
+   sitios hablen el mismo idioma. */
 .mes-barra{
   flex:0 0 76px; height:5px; border-radius:99px; background:var(--border);
   overflow:hidden; margin-right:2px;
@@ -1411,7 +1417,7 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 .mes-barra.vacia{opacity:.5;}
 .mes-barra i{
   display:block; height:100%; border-radius:99px;
-  background:var(--navy);
+  background:var(--estado-cobrada);
   transition:width .5s var(--ease);
 }
 .mes-hoy{
@@ -1428,25 +1434,21 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 /* El mes en curso se distingue con un filo azul, sin gritar. */
 details.card.mes-actual{box-shadow:inset 3px 0 0 var(--blue), var(--shadow-xs);}
 
-/* Estado de cada fila, en la línea del margen izquierdo.
-   ACCESIBILIDAD: Josep es daltónico. Los tres estados NO se distinguen por
-   color sino por la forma de la línea — sin línea / a trazos / continua — y
-   además el nombre del proyecto cambia de tono cuando ya está cobrado. El
-   color es solo un refuerzo, nunca la única pista. */
+/* Estado de cada fila, en la línea del margen izquierdo:
+   gris apagado = sin emitir · amarillo = emitida · verde = cobrada.
+   ACCESIBILIDAD: Josep es daltónico, así que los tres tonos no se separan
+   solo por matiz sino sobre todo por luminosidad y saturación, y el nombre
+   del proyecto se apaga cuando ya está cobrado. El tooltip lo dice además
+   con palabras. */
 #meses-body tbody tr{transition:background-color var(--dur) var(--ease);}
 #meses-body tbody tr:hover{background:var(--light);}
 #meses-body tbody tr > td:first-child{position:relative;}
 #meses-body tbody tr > td:first-child::before{
-  content:""; position:absolute; left:0; top:5px; bottom:5px; width:3px; border-radius:99px;
+  content:""; position:absolute; left:0; top:5px; bottom:5px; width:4px; border-radius:99px;
 }
-/* Sin facturar: sin línea. La ausencia ya es la señal. */
-#meses-body tr.fila-sinfacturar > td:first-child::before{background:none;}
-/* Emitida, pendiente de cobro: línea a trazos. */
-#meses-body tr.fila-emitida > td:first-child::before{
-  background:repeating-linear-gradient(180deg, var(--amber-fg) 0 4px, transparent 4px 8px);
-}
-/* Cobrada: línea continua y oscura. */
-#meses-body tr.fila-cobrada > td:first-child::before{background:var(--navy);}
+#meses-body tr.fila-sinfacturar > td:first-child::before{background:var(--estado-sin);}
+#meses-body tr.fila-emitida > td:first-child::before{background:var(--estado-emitida);}
+#meses-body tr.fila-cobrada > td:first-child::before{background:var(--estado-cobrada);}
 
 .nombre-proyecto{color:var(--blue);}
 /* Lo ya cerrado se aparta del primer plano: contraste, no color. */
