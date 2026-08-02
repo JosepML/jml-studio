@@ -44,6 +44,11 @@ async function render() {
   document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("active", a.dataset.route === routeName));
   $pageTitle.textContent = route.title;
   $content.innerHTML = `<div class="empty-state">Cargando…</div>`;
+  // Los diálogos (ficha de proyecto, gasto, cliente nuevo) cuelgan del <body>,
+  // no de #content, así que al cambiar de sección se quedaban flotando encima
+  // de la pantalla nueva. Se cierran aquí, que es el único sitio por el que
+  // pasa toda navegación.
+  document.querySelectorAll(".modal-backdrop").forEach(m => m.remove());
   closeSidebar();
   try {
     await route.render($content, param);
