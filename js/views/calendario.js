@@ -129,9 +129,19 @@ export function montarCalendario(host) {
       pintar();
       return;
     }
-    // Sin token válido no se pide nada por nuestra cuenta: la ventana de
-    // Google solo puede abrirse desde un clic suyo (ver gcal.preparar).
-    if (!gcal.estaConectado()) { pedirConexion(); pintar(); return; }
+    // El token de Google dura una hora. Antes de eso se le enseñaba el botón
+    // "Conectar" en cada visita, que es justo lo que molestaba. Ahora se
+    // intenta primero la renovación silenciosa (iframe invisible, sin ventana
+    // y sin necesitar su clic) y solo si falla se le pide que pulse.
+    if (!gcal.estaConectado()) {
+      if (gcal.yaAutorizado()) {
+        estado("Reconectando con Google…");
+        const t = await gcal.reconectarSilencio();
+        if (!t) { pedirConexion(); pintar(); return; }
+      } else {
+        pedirConexion(); pintar(); return;
+      }
+    }
     cargando = true;
     try {
       if (!calendarios.length) calendarios = await gcal.listarCalendarios();
