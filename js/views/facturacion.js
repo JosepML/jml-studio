@@ -221,7 +221,14 @@ async function sincronizarFacturaProyectos(facturaId, lineas) {
     porProyecto[l.proyecto_id] = round2((porProyecto[l.proyecto_id] || 0) + importe);
   }
   const filas = Object.entries(porProyecto).map(([proyecto_id, importe]) => ({ factura_id: facturaId, proyecto_id, importe }));
-  if (filas.length) await db.from("factura_proyectos").insert(filas).exec();
+  // Fila a fila y mirando el error: en un insert de varias, una sola fila mala
+  // tumbaba las demás y la factura se quedaba con sus conceptos pero sin
+  // ningún vínculo — justo el desajuste que hay que evitar. Y si falla, se
+  // dice: antes se perdía en silencio.
+  for (const fila of filas) {
+    const { error } = await db.from("factura_proyectos").insert(fila).exec();
+    if (error) toastError("No se ha podido vincular un proyecto a la factura: " + error);
+  }
 }
 
 // Saca el secuencial de un número de documento: "PRE-16-2026" → 16,
@@ -290,11 +297,33 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
       const lineasDesdeVinculos = (!tieneLineasPropias && vinculos && vinculos.length)
         ? vinculos.map(v => ({ concepto: v.proyectos?.nombre || "Proyecto", cantidad: 1, precio: Number(v.importe || 0), proyecto_id: v.proyecto_id, descripcion: "" }))
         : null;
+      // Reconciliación al abrir: si una línea apunta a un proyecto que YA NO
+      // está vinculado a esta factura, es que se le quitó la factura desde
+      // Facturación mensual — que es donde Josep gobierna las asignaciones—.
+      // Antes la línea seguía aquí dentro, así que el proyecto "desasignado"
+      // reaparecía en la factura; y peor: al guardar, sincronizarFacturaProyectos
+      // volvía a crear el vínculo y quedaba reasignado solo.
+      let quitadas = 0;
+      if (tieneLineasPropias && data.tipo === "factura") {
+        const vinculadas = new Set((vinculos || []).map(v => String(v.proyecto_id)));
+        const antes = data.lineas.length;
+        data.lineas = data.lineas.filter(l => !l.proyecto_id || vinculadas.has(String(l.proyecto_id)));
+        quitadas = antes - data.lineas.length;
+        if (quitadas && data.lineas.length === 0) {
+          data.lineas = [{ concepto: "", cantidad: 1, precio: 0, proyecto_id: "", descripcion: "", descuento_tipo: "porcentaje", descuento_valor: 0 }];
+        }
+      }
+
       const lineas = lineasDesdeVinculos
         || (tieneLineasPropias
               ? data.lineas.map(l => ({ proyecto_id: "", descripcion: "", descuento_tipo: "porcentaje", descuento_valor: 0, ...l }))
               : [{ concepto: "", cantidad: 1, precio: 0, proyecto_id: "", descripcion: "", descuento_tipo: "porcentaje", descuento_valor: 0 }]);
       draft = { ...data, lineas };
+      if (quitadas) {
+        toastOk(quitadas === 1
+          ? "Se ha quitado un concepto cuyo proyecto ya no está asignado a esta factura."
+          : `Se han quitado ${quitadas} conceptos cuyos proyectos ya no están asignados a esta factura.`);
+      }
       if (lineasDesdeVinculos && lineasDesdeVinculos.length > 1) {
         origenProyectoTexto = `Esta factura agrupa ${lineasDesdeVinculos.length} proyectos, cada uno en su propia línea — revisa los importes antes de emitir.`;
       }
