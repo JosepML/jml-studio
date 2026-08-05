@@ -1473,3 +1473,23 @@ details.card.mes-actual{box-shadow:inset 3px 0 0 var(--blue), var(--shadow-xs);}
 @media (max-width:900px){
   .mes-barra{display:none;}
 }
+
+/* --- Facturación mensual: buscador del año y "todo cobrado" --- */
+/* La cabecera del mes tiene ahora dos acciones. Se agrupan a la derecha y el
+   botón de cobrar solo se tiñe al pasar por encima, para que no compita
+   visualmente con "+ Añadir proyecto", que es el que más se usa. */
+.mes-accion { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+.btn-cobrar-mes:hover { color: var(--estado-cobrada); border-color: var(--estado-cobrada); }
+
+#buscar-mensual {
+  padding: 7px 10px;
+  border: 1px solid var(--borde, #dfe3ec);
+  border-radius: 8px;
+  font: inherit;
+}
+#buscar-mensual:focus { outline: 2px solid var(--estado-cobrada); outline-offset: 1px; }
+
+@media (max-width: 860px) {
+  #buscar-mensual { min-width: 0; width: 100%; }
+  .mes-accion { flex-wrap: wrap; }
+}
