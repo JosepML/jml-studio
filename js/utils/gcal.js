@@ -149,53 +149,23 @@ export function pedirToken({ silencioso = false } = {}) {
 }
 
 /**
- * Renueva el token aprovechando el PRIMER clic que haga el usuario, sea donde
- * sea, sin enseñarle ningún botón.
+ * Recupera el token si sigue vivo. Nada más.
  *
- * Por qué así: Google no permite renovar de verdad en silencio en un flujo sin
- * servidor. Se probaron las dos vías (`prompt: "none"` y con `hint` de la
- * cuenta) y las dos responden `popup_failed_to_open`: la petición SIEMPRE
- * tiene que salir de un gesto del usuario. Y el token solo dura una hora.
+ * Aquí hubo dos intentos de evitarle el botón "Conectar" y los dos fallaron,
+ * así que no se vuelva a intentar sin probarlo de verdad primero:
  *
- * La salida es esta: se queda un oyente esperando su primer clic en cualquier
- * parte de la app y ahí se pide el token con `prompt: "none"`. Como el permiso
- * ya está concedido, Google no pregunta nada; a lo sumo se ve una ventana que
- * se abre y se cierra sola. Él no ha tenido que pulsar ningún "Conectar".
+ * 1. `prompt: "none"` (a secas y con `hint` de su correo) → las dos vías
+ *    contestan `popup_failed_to_open`. Google exige un gesto SIEMPRE; no hay
+ *    renovación silenciosa en un flujo sin servidor.
+ * 2. Colgar la petición del primer clic que hiciera en cualquier parte de la
+ *    app. Tampoco funcionó, y encima era peor: se quedaba clicando en la
+ *    pantalla sin que pasara nada. Lo dijo él y tenía razón.
  *
- * Devuelve el token, o null si hace falta que pulse él de verdad (sesión de
- * Google cerrada, cookies borradas o permiso nunca concedido).
+ * Lo que SÍ sirvió es guardar el token en localStorage en vez de en la sesión:
+ * ahora dura su hora completa aunque cierre el navegador.
  */
-export async function reconectarSilencio({ esperarClic = true } = {}) {
-  if (recuperarToken()) return token;
-  if (!clientId() || !yaAutorizado()) return null;
-  try {
-    await preparar();
-    if (!esperarClic) return await pedirToken({ silencioso: true });
-    return await enPrimerClic();
-  } catch {
-    return null;
-  }
-}
-
-// Un solo oyente global por intento: si se llama dos veces (dos vistas, o una
-// recarga del calendario) se reutiliza la misma promesa en vez de encadenar
-// varias peticiones al mismo clic.
-let esperaClic = null;
-
-function enPrimerClic() {
-  if (esperaClic) return esperaClic;
-  esperaClic = new Promise((resolve) => {
-    const alClicar = () => {
-      // Nada de await aquí dentro: el gesto se pierde y Google contesta
-      // popup_failed_to_open. Es el mismo motivo por el que preparar() y
-      // pedirToken() están separados.
-      pedirToken({ silencioso: true })
-        .then(t => { esperaClic = null; resolve(t); })
-        .catch(() => { esperaClic = null; resolve(null); });
-    };
-    document.addEventListener("click", alClicar, { once: true, capture: true });
-  });
-  return esperaClic;
+export async function reconectarSilencio() {
+  return recuperarToken() ? token : null;
 }
 
 /** Camino completo: preparar + pedir. Para cuando no hay prisa por el gesto. */
@@ -203,7 +173,7 @@ export async function conectar(opciones = {}) {
   if (recuperarToken()) return token;
   // Antes de rendirse, el intento silencioso: así una llamada a la API que
   // pilla el token recién caducado se recupera sola en vez de dar error.
-  const t = await reconectarSilencio({ esperarClic: false });
+  const t = await reconectarSilencio();
   if (t) return t;
   await preparar();
   return pedirToken(opciones);
