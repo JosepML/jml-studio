@@ -39,6 +39,9 @@ export async function renderMensual(container) {
         <label>Año</label>
         <select id="sel-anio">${anios.map(a => `<option value="${a}" ${a===anioActual?"selected":""}>${a}</option>`).join("")}</select>
       </div>
+      <div class="toolbar-filters toolbar-action">
+        <input id="buscar-mensual" type="search" placeholder="Buscar un proyecto, cliente o nº de factura…" style="min-width:280px;">
+      </div>
     </div>
     <div id="resumen-anual" class="grid grid-4" style="margin-bottom:20px;"></div>
     <div id="meses-body"></div>
@@ -50,7 +53,16 @@ export async function renderMensual(container) {
   // en la casilla "cierra" el mes en vez de marcar la casilla.
   const mesesAbiertos = new Set([new Date().getMonth()]);
 
+  // Buscar en todo el año sin ir mes por mes. Filtra las FILAS, no los
+  // totales: las cifras de la cabecera siguen siendo las del mes entero,
+  // porque un total que cambia según lo que escribes engaña al cuadrar.
+  let busqueda = "";
+
   container.querySelector("#sel-anio").addEventListener("change", e => pintar(Number(e.target.value)));
+  container.querySelector("#buscar-mensual").addEventListener("input", e => {
+    busqueda = e.target.value.trim().toLowerCase();
+    pintar(Number(container.querySelector("#sel-anio").value));
+  });
   pintar(anioActual);
 
   async function recargarDatos() {
@@ -218,6 +230,15 @@ export async function renderMensual(container) {
           if (ob != null) return 1;
           return (a.proyecto.nombre || "").localeCompare(b.proyecto.nombre || "");
         });
+      // Con búsqueda activa el mes se despliega solo y los que no tienen
+      // ninguna coincidencia desaparecen: si no, buscar dejaba doce tarjetas
+      // vacías por las que seguir bajando.
+      const filasVisibles = busqueda
+        ? filasMes.filter(f => coincideFila(f, busqueda, clientes,
+            facturasReales.find(fa => fa.id === vinculoPorProyecto[f.proyecto.id])?.numero))
+        : filasMes;
+      if (busqueda && !filasVisibles.length) return "";
+
       const totalMes = totalPorMes[idx];
       const totalConIvaMes = round2(filasMes.reduce((s, f) => s + conIvaSegunPago(f.importeBase, f.proyecto.forma_pago), 0));
       const cobradoMes = round2(filasMes.filter(f => estadoEfectivo(f) === "pagada").reduce((s, f) => s + f.importeBase, 0));
@@ -236,18 +257,23 @@ export async function renderMensual(container) {
           <span class="mes-total">${eur(totalMes)}</span>
           <span class="mes-barra${totalMes ? "" : " vacia"}" title="${totalMes ? `Cobrado ${eur(cobradoMes)} de ${eur(totalMes)} (${pctCobrado}%)` : "sin facturación"}"><i style="width:${pctCobrado}%"></i></span>
           <span class="mes-meta">${
-            filasMes.length
+            busqueda
+              ? `${filasVisibles.length} de ${filasMes.length} coincide${filasVisibles.length === 1 ? "" : "n"}`
+              : filasMes.length
               ? `${filasMes.length} proyecto${filasMes.length === 1 ? "" : "s"}` +
                 (pendienteMes > 0
                   ? ` · <span class="mes-pend">${eur(pendienteMes)} por cobrar</span>`
                   : ` · <span class="mes-ok">todo cobrado</span>`)
-              : "sin proyectos"
+                : "sin proyectos"
           }</span>
           <span class="mes-accion">
+            ${filasMes.length && nCobrados < filasMes.length
+              ? `<button class="btn btn-ghost btn-sm btn-cobrar-mes" data-mes="${idx}" title="Marcar como cobrados los ${filasMes.length - nCobrados} proyectos que faltan" onclick="event.preventDefault(); event.stopPropagation();">✓ Todo cobrado</button>`
+              : ""}
             <button class="btn btn-ghost btn-sm btn-add-mes" data-mes="${idx}" onclick="event.preventDefault(); event.stopPropagation();">+ Añadir proyecto</button>
           </span>
         </summary>`;
-      const abierto = mesesAbiertos.has(idx) ? "open" : "";
+      const abierto = (busqueda || mesesAbiertos.has(idx)) ? "open" : "";
       if (!filasMes.length) {
         return `<details class="card mes-vacio" data-mes="${idx}" style="margin-bottom:10px;" ${abierto}>${cabecera}<div class="add-proyecto-mes" data-mes="${idx}"></div><p class="muted" style="margin-top:10px;">Sin proyectos este mes.</p></details>`;
       }
@@ -258,7 +284,7 @@ export async function renderMensual(container) {
         <table style="margin-top:10px;">
           <thead><tr><th class="col-mover"></th><th>Proyecto</th><th>Cliente</th><th>Nº factura</th><th class="money">Importe</th><th class="money">Importe c/IVA</th><th>Forma de pago</th><th style="text-align:center;">Emitida</th><th style="text-align:center;">Pagada</th></tr></thead>
           <tbody>
-            ${filasMes.map((f, i) => {
+            ${filasVisibles.map((f, i) => {
               const fp = FORMAS_PAGO[f.proyecto.forma_pago || "transferencia"];
               // El efectivo no repercute IVA, así que mostrar un "importe c/IVA"
               // calculado inducía a error al cuadrar el 303.
@@ -277,7 +303,7 @@ export async function renderMensual(container) {
               const claseEstado = pagada ? "cobrada" : (emitida ? "emitida" : "sinfacturar");
               const tituloEstado = pagada ? "Cobrada" : (emitida ? "Emitida, pendiente de cobro" : "Sin facturar");
               return `<tr class="fila-${claseEstado}" data-row="${idx}-${i}" data-idx="${i}" data-mes-fila="${idx}">
-                <td class="col-mover"><span class="mover-tirador" title="Arrastra para cambiar el orden">⠿</span></td>
+                <td class="col-mover">${busqueda ? "" : `<span class="mover-tirador" title="Arrastra para cambiar el orden">⠿</span>`}</td>
                 <td class="link-proyecto" data-proyecto-id="${f.proyecto.id}" title="${tituloEstado}" style="cursor:pointer;"><span class="nombre-proyecto">${escapeHtml(f.proyecto.nombre)}</span></td>
                 <td>
                   <select class="sel-cliente cell-select" data-proyecto-id="${f.proyecto.id}" style="min-width:130px;">
@@ -583,6 +609,42 @@ export async function renderMensual(container) {
         }
       });
     });
+    // Marcar de golpe todo un mes como cobrado. Escribe primero en la base de
+    // datos y repinta UNA vez al final: hacerlo fila a fila con su repintado
+    // dejaba la pantalla parpadeando y tardaba lo suyo con un mes cargado.
+    $body.querySelectorAll(".btn-cobrar-mes").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const idx = Number(btn.dataset.mes);
+        const delMes = filasAnio.filter(f => new Date(f.fecha).getMonth() === idx);
+        const faltan = delMes.filter(f => estadoEfectivo(f) !== "pagada");
+        if (!faltan.length) return;
+
+        const ok = await confirmarDialogo({
+          titulo: `Marcar ${MESES[idx]} como cobrado`,
+          mensaje: `Se van a dar por cobrados ${faltan.length} proyecto${faltan.length === 1 ? "" : "s"} de ${MESES[idx]}${faltan.length === 1 ? "" : ", uno por uno"}. Podrás desmarcarlos después.`,
+          confirmar: "Sí, marcarlos",
+        });
+        if (!ok) return;
+
+        for (const f of faltan) {
+          const facturaId = vinculoPorProyecto[f.proyecto.id];
+          if (facturaId) {
+            await db.from("facturas").update({ estado: "pagada" }).eq("id", facturaId).exec();
+            (facturaProyectos || []).forEach(fp => { if (fp.factura_id === facturaId && fp.facturas) fp.facturas.estado = "pagada"; });
+          } else {
+            await db.from("proyectos").update({ estado_facturacion: "pagada" }).eq("id", f.proyecto.id).exec();
+            const p = proyectos.find(x => x.id === f.proyecto.id);
+            if (p) p.estado_facturacion = "pagada";
+          }
+        }
+        ledger = construirLedger(proyectos, facturaProyectos);
+        toastOk(`${MESES[idx]}: ${faltan.length} proyecto${faltan.length === 1 ? "" : "s"} marcado${faltan.length === 1 ? "" : "s"} como cobrado${faltan.length === 1 ? "" : "s"}.`);
+        pintar(anio);
+      });
+    });
+
     $body.querySelectorAll(".chk-pagada").forEach(chk => {
       chk.addEventListener("click", async (e) => {
         e.preventDefault();
@@ -596,6 +658,16 @@ export async function renderMensual(container) {
       });
     });
   }
+}
+
+// Qué se considera una coincidencia: nombre del proyecto, nombre del cliente
+// y número de factura. Son los tres datos por los que busca uno cuando
+// intenta acordarse de dónde metió algo.
+function coincideFila(fila, termino, clientes, numeroFactura) {
+  const t = termino.toLowerCase();
+  const cli = (clientes || []).find(c => c.id === fila.proyecto.cliente_id);
+  return [fila.proyecto.nombre, cli?.nombre, numeroFactura]
+    .some(v => (v || "").toLowerCase().includes(t));
 }
 
 function rangoDelMes(anio, mesIdx) {

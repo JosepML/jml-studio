@@ -117,8 +117,14 @@ export function montarCalendario(host) {
   /* ------------------------------------------------------------- carga */
 
   function pedirConexion() {
-    estado(`Conecta tu Google Calendar para ver aquí tu agenda.
-            <button class="btn btn-sec" type="button" data-conectar>Conectar con Google</button>`);
+    // El permiso ya está dado: Google no vuelve a preguntar nada, solo hace
+    // falta el clic. Por eso el texto no dice "conecta tu cuenta" (suena a
+    // configurar algo) sino que es un gesto de un segundo.
+    estado(gcal.yaAutorizado()
+      ? `<button class="btn btn-primary" type="button" data-conectar>Ver mi agenda</button>
+         <small class="muted" style="display:block; margin-top:6px;">Google caduca el permiso cada hora y obliga a un clic para renovarlo.</small>`
+      : `Conecta tu Google Calendar para ver aquí tu agenda.
+         <button class="btn btn-sec" type="button" data-conectar>Conectar con Google</button>`);
   }
 
   async function cargar() {
@@ -129,23 +135,10 @@ export function montarCalendario(host) {
       pintar();
       return;
     }
-    // El token de Google dura una hora y no se puede renovar en silencio en un
-    // flujo sin servidor (ver gcal.reconectarSilencio). Antes eso significaba
-    // un botón "Conectar" en cada visita, que es lo que molestaba. Ahora la
-    // renovación se cuelga del primer clic que haga, sin pedirle nada: solo si
-    // ese intento falla se le enseña el botón.
-    if (!gcal.estaConectado()) {
-      if (gcal.yaAutorizado()) {
-        estado("Reconectando con Google…");
-        pintar();
-        gcal.reconectarSilencio().then(t => {
-          if (t) { estado(""); cargar(); }
-          else { pedirConexion(); pintar(); }
-        });
-        return;
-      }
-      pedirConexion(); pintar(); return;
-    }
+    // Google no deja renovar el token sin un clic (ver gcal.js). Se probó
+    // colgarlo de su primer clic en cualquier sitio y fue peor: clicaba y no
+    // pasaba nada. Así que botón explícito, y que se vea.
+    if (!gcal.estaConectado()) { pedirConexion(); pintar(); return; }
     cargando = true;
     try {
       if (!calendarios.length) calendarios = await gcal.listarCalendarios();
