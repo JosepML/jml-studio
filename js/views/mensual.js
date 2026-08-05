@@ -5,7 +5,7 @@ import { round2 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
 import { escapeHtml } from "./clientes.js";
 import { nextNumero } from "./facturacion.js";
-import { toastOk, toastError, skeletonPagina, engancharArrastre } from "../utils/ui.js";
+import { toastOk, toastError, confirmar as confirmarDialogo, skeletonPagina, engancharArrastre } from "../utils/ui.js";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
@@ -120,20 +120,52 @@ export async function renderMensual(container) {
 
     const antiguas = [...new Set((previos || []).map(v => v.factura_id))]
       .filter(id => id && id !== nuevaFacturaId);
-    for (const id of antiguas) await quitarLineasDeProyecto(id, proyectoId);
+    for (const id of antiguas) await quitarLineasDeProyecto(id, proyectoId, proyecto?.nombre);
     if (nuevaFacturaId) await anadirLineaDeProyecto(nuevaFacturaId, proyecto);
   }
 
-  // Saca del jsonb las líneas que apuntan a este proyecto. Las que no tienen
-  // proyecto asignado se quedan: son conceptos que él ha escrito a mano y no
-  // hay forma de saber que fueran de este proyecto.
-  async function quitarLineasDeProyecto(facturaId, proyectoId) {
-    const { data: f } = await db.from("facturas").select("lineas").eq("id", facturaId).single().exec();
+  // Saca del jsonb la línea de este proyecto. Hay tres situaciones reales y
+  // cada una se trata distinto, porque no todas las facturas son iguales:
+  //
+  // 1. La línea lleva `proyecto_id`: es inequívoco, se quita sin preguntar.
+  // 2. No lo lleva pero su concepto es EXACTAMENTE el nombre del proyecto (el
+  //    caso de las facturas importadas de 2026, cuyas líneas solo tienen
+  //    concepto, cantidad y precio): se le pregunta antes de tocar nada.
+  // 3. No hay ninguna línea que se le parezca: es una factura que agrupa
+  //    varios proyectos en un solo concepto redactado a mano. Ahí adivinar
+  //    sería peligroso —se llevaría por delante el trabajo de los demás
+  //    proyectos—, así que solo se le avisa para que la revise él.
+  async function quitarLineasDeProyecto(facturaId, proyectoId, nombreProyecto) {
+    const { data: f } = await db.from("facturas").select("numero,lineas").eq("id", facturaId).single().exec();
     if (!f || !Array.isArray(f.lineas) || !f.lineas.length) return;
-    const quedan = f.lineas.filter(l => String(l.proyecto_id || "") !== String(proyectoId));
-    if (quedan.length !== f.lineas.length) {
+
+    const conId = f.lineas.filter(l => String(l.proyecto_id || "") === String(proyectoId));
+    if (conId.length) {
+      const quedan = f.lineas.filter(l => String(l.proyecto_id || "") !== String(proyectoId));
       await db.from("facturas").update({ lineas: quedan }).eq("id", facturaId).exec();
+      return;
     }
+
+    const nombre = (nombreProyecto || "").trim().toLowerCase();
+    const idx = nombre
+      ? f.lineas.findIndex(l => !l.proyecto_id && (l.concepto || "").trim().toLowerCase() === nombre)
+      : -1;
+
+    if (idx === -1) {
+      toastOk(`La factura ${f.numero} conserva sus conceptos: si ese proyecto estaba dentro, ajústala a mano.`);
+      return;
+    }
+
+    const ok = await confirmarDialogo({
+      titulo: `Quitar el concepto de la factura ${f.numero}`,
+      mensaje: `La factura ${f.numero} sigue teniendo el concepto «${f.lineas[idx].concepto}». ¿Lo quito también de la factura?`,
+      confirmar: "Sí, quitarlo",
+      cancelar: "Dejarlo en la factura",
+    });
+    if (!ok) return;
+    const quedan = f.lineas.filter((_, i) => i !== idx);
+    await db.from("facturas").update({ lineas: quedan }).eq("id", facturaId).exec();
+    toastOk(`Concepto quitado de la factura ${f.numero}.`);
   }
 
   // Solo si la factura YA tiene líneas propias. Las que nacen aquí se quedan
