@@ -89,6 +89,73 @@ export async function renderMensual(container) {
     return huerfanas.map(f => f.numero);
   }
 
+  // Reasigna (o desasigna) un proyecto manteniendo la factura ENTERA en
+  // sincronía, no solo la tabla de vínculos.
+  //
+  // El bug que arregla: una factura guarda sus conceptos en `facturas.lineas`
+  // (jsonb) además del vínculo en `factura_proyectos`. Al quitarle aquí la
+  // factura a un proyecto solo se borraba el vínculo, así que al abrir esa
+  // factura desde Facturas el proyecto seguía dentro — y si se guardaba,
+  // sincronizarFacturaProyectos volvía a crear el vínculo y el proyecto
+  // quedaba reasignado sin que Josep hubiera hecho nada. Pasaba lo mismo al
+  // revés: asignar un proyecto a una factura que ya tenía líneas guardadas no
+  // añadía su línea, y al guardar la factura el vínculo desaparecía.
+  //
+  // Ojo: solo se tocan las líneas de las facturas que DEJAN de tener este
+  // proyecto. Si vuelve a asignarse a la misma factura, se deja como estaba.
+  async function reasignarFactura(proyectoId, nuevaFacturaId) {
+    const { data: previos } = await db.from("factura_proyectos")
+      .select("factura_id").eq("proyecto_id", proyectoId).exec();
+
+    await db.from("factura_proyectos").delete().eq("proyecto_id", proyectoId).exec();
+
+    const proyecto = proyectos.find(x => x.id === proyectoId);
+    if (nuevaFacturaId) {
+      await db.from("factura_proyectos").insert({
+        factura_id: nuevaFacturaId,
+        proyecto_id: proyectoId,
+        importe: Number(proyecto?.precio_acordado || 0),
+      }).exec();
+    }
+
+    const antiguas = [...new Set((previos || []).map(v => v.factura_id))]
+      .filter(id => id && id !== nuevaFacturaId);
+    for (const id of antiguas) await quitarLineasDeProyecto(id, proyectoId);
+    if (nuevaFacturaId) await anadirLineaDeProyecto(nuevaFacturaId, proyecto);
+  }
+
+  // Saca del jsonb las líneas que apuntan a este proyecto. Las que no tienen
+  // proyecto asignado se quedan: son conceptos que él ha escrito a mano y no
+  // hay forma de saber que fueran de este proyecto.
+  async function quitarLineasDeProyecto(facturaId, proyectoId) {
+    const { data: f } = await db.from("facturas").select("lineas").eq("id", facturaId).single().exec();
+    if (!f || !Array.isArray(f.lineas) || !f.lineas.length) return;
+    const quedan = f.lineas.filter(l => String(l.proyecto_id || "") !== String(proyectoId));
+    if (quedan.length !== f.lineas.length) {
+      await db.from("facturas").update({ lineas: quedan }).eq("id", facturaId).exec();
+    }
+  }
+
+  // Solo si la factura YA tiene líneas propias. Las que nacen aquí se quedan
+  // vacías a propósito: el editor las reconstruye desde los vínculos, y así
+  // varios proyectos con el mismo número se agrupan en un único documento.
+  async function anadirLineaDeProyecto(facturaId, proyecto) {
+    if (!proyecto) return;
+    const { data: f } = await db.from("facturas").select("lineas").eq("id", facturaId).single().exec();
+    if (!f || !Array.isArray(f.lineas) || !f.lineas.length) return;
+    if (f.lineas.some(l => String(l.proyecto_id || "") === String(proyecto.id))) return;
+    const lineas = [...f.lineas, {
+      concepto: proyecto.nombre || "Proyecto",
+      cantidad: 1,
+      precio: Number(proyecto.precio_acordado || 0),
+      proyecto_id: proyecto.id,
+      descripcion: "",
+      descuento_tipo: "porcentaje",
+      descuento_valor: 0,
+    }];
+    await db.from("facturas").update({ lineas }).eq("id", facturaId).exec();
+  }
+
   function pintar(anio) {
     const { desde, hasta } = rangoAnio(anio);
     const r = resumenPeriodo(ledger, gastos, desde, hasta);
@@ -435,8 +502,7 @@ export async function renderMensual(container) {
               facturaId = Array.isArray(data) ? data[0]?.id : data?.id;
             }
 
-            await db.from("factura_proyectos").delete().eq("proyecto_id", proyectoId).exec();
-            await db.from("factura_proyectos").insert({ factura_id: facturaId, proyecto_id: proyectoId, importe: Number(p?.precio_acordado || 0) }).exec();
+            await reasignarFactura(proyectoId, facturaId);
             await limpiarFacturasHuerfanas();
             toastOk(yaExiste
               ? `Proyecto añadido a la factura ${numero}.`
@@ -448,12 +514,7 @@ export async function renderMensual(container) {
           $input.addEventListener("keydown", e => { if (e.key === "Enter") confirmar(); if (e.key === "Escape") pintar(anio); });
           return;
         }
-        // Quita cualquier vínculo anterior de este proyecto con una factura real.
-        await db.from("factura_proyectos").delete().eq("proyecto_id", proyectoId).exec();
-        if (sel.value) {
-          const p = proyectos.find(x => x.id === proyectoId);
-          await db.from("factura_proyectos").insert({ factura_id: sel.value, proyecto_id: proyectoId, importe: Number(p?.precio_acordado || 0) }).exec();
-        }
+        await reasignarFactura(proyectoId, sel.value || null);
         await limpiarFacturasHuerfanas();
         await recargarDatos();
         pintar(anio);
