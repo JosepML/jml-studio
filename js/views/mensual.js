@@ -623,7 +623,9 @@ export async function renderMensual(container) {
 
         const ok = await confirmarDialogo({
           titulo: `Marcar ${MESES[idx]} como cobrado`,
-          mensaje: `Se van a dar por cobrados ${faltan.length} proyecto${faltan.length === 1 ? "" : "s"} de ${MESES[idx]}${faltan.length === 1 ? "" : ", uno por uno"}. Podrás desmarcarlos después.`,
+          mensaje: faltan.length === 1
+            ? `Se va a dar por cobrado el proyecto que falta de ${MESES[idx]}. Podrás desmarcarlo después.`
+            : `Se van a dar por cobrados los ${faltan.length} proyectos de ${MESES[idx]} que aún no lo están. Podrás desmarcarlos después.`,
           confirmar: "Sí, marcarlos",
         });
         if (!ok) return;
