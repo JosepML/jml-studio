@@ -8,6 +8,7 @@ const ASSETS = [
   "./js/config.js", "./js/app.js", "./js/supabase.js",
   "./js/utils/format.js", "./js/utils/invoice-calc.js", "./js/utils/resumen.js",
   "./js/utils/exportar-excel.js",
+  "./js/utils/exportar-pdf.js",
   "./js/utils/config-usuario.js", "./js/utils/config-negocio.js", "./js/utils/amortizacion.js",
   "./js/utils/ui.js", "./js/utils/charts.js", "./js/utils/servicios.js", "./js/utils/condiciones.js",
   "./js/utils/gastos-recurrentes.js", "./js/utils/gcal.js", "./js/utils/pdf-documentos.js", "./js/utils/pdf-fonts.js",
