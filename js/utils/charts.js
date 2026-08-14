@@ -135,7 +135,13 @@ export function opcionesDoughnut(formatearValor, { leyenda = "bottom" } = {}) {
           // su leyenda: con el porcentaje escrito puede emparejarlas mirando
           // el tamaño de la porción, sin depender del tono.
           generateLabels(chart) {
-            const base = window.Chart.defaults.plugins.legend.labels.generateLabels(chart);
+            // OJO: para donut/pie el generador por defecto NO es el genérico de
+            // Chart.defaults, sino el de Chart.overrides[tipo]. Usando el genérico
+            // las etiquetas salen como "undefined" (pasó, y se desplegó así).
+            const tipo = chart.config.type;
+            const generar = window.Chart.overrides?.[tipo]?.plugins?.legend?.labels?.generateLabels
+              || window.Chart.defaults.plugins.legend.labels.generateLabels;
+            const base = generar.call(chart, chart);
             const datos = chart.data.datasets?.[0]?.data || [];
             const total = datos.reduce((s, v) => s + (Number(v) || 0), 0);
             if (!total) return base;
