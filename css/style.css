@@ -1500,3 +1500,18 @@ details.card.mes-actual{box-shadow:inset 3px 0 0 var(--blue), var(--shadow-xs);}
 .exportar-grupo { display: flex; align-items: center; gap: 6px; }
 .exportar-etiqueta { font-size: 12px; color: var(--muted, #6B7A90); }
 .exportar-grupo .btn { padding: 6px 10px; font-size: 13px; }
+
+/* --- Línea de estado, reutilizable fuera de Facturación mensual --- */
+/* Josep es daltónico (§5.1): el estado de una fila se distingue por la línea
+   del margen izquierdo, y el color solo refuerza. Esto es lo mismo que hace
+   #meses-body, sacado a una clase para poder usarlo también en Proyectos. */
+table.tabla-estados tbody tr > td:first-child { position: relative; }
+table.tabla-estados tbody tr > td:first-child::before {
+  content: ""; position: absolute; left: 0; top: 5px; bottom: 5px;
+  width: 4px; border-radius: 99px; background: transparent;
+}
+table.tabla-estados tr.fila-sinfacturar > td:first-child::before { background: var(--estado-sin); }
+table.tabla-estados tr.fila-emitida     > td:first-child::before { background: var(--estado-emitida); }
+table.tabla-estados tr.fila-cobrada     > td:first-child::before { background: var(--estado-cobrada); }
+/* Lo ya cobrado se aparta del primer plano: contraste, no color. */
+table.tabla-estados tr.fila-cobrada > td:first-child { color: var(--grey); }
