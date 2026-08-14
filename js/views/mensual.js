@@ -42,6 +42,7 @@ export async function renderMensual(container) {
       <div class="toolbar-filters toolbar-action">
         <input id="buscar-mensual" type="search" placeholder="Buscar un proyecto, cliente o nº de factura…" style="min-width:280px;">
       </div>
+      <button class="btn btn-ghost toolbar-action" id="btn-exportar-excel">⤓ Exportar a Excel</button>
     </div>
     <div id="resumen-anual" class="grid grid-4" style="margin-bottom:20px;"></div>
     <div id="meses-body"></div>
@@ -59,6 +60,24 @@ export async function renderMensual(container) {
   let busqueda = "";
 
   container.querySelector("#sel-anio").addEventListener("change", e => pintar(Number(e.target.value)));
+  container.querySelector("#btn-exportar-excel").addEventListener("click", async (e) => {
+    const $btn = e.currentTarget;
+    const anio = Number(container.querySelector("#sel-anio").value);
+    $btn.disabled = true;
+    const antes = $btn.textContent;
+    $btn.textContent = "Generando…";
+    try {
+      const { exportarFacturacionExcel } = await import("../utils/exportar-excel.js");
+      await exportarFacturacionExcel({ anio, proyectos, facturaProyectos, gastos, clientes });
+      toastOk(`Excel de facturación ${anio} descargado.`);
+    } catch (err) {
+      toastError(err.message || "No se ha podido generar el Excel.");
+    } finally {
+      $btn.disabled = false;
+      $btn.textContent = antes;
+    }
+  });
+
   container.querySelector("#buscar-mensual").addEventListener("input", e => {
     busqueda = e.target.value.trim().toLowerCase();
     pintar(Number(container.querySelector("#sel-anio").value));

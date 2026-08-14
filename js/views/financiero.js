@@ -3,7 +3,7 @@ import { eur, CATEGORIAS_SERVICIO, CATEGORIAS_GASTO } from "../utils/format.js";
 import { calcularModelo130Trimestral, gastoDeducibleEnRango, round2, gastoDificilJustificacion, PLAZOS_MODELO_130_2026 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, resumenTrimestre, resumenIvaTrimestre, rangoMes, rangoAnio } from "../utils/resumen.js";
 import { getConfig } from "../utils/config-usuario.js";
-import { skeletonPagina, animarVista } from "../utils/ui.js";
+import { skeletonPagina, animarVista, toastOk, toastError } from "../utils/ui.js";
 import { opcionesBase, opcionesDoughnut, barra, barraApilada } from "../utils/charts.js";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
@@ -68,6 +68,7 @@ export async function renderFinanciero(container) {
     <div style="display:flex; justify-content:space-between; margin-bottom:14px; gap:8px; align-items:center;">
       <a href="#/gastos" class="btn btn-ghost">Ir al módulo de Gastos →</a>
       <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn btn-ghost" id="btn-exportar-financiero">⤓ Exportar a Excel</button>
         <label style="margin:0;">Año</label>
         <select id="sel-anio" style="width:auto;">${anios.map(a => `<option value="${a}" ${a===anioActual?"selected":""}>${a}</option>`).join("")}</select>
       </div>
@@ -75,6 +76,31 @@ export async function renderFinanciero(container) {
     <div id="financiero-body"></div>`;
 
   container.querySelector("#sel-anio").addEventListener("change", e => pintar(Number(e.target.value)));
+
+  // El Excel de Financiero lleva las dos caras (facturación y gastos) y los
+  // balances en fórmulas, para poder trastear con las cifras fuera de la app.
+  container.querySelector("#btn-exportar-financiero").addEventListener("click", async (e) => {
+    const $btn = e.currentTarget;
+    const anio = Number(container.querySelector("#sel-anio").value);
+    $btn.disabled = true;
+    const antes = $btn.textContent;
+    $btn.textContent = "Generando…";
+    try {
+      const { data: clientes } = await db.from("clientes").select("id,nombre").exec();
+      const { exportarFinancieroExcel } = await import("../utils/exportar-excel.js");
+      await exportarFinancieroExcel({
+        anio, proyectos, facturaProyectos, gastos, clientes,
+        modelo130Pct: cfg.modelo130_pct,
+      });
+      toastOk(`Excel financiero ${anio} descargado.`);
+    } catch (err) {
+      toastError(err.message || "No se ha podido generar el Excel.");
+    } finally {
+      $btn.disabled = false;
+      $btn.textContent = antes;
+    }
+  });
+
   pintar(anioActual);
 
   function pintar(anio) {
