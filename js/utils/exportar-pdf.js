@@ -77,7 +77,7 @@ function portada(pdf, titulo, subtitulo, logo) {
     // Alto fijo y ancho proporcional, para no deformarlo sea cual sea el png.
     const alto = 30;
     const anchoLogo = Math.round(alto * (logo.w / logo.h));
-    pdf.addImage(logo.dataUrl, "PNG", ancho - 40 - anchoLogo, 16, anchoLogo, alto);
+    pdf.addImage(logo.dataUrl, "PNG", ancho - 40 - anchoLogo, 16, anchoLogo, alto, "logoJML", "FAST");
   }
   pdf.setTextColor(0, 0, 0);
   return 86;
@@ -137,6 +137,31 @@ function sitio(pdf, y, necesario = 120) {
   return 60;
 }
 
+// El logo del repositorio es de 2048 px de ancho. Incrustarlo tal cual dejaba
+// el PDF en 10 MB, porque jsPDF guarda el mapa de bits entero aunque se dibuje
+// a 3 cm. Se reescala antes en un canvas al tamaño real de impresión (x3 para
+// que no se vea pixelado) y el fichero vuelve a pesar lo que debe.
+let logoReducido = null;
+async function logoParaInforme() {
+  if (logoReducido !== null) return logoReducido;
+  try {
+    const original = await cargarLogoDataUrl();
+    if (!original?.dataUrl) { logoReducido = false; return false; }
+    const alto = 90;                                    // 30 pt x 3
+    const anchoPx = Math.round(alto * (original.w / original.h));
+    const img = await new Promise((res, rej) => {
+      const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = original.dataUrl;
+    });
+    const lienzo = document.createElement("canvas");
+    lienzo.width = anchoPx; lienzo.height = alto;
+    lienzo.getContext("2d").drawImage(img, 0, 0, anchoPx, alto);
+    logoReducido = { dataUrl: lienzo.toDataURL("image/png"), w: anchoPx, h: alto };
+  } catch {
+    logoReducido = false;
+  }
+  return logoReducido;
+}
+
 function nuevoPdf(jsPDF) {
   return new jsPDF({ unit: "pt", format: "a4", orientation: "landscape" });
 }
@@ -145,7 +170,7 @@ function nuevoPdf(jsPDF) {
 
 export async function exportarFacturacionPdf({ anio, proyectos, facturaProyectos, gastos, clientes }) {
   const jsPDF = await cargarPdf();
-  const logo = await cargarLogoDataUrl().catch(() => null);
+  const logo = await logoParaInforme();
   const pdf = nuevoPdf(jsPDF);
 
   const ledger = construirLedger(proyectos, facturaProyectos);
@@ -240,7 +265,7 @@ export async function exportarFacturacionPdf({ anio, proyectos, facturaProyectos
 
 export async function exportarGastosPdf({ anio, gastos }) {
   const jsPDF = await cargarPdf();
-  const logo = await cargarLogoDataUrl().catch(() => null);
+  const logo = await logoParaInforme();
   const pdf = nuevoPdf(jsPDF);
 
   const delAnio = (gastos || []).filter(g => (g.fecha || "").startsWith(String(anio)));
@@ -332,7 +357,7 @@ export async function exportarGastosPdf({ anio, gastos }) {
 
 export async function exportarFinancieroPdf({ anio, proyectos, facturaProyectos, gastos, clientes, modelo130Pct = 20 }) {
   const jsPDF = await cargarPdf();
-  const logo = await cargarLogoDataUrl().catch(() => null);
+  const logo = await logoParaInforme();
   const pdf = nuevoPdf(jsPDF);
 
   const ledger = construirLedger(proyectos, facturaProyectos);
