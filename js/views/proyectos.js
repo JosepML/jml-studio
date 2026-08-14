@@ -58,7 +58,7 @@ export async function renderProyectos(container, param) {
 
     <div class="card" style="padding:0;">
       <div class="table-scroll">
-        <table>
+        <table class="tabla-estados">
           <thead><tr>
             <th style="padding-left:18px;">Proyecto</th><th>Cliente</th><th>Categoría</th><th>Fecha</th><th class="money">Importe c/IVA</th>
             <th>Forma de pago</th><th style="padding-right:18px;">Estado</th>
@@ -162,7 +162,8 @@ export async function renderProyectos(container, param) {
       const catServicio = CATEGORIAS_SERVICIO[p.categoria_servicio] || CATEGORIAS_SERVICIO.otros;
       const importeConIva = conIvaSegunPago(f ? f.importeBase : p.precio_acordado, p.forma_pago);
       const nGastos = (gastos||[]).filter(g => g.proyecto_id === p.id).length;
-      return `<tr>
+      const claseEstado = estado === "pagada" ? "cobrada" : (estado === "emitida" ? "emitida" : "sinfacturar");
+      return `<tr class="fila-${claseEstado}" title="${cat.label}">
         <td class="link-proyecto" data-id="${p.id}" style="padding-left:18px; cursor:pointer; color:var(--blue); font-weight:600;">${escapeHtml(p.nombre)}${nGastos?` <span class="muted" style="font-weight:400; font-size:11px;">· ${nGastos} gasto${nGastos===1?"":"s"}</span>`:""}</td>
         <td>${escapeHtml(clientesMap[p.cliente_id] || "Sin cliente")}</td>
         <td><span class="badge" style="background:${catServicio.bg}; color:${catServicio.fg};">${catServicio.label}</span></td>
