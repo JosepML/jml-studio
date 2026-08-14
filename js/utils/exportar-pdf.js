@@ -372,10 +372,13 @@ export async function exportarFinancieroPdf({ anio, proyectos, facturaProyectos,
   pdf.setFont("helvetica", "italic");
   pdf.setFontSize(8);
   pdf.setTextColor(...GRIS);
-  // splitTextToSize y no la opción maxWidth: con maxWidth la línea salía
-  // entera y se cortaba por el margen derecho en vez de partirse.
+  // Dos avisos: splitTextToSize en vez de la opción maxWidth (con maxWidth la
+  // línea salía entera y se cortaba por el margen), y NADA de caracteres raros
+  // aquí dentro. El signo "menos" matemático (U+2212) hacía que jsPDF calculara
+  // mal el ancho y dibujara toda la frase con un espaciado enorme que se salía
+  // de la página. Con guiones y letras normales no pasa.
   const aviso = pdf.splitTextToSize(
-    "El IVA repercutido solo cuenta la facturación por transferencia: el efectivo no pasa por el 303. El Modelo 130 aquí es una estimación sobre (base − gastos deducibles) del trimestre.",
+    "El IVA repercutido solo cuenta la facturación por transferencia: el efectivo no pasa por el 303. El Modelo 130 aquí es una estimación sobre (base menos gastos deducibles) del trimestre.",
     pdf.internal.pageSize.getWidth() - 80,
   );
   pdf.text(aviso, 40, Math.min(y, pdf.internal.pageSize.getHeight() - 60));
