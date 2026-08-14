@@ -1493,3 +1493,10 @@ details.card.mes-actual{box-shadow:inset 3px 0 0 var(--blue), var(--shadow-xs);}
   #buscar-mensual { min-width: 0; width: 100%; }
   .mes-accion { flex-wrap: wrap; }
 }
+
+/* --- Grupo de exportación (Excel / PDF) --- */
+/* Dos botones pequeños con una etiqueta delante: se leen como una sola
+   acción con dos formatos, en vez de como dos acciones sueltas. */
+.exportar-grupo { display: flex; align-items: center; gap: 6px; }
+.exportar-etiqueta { font-size: 12px; color: var(--muted, #6B7A90); }
+.exportar-grupo .btn { padding: 6px 10px; font-size: 13px; }
