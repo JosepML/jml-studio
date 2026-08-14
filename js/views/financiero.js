@@ -68,7 +68,9 @@ export async function renderFinanciero(container) {
     <div style="display:flex; justify-content:space-between; margin-bottom:14px; gap:8px; align-items:center;">
       <a href="#/gastos" class="btn btn-ghost">Ir al módulo de Gastos →</a>
       <div style="display:flex; gap:8px; align-items:center;">
-        <button class="btn btn-ghost" id="btn-exportar-financiero">⤓ Exportar a Excel</button>
+        <span class="exportar-etiqueta">Exportar</span>
+        <button class="btn btn-ghost" type="button" data-exportar="excel">⤓ Excel</button>
+        <button class="btn btn-ghost" type="button" data-exportar="pdf">⤓ PDF</button>
         <label style="margin:0;">Año</label>
         <select id="sel-anio" style="width:auto;">${anios.map(a => `<option value="${a}" ${a===anioActual?"selected":""}>${a}</option>`).join("")}</select>
       </div>
@@ -79,7 +81,7 @@ export async function renderFinanciero(container) {
 
   // El Excel de Financiero lleva las dos caras (facturación y gastos) y los
   // balances en fórmulas, para poder trastear con las cifras fuera de la app.
-  container.querySelector("#btn-exportar-financiero").addEventListener("click", async (e) => {
+  const exportar = async (e) => {
     const $btn = e.currentTarget;
     const anio = Number(container.querySelector("#sel-anio").value);
     $btn.disabled = true;
@@ -87,19 +89,22 @@ export async function renderFinanciero(container) {
     $btn.textContent = "Generando…";
     try {
       const { data: clientes } = await db.from("clientes").select("id,nombre").exec();
-      const { exportarFinancieroExcel } = await import("../utils/exportar-excel.js");
-      await exportarFinancieroExcel({
+      const formato = $btn.dataset.exportar;
+      const mod = await import(formato === "pdf" ? "../utils/exportar-pdf.js" : "../utils/exportar-excel.js");
+      const generar = formato === "pdf" ? mod.exportarFinancieroPdf : mod.exportarFinancieroExcel;
+      await generar({
         anio, proyectos, facturaProyectos, gastos, clientes,
         modelo130Pct: cfg.modelo130_pct,
       });
-      toastOk(`Excel financiero ${anio} descargado.`);
+      toastOk(`${formato === "pdf" ? "PDF" : "Excel"} financiero ${anio} descargado.`);
     } catch (err) {
       toastError(err.message || "No se ha podido generar el Excel.");
     } finally {
       $btn.disabled = false;
       $btn.textContent = antes;
     }
-  });
+  };
+  container.querySelectorAll("[data-exportar]").forEach($b => $b.addEventListener("click", exportar));
 
   pintar(anioActual);
 

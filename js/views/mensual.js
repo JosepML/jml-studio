@@ -42,7 +42,11 @@ export async function renderMensual(container) {
       <div class="toolbar-filters toolbar-action">
         <input id="buscar-mensual" type="search" placeholder="Buscar un proyecto, cliente o nº de factura…" style="min-width:280px;">
       </div>
-      <button class="btn btn-ghost toolbar-action" id="btn-exportar-excel">⤓ Exportar a Excel</button>
+      <div class="toolbar-action exportar-grupo">
+        <span class="exportar-etiqueta">Exportar</span>
+        <button class="btn btn-ghost" type="button" data-exportar="excel">⤓ Excel</button>
+        <button class="btn btn-ghost" type="button" data-exportar="pdf">⤓ PDF</button>
+      </div>
     </div>
     <div id="resumen-anual" class="grid grid-4" style="margin-bottom:20px;"></div>
     <div id="meses-body"></div>
@@ -60,23 +64,26 @@ export async function renderMensual(container) {
   let busqueda = "";
 
   container.querySelector("#sel-anio").addEventListener("change", e => pintar(Number(e.target.value)));
-  container.querySelector("#btn-exportar-excel").addEventListener("click", async (e) => {
+  const exportar = async (e) => {
     const $btn = e.currentTarget;
     const anio = Number(container.querySelector("#sel-anio").value);
     $btn.disabled = true;
     const antes = $btn.textContent;
     $btn.textContent = "Generando…";
     try {
-      const { exportarFacturacionExcel } = await import("../utils/exportar-excel.js");
-      await exportarFacturacionExcel({ anio, proyectos, facturaProyectos, gastos, clientes });
-      toastOk(`Excel de facturación ${anio} descargado.`);
+      const formato = $btn.dataset.exportar;
+      const mod = await import(formato === "pdf" ? "../utils/exportar-pdf.js" : "../utils/exportar-excel.js");
+      const generar = formato === "pdf" ? mod.exportarFacturacionPdf : mod.exportarFacturacionExcel;
+      await generar({ anio, proyectos, facturaProyectos, gastos, clientes });
+      toastOk(`${formato === "pdf" ? "PDF" : "Excel"} de facturación ${anio} descargado.`);
     } catch (err) {
       toastError(err.message || "No se ha podido generar el Excel.");
     } finally {
       $btn.disabled = false;
       $btn.textContent = antes;
     }
-  });
+  };
+  container.querySelectorAll("[data-exportar]").forEach($b => $b.addEventListener("click", exportar));
 
   container.querySelector("#buscar-mensual").addEventListener("input", e => {
     busqueda = e.target.value.trim().toLowerCase();

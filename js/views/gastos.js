@@ -29,7 +29,11 @@ export async function renderGastos(container, param) {
         <label>Año</label>
         <select id="sel-anio">${anios.map(a => `<option value="${a}" ${a===anioActual?"selected":""}>${a}</option>`).join("")}</select>
       </div>
-      <button class="btn btn-ghost toolbar-action" id="btn-exportar-gastos">⤓ Exportar a Excel</button>
+      <div class="toolbar-action exportar-grupo">
+        <span class="exportar-etiqueta">Exportar</span>
+        <button class="btn btn-ghost" type="button" data-exportar="excel">⤓ Excel</button>
+        <button class="btn btn-ghost" type="button" data-exportar="pdf">⤓ PDF</button>
+      </div>
       <button class="btn btn-primary toolbar-action" id="btn-nuevo-gasto">+ Añadir gasto</button>
     </div>
     <div id="gasto-form-wrap"></div>
@@ -54,23 +58,26 @@ export async function renderGastos(container, param) {
   // Ojo: el arranque pinta la vista dos veces (la segunda al llegar los datos
   // del emisor), así que sin esta guarda el diálogo se abría por duplicado.
   if (param === "nuevo" && !document.querySelector(".modal-backdrop")) abrirFormulario(container, null, () => renderGastos(container));
-  container.querySelector("#btn-exportar-gastos").addEventListener("click", async (e) => {
+  const exportar = async (e) => {
     const $btn = e.currentTarget;
     const anio = Number(container.querySelector("#sel-anio").value);
     $btn.disabled = true;
     const antes = $btn.textContent;
     $btn.textContent = "Generando…";
     try {
-      const { exportarGastosExcel } = await import("../utils/exportar-excel.js");
-      await exportarGastosExcel({ anio, gastos });
-      toastOk(`Excel de gastos ${anio} descargado.`);
+      const formato = $btn.dataset.exportar;
+      const mod = await import(formato === "pdf" ? "../utils/exportar-pdf.js" : "../utils/exportar-excel.js");
+      const generar = formato === "pdf" ? mod.exportarGastosPdf : mod.exportarGastosExcel;
+      await generar({ anio, gastos });
+      toastOk(`${formato === "pdf" ? "PDF" : "Excel"} de gastos ${anio} descargado.`);
     } catch (err) {
       toastError(err.message || "No se ha podido generar el Excel.");
     } finally {
       $btn.disabled = false;
       $btn.textContent = antes;
     }
-  });
+  };
+  container.querySelectorAll("[data-exportar]").forEach($b => $b.addEventListener("click", exportar));
 
   container.querySelector("#sel-anio").addEventListener("change", () => pintar());
 
