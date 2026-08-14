@@ -130,6 +130,20 @@ export function opcionesDoughnut(formatearValor, { leyenda = "bottom" } = {}) {
         labels: {
           boxWidth: 8, boxHeight: 8, usePointStyle: true, pointStyle: "circle",
           padding: 12, font: { size: 11, family: "Inter", weight: "500" }, color: "#7A8399",
+          // Cada etiqueta lleva su porcentaje al lado. Josep es daltónico
+          // (§5.1) y en un donut el color es lo ÚNICO que une una porción con
+          // su leyenda: con el porcentaje escrito puede emparejarlas mirando
+          // el tamaño de la porción, sin depender del tono.
+          generateLabels(chart) {
+            const base = window.Chart.defaults.plugins.legend.labels.generateLabels(chart);
+            const datos = chart.data.datasets?.[0]?.data || [];
+            const total = datos.reduce((s, v) => s + (Number(v) || 0), 0);
+            if (!total) return base;
+            return base.map((etiqueta, i) => {
+              const pct = Math.round((Number(datos[i]) || 0) / total * 100);
+              return { ...etiqueta, text: `${etiqueta.text} · ${pct} %` };
+            });
+          },
         },
       },
       tooltip: { enabled: false, external: (ctx) => tooltipHtml(ctx, formatearValor) },
