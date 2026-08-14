@@ -16,7 +16,9 @@ import {
   conIvaSegunPago, IVA_PCT_DEFECTO,
 } from "./resumen.js";
 import { CATEGORIAS_GASTO, eur } from "./format.js";
-import { filasFacturacion, filasGastos, imputacionGastos } from "./exportar-excel.js";
+import { filasFacturacion, filasGastos, imputacionGastos, porCliente, sello } from "./exportar-excel.js";
+import { cargarLogoDataUrl } from "./pdf-documentos.js";
+import { CONFIG_NEGOCIO } from "./config-negocio.js";
 
 const CDN_JSPDF = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
 const CDN_AUTOTABLE = "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js";
@@ -49,10 +51,14 @@ const hoy = () => new Date().toLocaleDateString("es-ES", { day: "2-digit", month
 
 /* -------------------------------------------------------------- piezas */
 
-function portada(pdf, titulo, subtitulo) {
+// La cabecera lleva el logo y quién emite el informe: así el PDF se puede
+// mandar a la gestoría tal cual y se sabe de quién es sin abrirlo entero.
+// Datos de contacto los justos —nombre, NIF y actividad—: el IBAN NO pinta
+// nada en un informe de gestión y no debe salir de las facturas.
+function portada(pdf, titulo, subtitulo, logo) {
   const ancho = pdf.internal.pageSize.getWidth();
   pdf.setFillColor(...AZUL);
-  pdf.rect(0, 0, ancho, 54, "F");
+  pdf.rect(0, 0, ancho, 62, "F");
   pdf.setTextColor(255, 255, 255);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(18);
@@ -60,8 +66,21 @@ function portada(pdf, titulo, subtitulo) {
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9);
   pdf.text(subtitulo, 40, 43);
+
+  const e = CONFIG_NEGOCIO.emisor || {};
+  const quien = [e.nombre, e.nif && `NIF ${e.nif}`, e.actividad].filter(Boolean).join("  ·  ");
+  if (quien) {
+    pdf.setFontSize(8);
+    pdf.text(quien, 40, 55);
+  }
+  if (logo?.dataUrl) {
+    // Alto fijo y ancho proporcional, para no deformarlo sea cual sea el png.
+    const alto = 30;
+    const anchoLogo = Math.round(alto * (logo.w / logo.h));
+    pdf.addImage(logo.dataUrl, "PNG", ancho - 40 - anchoLogo, 16, anchoLogo, alto);
+  }
   pdf.setTextColor(0, 0, 0);
-  return 78;
+  return 86;
 }
 
 function seccion(pdf, texto, y) {
@@ -126,6 +145,7 @@ function nuevoPdf(jsPDF) {
 
 export async function exportarFacturacionPdf({ anio, proyectos, facturaProyectos, gastos, clientes }) {
   const jsPDF = await cargarPdf();
+  const logo = await cargarLogoDataUrl().catch(() => null);
   const pdf = nuevoPdf(jsPDF);
 
   const ledger = construirLedger(proyectos, facturaProyectos);
@@ -133,7 +153,7 @@ export async function exportarFacturacionPdf({ anio, proyectos, facturaProyectos
   const anual = resumenPeriodo(ledger, gastos, desde, hasta);
   const todas = filasFacturacion(anual.filas, clientes);
 
-  let y = portada(pdf, `Facturación ${anio}`, `Exportado el ${hoy()} · importes en base imponible salvo donde se indique`);
+  let y = portada(pdf, `Facturación ${anio}`, `Exportado el ${hoy()} · importes en base imponible salvo donde se indique`, logo);
 
   y = seccion(pdf, "Resumen del año", y);
   y = tabla(pdf, y,
@@ -173,6 +193,18 @@ export async function exportarFacturacionPdf({ anio, proyectos, facturaProyectos
     },
   );
 
+  y = sitio(pdf, y, 170);
+  y = seccion(pdf, "Por cliente", y);
+  const clientesFilas = porCliente(todas);
+  y = tabla(pdf, y,
+    ["Cliente", "Proyectos", "Base", "Total c/IVA", "Cobrado", "Pendiente", "% del año"],
+    clientesFilas.map(c => [
+      c.cliente, String(c.n), eur(c.base), eur(c.total), eur(c.cobrado), eur(c.pendiente),
+      anual.totalBase ? `${Math.round(c.base / anual.totalBase * 100)} %` : "—",
+    ]),
+    { columnStyles: { 0: { cellWidth: 200 }, ...derecha([1, 2, 3, 4, 5, 6]) } },
+  );
+
   // Un bloque por mes, saltando los vacíos: doce hojas medio en blanco no
   // ayudan a nadie y engordan el fichero.
   MESES.forEach((nombre, idx) => {
@@ -201,13 +233,14 @@ export async function exportarFacturacionPdf({ anio, proyectos, facturaProyectos
   });
 
   pieDePagina(pdf);
-  pdf.save(`Facturacion-${anio}.pdf`);
+  pdf.save(sello("Facturacion", anio, "pdf"));
 }
 
 /* ===================================================== 2. GASTOS */
 
 export async function exportarGastosPdf({ anio, gastos }) {
   const jsPDF = await cargarPdf();
+  const logo = await cargarLogoDataUrl().catch(() => null);
   const pdf = nuevoPdf(jsPDF);
 
   const delAnio = (gastos || []).filter(g => (g.fecha || "").startsWith(String(anio)));
@@ -220,7 +253,7 @@ export async function exportarGastosPdf({ anio, gastos }) {
   const ivaDeducible = (lista) => round2(lista.filter(g => g.deducible !== false && g.con_factura !== false)
     .reduce((s, g) => s + round2(Number(g.iva_soportado || 0) * (Number(g.iva_deducible_pct ?? 100) / 100)), 0));
 
-  let y = portada(pdf, `Gastos ${anio}`, `Exportado el ${hoy()} · el deducible del ejercicio ya lleva prorrateadas las amortizaciones`);
+  let y = portada(pdf, `Gastos ${anio}`, `Exportado el ${hoy()} · el deducible del ejercicio ya lleva prorrateadas las amortizaciones`, logo);
 
   y = seccion(pdf, "Resumen del año", y);
   y = tabla(pdf, y,
@@ -292,13 +325,14 @@ export async function exportarGastosPdf({ anio, gastos }) {
   });
 
   pieDePagina(pdf);
-  pdf.save(`Gastos-${anio}.pdf`);
+  pdf.save(sello("Gastos", anio, "pdf"));
 }
 
 /* ================================================= 3. FINANCIERO */
 
 export async function exportarFinancieroPdf({ anio, proyectos, facturaProyectos, gastos, clientes, modelo130Pct = 20 }) {
   const jsPDF = await cargarPdf();
+  const logo = await cargarLogoDataUrl().catch(() => null);
   const pdf = nuevoPdf(jsPDF);
 
   const ledger = construirLedger(proyectos, facturaProyectos);
@@ -306,7 +340,7 @@ export async function exportarFinancieroPdf({ anio, proyectos, facturaProyectos,
   const anual = resumenPeriodo(ledger, gastos, desde, hasta);
   const imputados = imputacionGastos(gastos, anio);
 
-  let y = portada(pdf, `Balance ${anio}`, `Exportado el ${hoy()} · documento orientativo, contrástalo con tu gestoría antes de presentar nada`);
+  let y = portada(pdf, `Balance ${anio}`, `Exportado el ${hoy()} · documento orientativo, contrástalo con tu gestoría antes de presentar nada`, logo);
 
   y = seccion(pdf, "El año de un vistazo", y);
   y = tabla(pdf, y,
@@ -385,5 +419,5 @@ export async function exportarFinancieroPdf({ anio, proyectos, facturaProyectos,
   pdf.setTextColor(0, 0, 0);
 
   pieDePagina(pdf);
-  pdf.save(`Financiero-${anio}.pdf`);
+  pdf.save(sello("Financiero", anio, "pdf"));
 }

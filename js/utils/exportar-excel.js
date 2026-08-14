@@ -145,6 +145,31 @@ function nuevoLibro() {
 
 const hoy = () => new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
 
+// Nombre de fichero con la fecha de exportación. Estos documentos son una
+// FOTO del día en que se sacan: sin la fecha, dos exportaciones del mismo año
+// se pisan en la carpeta de Descargas y no hay forma de saber cuál es cuál.
+export function sello(base, anio, ext) {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${base}-${anio} (${dd}-${mm}-${d.getFullYear()}).${ext}`;
+}
+
+// Agrupa las filas de facturación por cliente. Lo usan el Excel y el PDF.
+export function porCliente(filas) {
+  const acc = {};
+  filas.forEach(f => {
+    const k = f.cliente || "—";
+    acc[k] ||= { cliente: k, n: 0, base: 0, total: 0, cobrado: 0, pendiente: 0 };
+    acc[k].n += 1;
+    acc[k].base = round2(acc[k].base + f.base);
+    acc[k].total = round2(acc[k].total + f.total);
+    if (f.estado === "Cobrada") acc[k].cobrado = round2(acc[k].cobrado + f.base);
+    else acc[k].pendiente = round2(acc[k].pendiente + f.base);
+  });
+  return Object.values(acc).sort((a, b) => b.base - a.base);
+}
+
 /* ------------------------------------------------- datos de facturación */
 
 const COLS_FACTURACION = [
@@ -307,7 +332,23 @@ export async function exportarFacturacionExcel({ anio, proyectos, facturaProyect
   );
   volcarFilas(completo.ws, completo.primeraFila, COLS_FACTURACION, todas);
 
-  /* --- Hojas 3-14: un mes por hoja ------------------------------------ */
+  /* --- Hoja 3: por cliente -------------------------------------------- */
+  const COLS_CLIENTE = [
+    { t: "Cliente", k: "cliente", w: 34 },
+    { t: "Proyectos", k: "n", w: 11 },
+    { t: "Base (€)", k: "base", w: 15, fmt: EUROS },
+    { t: "Total c/IVA (€)", k: "total", w: 15, fmt: EUROS },
+    { t: "Cobrado (€)", k: "cobrado", w: 15, fmt: EUROS },
+    { t: "Pendiente (€)", k: "pendiente", w: 15, fmt: EUROS },
+  ];
+  const hCli = crearHoja(
+    wb, "Por cliente", `Facturación ${anio} por cliente`,
+    "Ordenados por facturación. Cobrado y pendiente van sobre base imponible.",
+    COLS_CLIENTE,
+  );
+  volcarFilas(hCli.ws, hCli.primeraFila, COLS_CLIENTE, porCliente(todas));
+
+  /* --- Hojas 4-15: un mes por hoja ------------------------------------ */
   MESES.forEach((nombre, idx) => {
     const delMes = todas.filter(d => d.mesNum === idx + 1);
     const h = crearHoja(
@@ -319,7 +360,7 @@ export async function exportarFacturacionExcel({ anio, proyectos, facturaProyect
     volcarFilas(h.ws, h.primeraFila, COLS_FACTURACION, delMes);
   });
 
-  await descargar(wb, `Facturacion-${anio}.xlsx`);
+  await descargar(wb, sello("Facturacion", anio, "xlsx"));
 }
 
 /* ====================================================== 2. GASTOS */
@@ -489,7 +530,7 @@ export async function exportarGastosExcel({ anio, gastos }) {
     volcarFilas(h.ws, h.primeraFila, COLS_GASTOS, delMes);
   });
 
-  await descargar(wb, `Gastos-${anio}.xlsx`);
+  await descargar(wb, sello("Gastos", anio, "xlsx"));
 }
 
 /* ================================================== 3. FINANCIERO */
@@ -709,5 +750,5 @@ export async function exportarFinancieroExcel({ anio, proyectos, facturaProyecto
   wb.worksheets.forEach(h => { h.state = "visible"; });
   wb.views = [{ activeTab: wb.worksheets.findIndex(h => h.name === "Balance") }];
 
-  await descargar(wb, `Financiero-${anio}.xlsx`);
+  await descargar(wb, sello("Financiero", anio, "xlsx"));
 }
