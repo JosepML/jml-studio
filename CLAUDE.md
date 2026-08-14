@@ -120,6 +120,49 @@ mira la página `blob` del fichero (nº de líneas y KB) en vez de fiarte del ra
    línea** contra el esperado.
 7. "Commit changes…" → mensaje descriptivo en español → "Commit changes".
 
+### La herramienta de subida se rompió (2026-08-05) — vía alternativa
+
+`mcp__claude-in-chrome__file_upload` empezó a rechazar CUALQUIER ruta de las
+carpetas conectadas de Josep: el parámetro `paths` llega vacío al validador y
+nunca alcanza la extensión. Con rutas de la sesión sí llega (y responde otra
+cosa), así que es un problema del puente, no de los permisos. Si vuelve a
+pasar, la vía que funciona es meter el fichero en el `<input type=file>` con
+la API DataTransfer desde la propia página de subida:
+
+```js
+const inp = document.querySelector("input[type=file]");
+const dt = new DataTransfer();
+dt.items.add(new File([texto], "mensual.js", { type: "text/javascript" }));
+inp.files = dt.files;
+inp.dispatchEvent(new Event("change", { bubbles: true }));
+```
+
+Tres reglas que salieron de usarla:
+
+1. **Construye el contenido EN la misma página donde vas a subirlo.** Al
+   navegar se pierde `window` entero. Un módulo se subió con la palabra
+   "undefined" dentro por armarlo en la pestaña de la app y navegar después.
+   Si hay que navegar, guarda el texto en `localStorage` de github.com.
+2. **`raw.githubusercontent.com` sirve versiones viejas durante minutos**, y
+   el cache-busting con `?v=` no siempre basta. Para leer el fichero recién
+   subido, saca el SHA del último commit y pídelo por SHA, que es inmutable:
+   ```js
+   const j = await (await fetch("https://api.github.com/repos/JosepML/jml-studio/commits?path=RUTA&per_page=1")).json();
+   const texto = await (await fetch("https://raw.githubusercontent.com/JosepML/jml-studio/" + j[0].sha + "/RUTA")).text();
+   ```
+   (Desde github.com no se puede hacer `fetch` a josepml.github.io: lo bloquea
+   la CSP del propio GitHub.)
+3. **Verifica con un hash**, no a ojo. Calcula el SHA-1 del texto que vas a
+   subir y compáralo después con el del fichero en el repositorio. Es lo que
+   pilló los dos ficheros mal subidos de esta sesión.
+
+Y si el botón "Commit changes" no hace nada al pulsarlo (pasa a menudo),
+envía el formulario a mano:
+```js
+const b = document.querySelector(".js-blob-submit");
+b.form.requestSubmit(b);
+```
+
 ### Trampas conocidas del despliegue
 
 - **Un commit puede no registrarse.** Pulsas "Commit changes", la página se
@@ -544,7 +587,95 @@ puede leer entera con la clave pública.
 
 # 7. Estado actual y trabajo pendiente
 
-## Último trabajo cerrado (2026-08-02) — lo más reciente
+## Último trabajo cerrado (2026-08-05) — lo más reciente
+
+### Sincronización factura ↔ proyecto (dos bugs reales)
+Josep desasignaba la factura de un proyecto en Facturación mensual y el
+proyecto seguía apareciendo dentro de esa factura. Había DOS fallos, uno en
+cada lado:
+
+- **Desde Facturación mensual**: se borraba el vínculo de `factura_proyectos`
+  pero no la línea del jsonb `facturas.lineas`. Ahora `reasignarFactura()`
+  (en `mensual.js`) mantiene los dos lados. Si la línea lleva `proyecto_id` se
+  quita sin preguntar; si no lo lleva pero su concepto es EXACTAMENTE el nombre
+  del proyecto —las facturas importadas de 2026 son así— se le pregunta; y si
+  la factura agrupa varios proyectos en un concepto escrito a mano, no se
+  adivina nada: se avisa y decide él.
+- **Desde el editor**: al abrir una factura, las líneas guardadas mandaban
+  sobre los vínculos, así que el proyecto desasignado reaparecía — y al
+  guardar, `sincronizarFacturaProyectos` volvía a crear el vínculo y quedaba
+  reasignado solo. Ahora `renderEditor` descarta al abrir las líneas cuyo
+  `proyecto_id` ya no está vinculado, y avisa con un toast.
+- `sincronizarFacturaProyectos` inserta fila a fila y mira el error: antes una
+  fila mala tumbaba el insert entero y la factura se quedaba sin vínculos.
+- Se limpiaron a mano las tres facturas afectadas (020, 021 y 022 de 2026):
+  quedaron a 0 € y sin líneas. **Ojo: son borradores a 0 sin proyectos, así que
+  `limpiarFacturasHuerfanas` las borrará en cuanto él toque una asignación.**
+
+### Facturación mensual: buscador y "todo cobrado"
+- **Buscador del año** en la barra superior: filtra por nombre de proyecto,
+  cliente y número de factura a la vez. Los meses sin coincidencias se ocultan
+  y los que las tienen se despliegan solos. Los totales de la cabecera NO se
+  filtran a propósito. Mientras se busca se desactiva el arrastre, porque los
+  índices de fila dejan de ser los del mes.
+- **Botón "✓ Todo cobrado"** por mes, solo si queda algo pendiente. Pide
+  confirmación, escribe todo y repinta una vez. Respeta la distinción de
+  siempre: si el proyecto tiene factura vinculada marca la factura; si no, el
+  proyecto.
+
+### Google Calendar: revertido el intento del "primer clic"
+No funcionaba y encima molestaba ("clicas y no lleva a nada"). Vuelve el botón
+explícito, con el texto "Ver mi agenda" cuando el permiso ya está dado. Lo
+único que se queda del intento es el token en `localStorage` (antes en
+sessionStorage), así que dura su hora completa aunque cierre el navegador.
+**En `gcal.js` hay escrito qué se probó y por qué no puede funcionar: no lo
+vuelvas a intentar sin leerlo.**
+
+### Exportación a Excel y PDF (lo más grande de la sesión)
+Dos módulos nuevos, con botones "⤓ Excel" y "⤓ PDF" en **Facturación mensual**,
+**Gastos** y **Financiero**. Exportan el año seleccionado.
+
+- `js/utils/exportar-excel.js` — **ExcelJS** desde CDN. Se eligió sobre SheetJS
+  porque la versión gratuita de SheetJS no escribe estilos y aquí la
+  maquetación importa, y porque ExcelJS admite fórmulas de verdad.
+  - Facturación: Resumen · Datos completos (todo el año en una tabla, pensado
+    para dárselo entero a una IA) · Por cliente · doce hojas mensuales.
+  - Gastos: Resumen (por mes y por categoría) · Datos completos · doce meses.
+  - Financiero: hojas `Facturacion` y `Gastos` como datos de origen y una hoja
+    `Balance` **calculada con SUMIFS** sobre ellas, más el bloque trimestral de
+    Modelo 130 y 303, con el % del 130 en una celda editable.
+  - En la hoja de gastos del financiero los amortizables van **repartidos en
+    sus cuotas mensuales**: es como se deducen y es lo que hace que las SUMIFS
+    den lo mismo que la app. El IVA soportado NO se prorratea (se deduce en el
+    trimestre de su factura).
+  - Cada fórmula lleva también su `result` ya calculado, para que el fichero
+    enseñe la cifra correcta sin esperar a que Excel recalcule.
+- `js/utils/exportar-pdf.js` — **jsPDF + autoTable**. Los mismos tres informes,
+  en horizontal, con logo y datos del emisor en la cabecera (nombre, NIF y
+  actividad; **el IBAN no**), cabecera de tabla repetida y numeración al pie.
+  Comparte con el Excel `filasFacturacion`, `filasGastos`, `imputacionGastos`,
+  `porCliente` y `sello`: si cada uno armara sus datos, dirían cosas distintas.
+
+**Tres trampas que costaron un rato, por si vuelven:**
+
+1. **El logo dejaba los PDF en 10 MB.** `assets/logo.png` es de 2048 px y jsPDF
+   guarda el mapa de bits entero aunque se dibuje a 3 cm (2048×1266×4 ≈ 10 MB,
+   el tamaño exacto que salía). Se reescala antes en un canvas
+   (`logoParaInforme()`) y el fichero baja a ~190 KB.
+2. **El signo "menos" matemático (U+2212) rompe la fuente de jsPDF**: calcula
+   mal el ancho y dibuja la frase entera con un espaciado enorme que se sale de
+   la página. En los textos del PDF, guiones normales y nada de caracteres
+   raros.
+3. **jsPDF esquiva la intercepción de descargas.** Para probar sin llenarle la
+   carpeta de Descargas hay que sustituir `jsPDF.API.save` y usar
+   `this.output("blob")`; parchear el clic del `<a>` no basta. (Aun así se le
+   colaron varios PDF descargados: avísale si vuelve a pasar.)
+
+Verificado en producción con sus datos: las 36 comprobaciones del balance
+(12 meses × transferencia / efectivo / deducibles) cuadran entre la fórmula del
+Excel y lo que calcula la app.
+
+## Sesión del 2026-08-02
 
 ### Google Calendar en el Dashboard
 `js/utils/gcal.js` + `js/views/calendario.js`. Lee y ESCRIBE en su agenda real
@@ -739,45 +870,78 @@ Se recuperó bajando el fichero de un commit anterior con
 `Read`, sin volcar 78 KB al contexto. **Guarda ese truco: es la vía para
 recuperar cualquier versión anterior.**
 
-## Pendiente
+## Qué falta para darla por terminada (revisado el 2026-08-05)
 
-### 1. Revisión en móvil (la única grande que queda)
-Nunca validada con rigor (§4.3). Ojo: `resize_window` **no** cambia el viewport
-que se renderiza, así que desde la sesión no se puede comprobar de verdad. Lo
-práctico es pedirle a Josep que abra la app en su teléfono y diga qué falla.
-Cosas que ya se sabe que fallarán ahí: el tirador para reordenar proyectos en
-Facturación mensual no se muestra en móvil (haría falta flechas arriba/abajo,
-como las que ya tienen las líneas de presupuesto), y la clave de Mistral y el
-ID de Google Calendar hay que pegarlos también en el navegador del teléfono
-(viven en localStorage, por dispositivo).
+Josep avisó de que el 2026-08-05 era el último día de desarrollo. Esto es
+todo lo que queda, ordenado por lo que más riesgo tiene si se queda sin hacer.
 
-### 2. Accesibilidad daltónica en el resto de la app
-Ver la sección de arriba. Faltan los estados de Proyectos y las gráficas del
-Dashboard y de Financiero.
+### A. Solo puede hacerlo él (no lo intentes tú)
 
-### 3. Facturación mensual — lo siguiente que más ganaría
-Se lo propuse y le interesó, pero no dio tiempo:
-- **Buscador del año**: encontrar un proyecto sin abrir mes por mes.
-- **Marcar todo un mes como cobrado** de una vez.
+1. **Verificación en dos pasos en Supabase y en GitHub.** Es lo único
+   verdaderamente importante que sigue abierto: quien entre en Supabase puede
+   desactivar el RLS y leer todos sus datos y los de sus clientes.
+2. **Probar la app en su móvil** y decir qué falla. Desde una sesión no se
+   puede validar (§4.3): `resize_window` no cambia el viewport renderizado.
+3. **Pegar en el navegador del móvil** la clave de Mistral (Configuración → IA)
+   y el ID de cliente de Google Calendar. Viven en `localStorage`, o sea por
+   dispositivo: en el teléfono la app arranca sin ellos y sin chat ni agenda.
+4. **Borrar el proyecto vacío de Google Cloud** `My Project 77215JML Studio`,
+   creado por error. Se le ofreció dos veces y no contestó.
 
-### 4. Seguridad — sugerido, no hecho
-Activar verificación en dos pasos en Supabase y en GitHub. Es donde está el
-poder real: quien entre ahí puede desactivar el RLS.
+### B. Pendiente de verificar de punta a punta
 
-### Cosas menores / conocidas
-- **Arrastrar líneas del editor no está verificado de punta a punta.** El de
-  Facturación mensual sí (se probó simulando el drag y comprobando que el orden
-  aguanta una recarga).
+Ninguna de estas está rota que se sepa; simplemente nadie las ha probado
+haciendo clic de verdad, y desde la sesión no se pudo (los clics sintéticos no
+llegaban a la página).
+
+- **Reordenar líneas arrastrando dentro del editor** de factura/presupuesto.
+  El arrastre de Facturación mensual sí está probado y aguanta una recarga.
+- **El botón "Ver mi agenda"** de Google Calendar: que el clic real devuelva
+  el token.
+- **Asignar y desasignar facturas** desde Facturación mensual con los arreglos
+  de hoy: comprobado a nivel de datos y de render, no clicando.
+- **Las exportaciones en el móvil** (descargar un xlsx desde el teléfono).
+
+### C. Accesibilidad daltónica — a medias
+
+Hecho solo en Facturación mensual (§5.1). Falta aplicar el mismo criterio —que
+el color nunca sea la única pista— en:
+
+- Los estados de **Proyectos**.
+- Las **gráficas del Dashboard y de Financiero**, que hoy distinguen series
+  solo por color. Lo mínimo sería etiquetar cada serie o usar tramas.
+
+### D. Deuda conocida que conviene mirar antes de cerrar
+
+- **Numeración con ceros de más.** Hay facturas `020-2026`, `021-2026` y
+  `022-2026` (tecleadas a mano) conviviendo con el formato de dos dígitos que
+  genera la app. `secuencialDe()` las entiende, pero si se borran esos tres
+  borradores el siguiente número volverá a ser el 20 y habrá dos formatos en
+  el mismo año.
+- **Esos tres borradores están a 0 € y sin proyectos**, así que la limpieza
+  automática los borrará en cuanto toque una asignación. Si quiere conservar
+  los números reservados, hay que quitar esa condición en
+  `limpiarFacturasHuerfanas`.
+- **Los presupuestos no se exportan** ni a Excel ni a PDF (solo facturación,
+  gastos y financiero). Nadie lo ha pedido.
 - **Saltos de página del presupuesto**: el típico necesita ~150 pt más de los
-  que quedan. Josep decidió **dejarlo así**. No lo "arregles" por tu cuenta.
-- En Google Cloud quedó un proyecto vacío de más, `My Project 77215JML Studio`,
-  creado por error al teclear el nombre sobre un campo que ya tenía texto. Se
-  le ofreció borrarlo y no contestó.
-- Las facturas siguen mostrando siempre las columnas de precio y unidades (es
-  como son sus facturas reales). Solo el presupuesto las oculta cuando todo va
-  a 1 unidad. Se le ofreció igualarlo y lo dejó así.
+  que quedan. Decidió **dejarlo así**. No lo "arregles".
+- Las **facturas** siempre muestran las columnas de precio y unidades; solo el
+  presupuesto las oculta cuando todo va a 1 unidad. Se le ofreció igualarlo y
+  lo dejó así.
 - `LEEME.md` ya no está en el repositorio y estaba obsoleto. No lo cites.
-- Si una copia local vieja no cuadra con `main`, **gana el repositorio**.
+- La copia local del sandbox está **desincronizada** con `main` desde el
+  2026-08-05 (los últimos cambios se subieron transformando el fichero en el
+  navegador, sin tocar la copia local). **Gana el repositorio, siempre.**
+
+### E. Ideas propuestas y no hechas
+
+- Exportar **solo lo que se está viendo** cuando hay una búsqueda activa.
+- **Verifactu (obligatorio en 2027)**: se le explicó que la app podrá
+  conectarse, pero no hay nada hecho. Si algún día se aborda, el sitio es
+  `facturas` + el generador de PDF, y requiere firma y registro de eventos.
+- Un **repaso de rendimiento**: hoy cada navegación recarga todo desde
+  Supabase. Con 53 proyectos no se nota; con varios años sí se notará.
 
 ## Restricciones del usuario
 
