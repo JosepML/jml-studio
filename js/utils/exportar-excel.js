@@ -164,7 +164,7 @@ const COLS_FACTURACION = [
 const ETIQUETA_ESTADO = { pendiente: "Sin facturar", emitida: "Emitida", pagada: "Cobrada" };
 
 // Una fila plana por cada línea del ledger, con el cliente ya resuelto.
-function filasFacturacion(filas, clientes) {
+export function filasFacturacion(filas, clientes) {
   const nombreCliente = Object.fromEntries((clientes || []).map(c => [c.id, c.nombre]));
   return filas.map(f => {
     const base = round2(f.importeBase);
@@ -342,7 +342,7 @@ const COLS_GASTOS = [
   { t: "Inicio amort.", k: "inicioAmort", w: 13, fmt: FECHA },
 ];
 
-function filasGastos(gastos) {
+export function filasGastos(gastos) {
   return (gastos || []).map(g => {
     const mesNum = g.fecha ? Number(g.fecha.slice(5, 7)) : 0;
     return {
@@ -499,7 +499,7 @@ export async function exportarGastosExcel({ anio, gastos }) {
 // verdad, y así las SUMIFS del balance dan exactamente lo mismo que la app.
 // El IVA soportado NO se prorratea: se deduce entero en el trimestre de su
 // factura, así que solo se apunta en la fila del mes del gasto.
-function imputacionGastos(gastos, anio) {
+export function imputacionGastos(gastos, anio) {
   const filas = [];
   (gastos || []).forEach(g => {
     const deducible = g.deducible !== false;
