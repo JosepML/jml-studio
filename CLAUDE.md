@@ -902,14 +902,23 @@ llegaban a la página).
   de hoy: comprobado a nivel de datos y de render, no clicando.
 - **Las exportaciones en el móvil** (descargar un xlsx desde el teléfono).
 
-### C. Accesibilidad daltónica — a medias
+### C. Accesibilidad daltónica — casi cerrada
 
-Hecho solo en Facturación mensual (§5.1). Falta aplicar el mismo criterio —que
-el color nunca sea la única pista— en:
+Hecho (§5.1): **Facturación mensual** y, desde el 2026-08-05, **Proyectos**
+(línea de estado en el margen izquierdo, con la clase reutilizable
+`table.tabla-estados` + `tr.fila-sinfacturar|emitida|cobrada`) y **todos los
+donuts**, cuya leyenda lleva ahora el porcentaje junto al nombre: así se puede
+emparejar cada porción con su etiqueta por tamaño y no por tono.
 
-- Los estados de **Proyectos**.
-- Las **gráficas del Dashboard y de Financiero**, que hoy distinguen series
-  solo por color. Lo mínimo sería etiquetar cada serie o usar tramas.
+⚠️ Trampa de Chart.js que costó un despliegue: para donut/pie el generador de
+etiquetas por defecto NO es `Chart.defaults.plugins.legend.labels.generateLabels`
+sino el de `Chart.overrides[tipo]`. Con el genérico las etiquetas salen como
+"undefined", y así estuvo publicado un rato.
+
+**Lo único que queda:** las **barras apiladas** del Dashboard y de Financiero
+(`chart-mensual`: Transferencia cobrado / Efectivo cobrado / Aún sin cobrar).
+Ahí las tres series se distinguen solo por color. Lo natural sería darles
+tramas distintas o etiquetar los segmentos.
 
 ### D. Deuda conocida que conviene mirar antes de cerrar
 
