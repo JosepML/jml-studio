@@ -372,10 +372,13 @@ export async function exportarFinancieroPdf({ anio, proyectos, facturaProyectos,
   pdf.setFont("helvetica", "italic");
   pdf.setFontSize(8);
   pdf.setTextColor(...GRIS);
-  pdf.text(
+  // splitTextToSize y no la opción maxWidth: con maxWidth la línea salía
+  // entera y se cortaba por el margen derecho en vez de partirse.
+  const aviso = pdf.splitTextToSize(
     "El IVA repercutido solo cuenta la facturación por transferencia: el efectivo no pasa por el 303. El Modelo 130 aquí es una estimación sobre (base − gastos deducibles) del trimestre.",
-    40, Math.min(y, pdf.internal.pageSize.getHeight() - 60), { maxWidth: pdf.internal.pageSize.getWidth() - 80 },
+    pdf.internal.pageSize.getWidth() - 80,
   );
+  pdf.text(aviso, 40, Math.min(y, pdf.internal.pageSize.getHeight() - 60));
   pdf.setTextColor(0, 0, 0);
 
   pieDePagina(pdf);
