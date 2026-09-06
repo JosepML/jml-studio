@@ -89,8 +89,8 @@ export async function renderConfiguracion(container) {
         <div class="card-head"><h3>IA (Mistral)</h3><span class="help-tip" title="Clave gratuita de Mistral para el chat del Asistente y el botón 'Mejorar con IA' de los presupuestos. Se guarda solo en este navegador, nunca en el repositorio.">i</span></div>
         <p class="hint" style="margin-top:0;">
           1. Entra en <a href="https://console.mistral.ai/api-keys" target="_blank" rel="noopener">console.mistral.ai/api-keys</a> y crea una cuenta (gratis, sin tarjeta; pide un móvil para verificar).<br>
-          2. Elige el plan <strong>Experiment</strong>, que es el gratuito.<br>
-          3. Crea una clave y pégala aquí.
+          2. Usa el modo <strong>Free</strong>, que incluye un uso limitado sin tarjeta.<br>
+          3. Crea una clave y pégala aquí. Si deja de funcionar, pulsa «Probar»: te dirá si la clave ha caducado, falta saldo o se ha alcanzado un límite temporal.
         </p>
         <div class="field">
           <label>Clave de API de Mistral</label>

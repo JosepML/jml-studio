@@ -13,6 +13,37 @@ import { getConfig } from "../utils/config-usuario.js";
 
 const URL_API = "https://api.mistral.ai/v1/chat/completions";
 const MODELO = "mistral-small-latest";
+const REINTENTOS_MAXIMOS = 2;
+
+function pausa(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function mensajeDeError(data) {
+  if (typeof data === "string") return data;
+  return data?.message || data?.error?.message || data?.error || data?.detail || "";
+}
+
+function errorDeRespuesta(res, data) {
+  const detalle = mensajeDeError(data);
+
+  if (res.status === 401) {
+    return new Error("La clave de Mistral no es válida o ha caducado. Crea una nueva en Configuración → IA y pulsa «Probar».");
+  }
+  if (res.status === 402) {
+    return new Error("Se ha agotado el uso incluido de Mistral. Entra en Mistral Studio para revisar los límites o activar saldo y vuelve a probar.");
+  }
+  if (res.status === 403) {
+    return new Error("Esta clave no tiene permiso para usar el modelo de IA. Crea una clave nueva en Mistral Studio y guárdala en Configuración → IA.");
+  }
+  if (res.status === 404) {
+    return new Error("El modelo de IA ya no está disponible para esta clave. Comprueba la clave en Configuración → IA.");
+  }
+  if (res.status >= 500) {
+    return new Error("Mistral está teniendo un problema temporal. Espera un momento y vuelve a intentarlo.");
+  }
+  return new Error(detalle || `Error ${res.status} llamando a la IA.`);
+}
 
 export function tieneClaveIA() {
   return !!getConfig().ia_api_key;
@@ -22,32 +53,55 @@ async function chat(mensajes, { temperature = 0.4, maxTokens = 600 } = {}) {
   const { ia_api_key } = getConfig();
   if (!ia_api_key) throw new Error("Falta la clave de IA — añádela en Configuración → IA.");
 
-  const res = await fetch(URL_API, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${ia_api_key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: MODELO,
-      messages: mensajes,
-      temperature,
-      max_tokens: maxTokens,
-    }),
-  });
+  for (let intento = 0; intento <= REINTENTOS_MAXIMOS; intento++) {
+    const controlador = new AbortController();
+    const tiempoMaximo = setTimeout(() => controlador.abort(), 30000);
+    let res;
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    // La capa gratuita va limitada a pocas peticiones por minuto: merece la
-    // pena decirlo con palabras en vez de soltar un 429 a secas.
-    if (res.status === 429) throw new Error("Demasiadas peticiones seguidas. Espera unos segundos y vuelve a probar.");
-    if (res.status === 401) throw new Error("La clave de IA no es válida. Revísala en Configuración → IA.");
-    throw new Error(data?.message || data?.error?.message || `Error ${res.status} llamando a la IA.`);
+    try {
+      res = await fetch(URL_API, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${ia_api_key}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          model: MODELO,
+          messages: mensajes,
+          temperature,
+          max_tokens: maxTokens,
+        }),
+        signal: controlador.signal,
+      });
+    } catch (e) {
+      if (e?.name === "AbortError") throw new Error("La IA ha tardado demasiado en responder. Comprueba tu conexión y vuelve a intentarlo.");
+      throw new Error("No se ha podido conectar con Mistral. Comprueba tu conexión e inténtalo de nuevo.");
+    } finally {
+      clearTimeout(tiempoMaximo);
+    }
+
+    const data = await res.json().catch(async () => ({ detail: await res.text().catch(() => "") }));
+    if (res.ok) {
+      const texto = (data?.choices?.[0]?.message?.content || "").trim();
+      if (!texto) throw new Error("La IA no ha devuelto ninguna respuesta.");
+      return texto;
+    }
+
+    // El modo gratuito limita las ráfagas. Reintentamos una vez de forma
+    // transparente, respetando Retry-After cuando el servicio lo proporciona.
+    if (res.status === 429 && intento < REINTENTOS_MAXIMOS) {
+      const esperaIndicada = Number(res.headers.get("Retry-After"));
+      const espera = Number.isFinite(esperaIndicada) && esperaIndicada > 0
+        ? Math.min(esperaIndicada * 1000, 8000)
+        : (intento + 1) * 1500;
+      await pausa(espera);
+      continue;
+    }
+
+    if (res.status === 429) throw new Error("Mistral está recibiendo demasiadas peticiones. Espera un minuto y vuelve a probar.");
+    throw errorDeRespuesta(res, data);
   }
-
-  const texto = (data?.choices?.[0]?.message?.content || "").trim();
-  if (!texto) throw new Error("La IA no ha devuelto ninguna respuesta.");
-  return texto;
 }
 
 /* ------------------------------------------------- mejorar descripciones */
