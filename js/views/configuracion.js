@@ -86,14 +86,14 @@ export async function renderConfiguracion(container) {
 
     <div data-panel="ia" hidden>
       <div class="card">
-        <div class="card-head"><h3>IA (Mistral)</h3><span class="help-tip" title="Clave gratuita de Mistral para el chat del Asistente y el botón 'Mejorar con IA' de los presupuestos. Se guarda solo en este navegador, nunca en el repositorio.">i</span></div>
+        <div class="card-head"><h3>IA gratuita</h3><span class="help-tip" title="Clave gratuita de OpenRouter para el chat del Asistente y el botón 'Mejorar con IA' de los presupuestos. Se guarda solo en este navegador, nunca en el repositorio.">i</span></div>
         <p class="hint" style="margin-top:0;">
-          1. Entra en <a href="https://console.mistral.ai/api-keys" target="_blank" rel="noopener">console.mistral.ai/api-keys</a> y crea una cuenta (gratis, sin tarjeta; pide un móvil para verificar).<br>
-          2. Usa el modo <strong>Free</strong>, que incluye un uso limitado sin tarjeta.<br>
-          3. Crea una clave y pégala aquí. Si deja de funcionar, pulsa «Probar»: te dirá si la clave ha caducado, falta saldo o se ha alcanzado un límite temporal.
+          1. Entra en <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener">openrouter.ai/settings/keys</a> y crea una cuenta.<br>
+          2. Crea una clave gratuita y pégala aquí. No añadas saldo ni método de pago.<br>
+          3. Pulsa «Probar»: te dirá si la clave ha caducado o se ha alcanzado el límite gratuito.
         </p>
         <div class="field">
-          <label>Clave de API de Mistral</label>
+          <label>Clave de API de OpenRouter</label>
           <input id="c-ia-key" type="password" value="${escapeAttr(cfg.ia_api_key)}" placeholder="Pega aquí tu clave…" autocomplete="off">
         </div>
         <div class="form-actions">
@@ -103,7 +103,7 @@ export async function renderConfiguracion(container) {
         <div id="ia-resultado" class="hint-box" style="margin-top:12px;" hidden></div>
         <p class="hint-sm" style="margin-top:12px;">La clave se guarda solo en este dispositivo (localStorage del navegador). Si usas la app desde el móvil y el ordenador, pégala en los dos.</p>
         <div class="hint-box" style="margin-top:10px;">
-          Antes esto usaba Google Gemini, pero Google no permite su capa gratuita a usuarios de España/UE y siempre devolvía error de cuota. Mistral es francesa: la capa gratuita funciona aquí y tus datos no salen de la UE. Va limitada a unas pocas peticiones por minuto, así que si preguntas muy seguido puede pedirte que esperes unos segundos.
+          Se usa el router gratuito de OpenRouter, que selecciona automáticamente un modelo disponible. Tiene un límite diario, suficiente para un uso personal ocasional, y la clave se guarda solo en este navegador.
         </div>
       </div>
     </div>

@@ -1,18 +1,15 @@
-// IA de la app: Mistral (Francia), llamada directa desde el navegador.
+// IA de la app: OpenRouter, llamada directa desde el navegador.
 //
-// Por qué Mistral y no Gemini: Google no permite usar su capa gratuita a
-// usuarios de España/UE, así que la clave era correcta pero toda petición
-// devolvía error de cuota. Mistral tiene una capa gratuita de verdad
-// ("Experiment"), sin tarjeta, disponible aquí — y al ser una empresa
-// europea, los datos del contexto (clientes, importes) no salen de la UE.
+// Se usa el router gratuito de OpenRouter para que pueda cambiar de modelo
+// disponible sin tocar la aplicación. El router tiene límites diarios, pero
+// no requiere saldo ni tarjeta para las peticiones gratuitas.
 //
-// Su API acepta peticiones desde el navegador (comprobado: responde con
-// cabeceras CORS), así que no hace falta servidor. La clave la pone Josep en
-// Configuración y vive solo en su localStorage, nunca en el repositorio.
+// Su API es compatible con OpenAI y acepta peticiones desde el navegador, así
+// que no hace falta servidor. La clave vive solo en localStorage.
 import { getConfig } from "../utils/config-usuario.js";
 
-const URL_API = "https://api.mistral.ai/v1/chat/completions";
-const MODELO = "mistral-small-latest";
+const URL_API = "https://openrouter.ai/api/v1/chat/completions";
+const MODELO = "openrouter/free";
 const REINTENTOS_MAXIMOS = 2;
 
 function pausa(ms) {
@@ -28,19 +25,19 @@ function errorDeRespuesta(res, data) {
   const detalle = mensajeDeError(data);
 
   if (res.status === 401) {
-    return new Error("La clave de Mistral no es válida o ha caducado. Crea una nueva en Configuración → IA y pulsa «Probar».");
+    return new Error("La clave de OpenRouter no es válida o ha caducado. Crea una nueva en Configuración → IA y pulsa «Probar».");
   }
   if (res.status === 402) {
-    return new Error("Se ha agotado el uso incluido de Mistral. Entra en Mistral Studio para revisar los límites o activar saldo y vuelve a probar.");
+    return new Error("OpenRouter ha rechazado la petición por saldo o límites. Comprueba que estás usando una clave de OpenRouter gratuita.");
   }
   if (res.status === 403) {
-    return new Error("Esta clave no tiene permiso para usar el modelo de IA. Crea una clave nueva en Mistral Studio y guárdala en Configuración → IA.");
+    return new Error("Esta clave no tiene permiso para usar modelos gratuitos. Crea una clave nueva en OpenRouter y guárdala en Configuración → IA.");
   }
   if (res.status === 404) {
-    return new Error("El modelo de IA ya no está disponible para esta clave. Comprueba la clave en Configuración → IA.");
+    return new Error("El router gratuito no está disponible temporalmente. Espera unos minutos y vuelve a probar.");
   }
   if (res.status >= 500) {
-    return new Error("Mistral está teniendo un problema temporal. Espera un momento y vuelve a intentarlo.");
+    return new Error("El servicio gratuito de IA está teniendo un problema temporal. Espera un momento y vuelve a intentarlo.");
   }
   return new Error(detalle || `Error ${res.status} llamando a la IA.`);
 }
@@ -65,6 +62,8 @@ async function chat(mensajes, { temperature = 0.4, maxTokens = 600 } = {}) {
           Authorization: `Bearer ${ia_api_key}`,
           "Content-Type": "application/json",
           Accept: "application/json",
+          "HTTP-Referer": window.location.origin,
+          "X-Title": "JML Studio",
         },
         body: JSON.stringify({
           model: MODELO,
@@ -88,7 +87,7 @@ async function chat(mensajes, { temperature = 0.4, maxTokens = 600 } = {}) {
       return texto;
     }
 
-    // El modo gratuito limita las ráfagas. Reintentamos una vez de forma
+    // El modo gratuito limita las ráfagas. Reintentamos dos veces de forma
     // transparente, respetando Retry-After cuando el servicio lo proporciona.
     if (res.status === 429 && intento < REINTENTOS_MAXIMOS) {
       const esperaIndicada = Number(res.headers.get("Retry-After"));
@@ -99,7 +98,7 @@ async function chat(mensajes, { temperature = 0.4, maxTokens = 600 } = {}) {
       continue;
     }
 
-    if (res.status === 429) throw new Error("Mistral está recibiendo demasiadas peticiones. Espera un minuto y vuelve a probar.");
+    if (res.status === 429) throw new Error("Se ha alcanzado el límite gratuito de OpenRouter. Espera un poco o vuelve a probar mañana.");
     throw errorDeRespuesta(res, data);
   }
 }

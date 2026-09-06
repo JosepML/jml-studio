@@ -24,11 +24,10 @@ export const DEFAULTS = {
   // Gasto fijo mensual: honorarios de la gestoría (con IVA).
   gestoria_importe: 60.71,
   gestoria_iva_soportado: 10.54,
-  // Clave de API gratuita de Mistral (console.mistral.ai) para el chat del
+  // Clave de API gratuita de OpenRouter (openrouter.ai) para el chat del
   // Asistente y el botón "Mejorar con IA" de los presupuestos. Vacía por
   // defecto: sin clave, esas funciones se desactivan y lo explican.
-  // Antes esto era una clave de Gemini, pero Google no deja usar su capa
-  // gratuita desde España/UE y siempre devolvía error de cuota.
+  // El router openrouter/free selecciona un modelo gratuito disponible.
   ia_api_key: "",
   // Biblioteca de condiciones adicionales para los presupuestos. Son las que
   // Josep repite de un presupuesto a otro (láseres, time-code...) y que no
