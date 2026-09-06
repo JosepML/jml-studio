@@ -70,6 +70,10 @@ async function chat(mensajes, { temperature = 0.4, maxTokens = 600 } = {}) {
           messages: mensajes,
           temperature,
           max_tokens: maxTokens,
+          // Algunos modelos gratuitos del router gastan todo el límite en
+          // razonamiento y dejan `message.content` vacío. Para esta app
+          // necesitamos texto final directamente, no el razonamiento interno.
+          reasoning: { effort: "none", exclude: true },
         }),
         signal: controlador.signal,
       });
@@ -82,7 +86,10 @@ async function chat(mensajes, { temperature = 0.4, maxTokens = 600 } = {}) {
 
     const data = await res.json().catch(async () => ({ detail: await res.text().catch(() => "") }));
     if (res.ok) {
-      const texto = (data?.choices?.[0]?.message?.content || "").trim();
+      const contenido = data?.choices?.[0]?.message?.content;
+      const texto = (Array.isArray(contenido)
+        ? contenido.map(parte => typeof parte === "string" ? parte : parte?.text || "").join("")
+        : contenido || "").trim();
       if (!texto) throw new Error("La IA no ha devuelto ninguna respuesta.");
       return texto;
     }
