@@ -83,7 +83,7 @@ export async function renderDashboard(container) {
       <div class="card kpi"><div class="label">Facturado este mes</div><div class="value">${eur(resumenMes.transferencia + resumenMes.efectivo)}</div><div class="stat-note">Transferencia + efectivo</div></div>
       <div class="card kpi"><div class="label">Pendiente de facturar</div><div class="value">${eur(pendienteTotal)}</div><div class="stat-note">Total por cobrar, incluidos los proyectos por emitir</div></div>
       <div class="card kpi"><div class="label">Beneficio fiscal (cobrado, año)</div><div class="value pos">${eur(resumenAnualCobrado.beneficioFiscalPagado)}</div><div class="stat-note">Cobrado − gastos deducibles</div></div>
-      <div class="card kpi dark"><div class="label">IRPF previsto · T${qActual}</div><div class="value">${eur(provision.aIngresar)}</div><div class="stat-note" style="color:#B9C0DA">${cfg.modelo130_pct}% del beneficio trimestral</div></div>
+      <div class="card kpi impuesto-irpf"><div class="label">IRPF previsto · T${qActual}</div><div class="value">${eur(provision.aIngresar)}</div><div class="stat-note">${cfg.modelo130_pct}% del beneficio trimestral</div></div>
       <div class="card kpi impuesto-iva"><div class="label">IVA previsto · T${qActual}</div><div class="value">${eur(ivaAPagar)}</div><div class="stat-note">IVA repercutido − soportado</div></div>
     </div>
 

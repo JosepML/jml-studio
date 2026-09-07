@@ -158,6 +158,8 @@ body{
 .kpi.dark .stat-note{color:#B9C0DA;}
 .kpi.impuesto-iva{border-top:3px solid var(--blue);}
 .kpi.impuesto-iva .label{color:var(--blue);}
+.kpi.impuesto-irpf{border-top:3px solid var(--navy);}
+.kpi.impuesto-irpf .label{color:var(--navy);}
 
 /* ---------- Utilidades de texto ---------- */
 .stat-label{color:var(--grey); font-size:11px; text-transform:uppercase; letter-spacing:.07em; font-weight:700;}
