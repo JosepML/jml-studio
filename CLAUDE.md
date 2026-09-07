@@ -1,5 +1,56 @@
 # CLAUDE.md
 
+> **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
+>
+> Última revisión: 2026-09-07 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
+> · Último commit: `8b93b7a`.
+
+## Situación actual y reglas operativas
+
+JML Studio se trabaja **en local** desde `C:\Users\Josep\Documents\WEB FACTURACIO\jml-studio`.
+La única publicación válida es GitHub Pages. **No usar Netlify ni publicar allí.**
+El flujo obligatorio es: editar localmente → validar → commit en español → `git push origin main` → comprobar que GitHub Pages recibe el cambio.
+
+El usuario prefiere cambios ordenados, seguros y visualmente sobrios. Es daltónico:
+el color nunca puede ser la única pista. No usar servicios de IA de pago.
+
+## Plan vivo
+
+### Completado
+
+- Fiabilidad: carga con esqueletos, errores visibles, smoke test de navegación y fuente única para cifras financieras.
+- Flujo diario: cliente vacío por defecto, validaciones de factura, wizard de documentos, duplicado de facturas/presupuestos, borrado de borradores y alertas agrupadas.
+- Dashboard: lógica separada de pendiente de facturar y pendiente de cobro; se excluyen futuros; IVA e IRPF solo cuentan documentos emitidos del trimestre vigente; tarjetas separadas y sin texto accesorio innecesario.
+- Clientes: ficha por pestañas, alta en modal, búsqueda, paginación, orden reciente, ocultación de clientes a 0 €, ranking con `Otros (N)` sin excluir importes, etiquetas exactas y tooltips corregidos.
+- Diseño: gráficos financieros directos; círculo de estados de proyectos conservado; tarjetas y ranking equilibrados; paginación del directorio fijada al fondo.
+- Accesibilidad y rendimiento: foco visible, filas de clientes operables con teclado, etiquetas de gráficos, módulos PDF/Excel/Chart.js bajo demanda, historial de conversaciones y origen de datos de IA.
+
+### Pendiente de trabajo de Codex
+
+1. **Responsive real:** revisar tablas y modales en móvil/tablet y convertir las tablas que aún no tengan una presentación cómoda en tarjetas o bloques desplazables.
+2. **Accesibilidad visual:** mejorar las barras apiladas del Dashboard/Financiero para que transferencia, efectivo y pendiente no dependan solo del color (trama, etiqueta o separación clara).
+3. **Consistencia de estados:** revisar que carga, vacío, error y acciones destructivas usen el mismo lenguaje visual y que los botones mantengan posición estable.
+4. **Verificación funcional:** probar de punta a punta reordenación, asignación de facturas, calendario y exportaciones en un navegador real; la sintaxis no sustituye estas pruebas.
+5. **Mantenimiento:** resolver la deuda de numeración de borradores `020/021/022-2026` sin borrar ni renumerar nada automáticamente; valorar exportar solo los resultados filtrados y optimizar cargas cuando crezca el histórico.
+
+### Pendiente del usuario
+
+- Activar/verificar 2FA en Supabase y GitHub.
+- Probar la aplicación en móvil y guardar allí la clave de IA y el cliente de Google Calendar.
+- Decidir si se quieren exportaciones de presupuestos y si se aborda Verifactu.
+
+## Registro de cambios recientes
+
+- `8b93b7a` — filas del directorio de clientes accesibles con teclado.
+- `a3b01d7` — paginación del directorio de clientes fijada al fondo de la tarjeta.
+- `cd0f845` — tooltips sin datos evitados.
+- `3fb6c89` — círculo de estados de proyectos conservado.
+- `b5ee786` — smoke test de navegación añadido.
+
+Cuando se complete o cambie un punto, actualiza esta sección y añade una línea al
+registro antes de hacer commit. Si una decisión del usuario contradice el histórico
+antiguo de este documento, manda siempre la decisión más reciente.
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ---
