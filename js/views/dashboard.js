@@ -5,7 +5,7 @@ import { construirLedger, resumenPeriodo, resumenTrimestre, resumenIvaTrimestre,
 import { escapeHtml } from "./clientes.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { skeletonPagina, animarVista } from "../utils/ui.js";
-import { opcionesBase, opcionesDoughnut, barra, barraApilada } from "../utils/charts.js";
+import { opcionesBase, opcionesDoughnut, barra, barraApilada, leyendaConTotales } from "../utils/charts.js";
 import { montarCalendario } from "./calendario.js";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
@@ -161,6 +161,7 @@ export async function renderDashboard(container) {
       },
       options: (() => {
         const o = opcionesBase(eur);
+        Object.assign(o.plugins.legend.labels, leyendaConTotales(eur));
         o.scales.x.stacked = true;
         o.scales.y.stacked = true;
         return o;

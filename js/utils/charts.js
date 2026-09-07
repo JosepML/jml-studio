@@ -202,3 +202,22 @@ export function barraApilada(color, { encimaDe = null } = {}) {
     ...GEOMETRIA,
   };
 }
+
+// Leyenda accesible para gráficas con varias series: el nombre y el total de
+// cada serie quedan escritos, de modo que la lectura no depende únicamente
+// de distinguir los colores.
+export function leyendaConTotales(formatearValor) {
+  return {
+    generateLabels(chart) {
+      const generar = window.Chart.defaults.plugins.legend.labels.generateLabels;
+      return generar.call(chart, chart).map(item => {
+        const datos = chart.data.datasets?.[item.datasetIndex]?.data || [];
+        const total = datos.reduce((s, v) => s + (Number(v) || 0), 0);
+        return {
+          ...item,
+          text: `${item.text} · ${formatearValor(total)}`,
+        };
+      });
+    },
+  };
+}
