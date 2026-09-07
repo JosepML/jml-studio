@@ -198,10 +198,35 @@ export function barra(color, extra = {}) {
 //    efectivo), se decide barra a barra con `encimaDe`: la lista de valores de
 //    la serie que va por encima. Si ese mes vale 0, este tramo es el de arriba
 //    y es el que lleva la tapa redondeada.
-export function barraApilada(color, { encimaDe = null } = {}) {
+function textura(color, tipo) {
+  return (ctx) => {
+    const canvas = ctx.chart?.ctx;
+    if (!canvas) return color;
+    const baldosa = document.createElement("canvas");
+    baldosa.width = baldosa.height = 12;
+    const pincel = baldosa.getContext("2d");
+    pincel.fillStyle = color;
+    pincel.fillRect(0, 0, 12, 12);
+    pincel.strokeStyle = "rgba(255,255,255,.34)";
+    pincel.lineWidth = 1.2;
+    pincel.beginPath();
+    if (tipo === "diagonal" || tipo === "cruzada") {
+      pincel.moveTo(-2, 10); pincel.lineTo(10, -2);
+      pincel.moveTo(2, 14); pincel.lineTo(14, 2);
+    }
+    if (tipo === "cruzada") {
+      pincel.moveTo(2, -2); pincel.lineTo(14, 10);
+      pincel.moveTo(-2, 2); pincel.lineTo(10, 14);
+    }
+    pincel.stroke();
+    return canvas.createPattern(baldosa, "repeat") || color;
+  };
+}
+
+export function barraApilada(color, { encimaDe = null, texturaTipo = null } = {}) {
   const tapa = { topLeft: 7, topRight: 7, bottomLeft: 0, bottomRight: 0 };
   return {
-    backgroundColor: color,
+    backgroundColor: texturaTipo ? textura(color, texturaTipo) : color,
     hoverBackgroundColor: aplicarAlfa(color, 0.85),
     borderRadius: encimaDe
       ? (ctx) => (Number(encimaDe[ctx.dataIndex]) > 0 ? 0 : tapa)

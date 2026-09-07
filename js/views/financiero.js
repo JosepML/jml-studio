@@ -425,8 +425,8 @@ export async function renderFinanciero(container) {
           labels: MESES,
           datasets: [
             { label: "Transferencia (cobrado)", data: dTransferencia, ...barraApilada("#3E6FE0", { encimaDe: sumaPorEncimaDeTransferencia }), stack: "s" },
-            { label: "Efectivo (cobrado)", data: dEfectivo, ...barraApilada("#F2B84B", { encimaDe: dSinCobrar }), stack: "s" },
-            { label: "Aún sin cobrar", data: dSinCobrar, ...barraApilada("#C6CCE0"), stack: "s" },
+            { label: "Efectivo (cobrado)", data: dEfectivo, ...barraApilada("#F2B84B", { encimaDe: dSinCobrar, texturaTipo: "diagonal" }), stack: "s" },
+            { label: "Aún sin cobrar", data: dSinCobrar, ...barraApilada("#C6CCE0", { texturaTipo: "cruzada" }), stack: "s" },
           ],
         },
       options: (() => {

@@ -156,7 +156,7 @@ export async function renderDashboard(container) {
         labels: MESES,
         datasets: [
           { label: "Transferencia", data: datosTransferencia, ...barraApilada("#3E6FE0", { encimaDe: datosEfectivo }), stack: "s" },
-          { label: "Efectivo", data: datosEfectivo, ...barraApilada("#F2B84B"), stack: "s" },
+          { label: "Efectivo", data: datosEfectivo, ...barraApilada("#F2B84B", { texturaTipo: "diagonal" }), stack: "s" },
         ],
       },
       options: (() => {

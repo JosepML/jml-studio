@@ -42,6 +42,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 ## Registro de cambios recientes
 
 - `8b93b7a` — filas del directorio de clientes accesibles con teclado.
+- Pendiente de accesibilidad visual de barras apiladas: resuelto localmente con tramas por serie; pendiente de publicar tras validación.
 - `a3b01d7` — paginación del directorio de clientes fijada al fondo de la tarjeta.
 - `cd0f845` — tooltips sin datos evitados.
 - `3fb6c89` — círculo de estados de proyectos conservado.
