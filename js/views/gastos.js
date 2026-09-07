@@ -58,6 +58,7 @@ export async function renderGastos(container, param) {
   // Ojo: el arranque pinta la vista dos veces (la segunda al llegar los datos
   // del emisor), así que sin esta guarda el diálogo se abría por duplicado.
   if (param === "nuevo" && !document.querySelector(".modal-backdrop")) abrirFormulario(container, null, () => renderGastos(container));
+  let gastosVisibles = gastos;
   const exportar = async (e) => {
     const $btn = e.currentTarget;
     const anio = Number(container.querySelector("#sel-anio").value);
@@ -68,8 +69,9 @@ export async function renderGastos(container, param) {
       const formato = $btn.dataset.exportar;
       const mod = await import(formato === "pdf" ? "../utils/exportar-pdf.js" : "../utils/exportar-excel.js");
       const generar = formato === "pdf" ? mod.exportarGastosPdf : mod.exportarGastosExcel;
-      await generar({ anio, gastos });
-      toastOk(`${formato === "pdf" ? "PDF" : "Excel"} de gastos ${anio} descargado.`);
+      await generar({ anio, gastos: gastosVisibles });
+      const filtrada = categoriaFiltro || deducibleFiltro;
+      toastOk(`${formato === "pdf" ? "PDF" : "Excel"} de gastos ${anio}${filtrada ? " filtrada" : ""} descargado.`);
     } catch (err) {
       toastError(err.message || "No se ha podido generar el Excel.");
     } finally {
@@ -100,6 +102,7 @@ export async function renderGastos(container, param) {
     if (categoriaFiltro) lista = lista.filter(g => g.categoria === categoriaFiltro);
     if (deducibleFiltro === "si") lista = lista.filter(g => g.deducible !== false);
     if (deducibleFiltro === "no") lista = lista.filter(g => g.deducible === false);
+    gastosVisibles = lista;
 
     const deducibles = lista.filter(g => g.deducible !== false);
     const noDeducibles = lista.filter(g => g.deducible === false);

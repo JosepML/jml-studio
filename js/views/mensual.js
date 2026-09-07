@@ -74,8 +74,21 @@ export async function renderMensual(container) {
       const formato = $btn.dataset.exportar;
       const mod = await import(formato === "pdf" ? "../utils/exportar-pdf.js" : "../utils/exportar-excel.js");
       const generar = formato === "pdf" ? mod.exportarFacturacionPdf : mod.exportarFacturacionExcel;
-      await generar({ anio, proyectos, facturaProyectos, gastos, clientes });
-      toastOk(`${formato === "pdf" ? "PDF" : "Excel"} de facturación ${anio} descargado.`);
+      const idsVisibles = busqueda
+        ? new Set(ledger
+          .filter(f => new Date(f.fecha).getFullYear() === anio)
+          .filter(f => coincideFila(f, busqueda, clientes,
+            facturasReales.find(fa => fa.id === vinculoPorProyecto[f.proyecto.id])?.numero))
+          .map(f => f.proyecto.id))
+        : null;
+      const proyectosExport = idsVisibles
+        ? proyectos.filter(p => idsVisibles.has(p.id))
+        : proyectos;
+      const vinculosExport = idsVisibles
+        ? facturaProyectos.filter(fp => idsVisibles.has(fp.proyecto_id))
+        : facturaProyectos;
+      await generar({ anio, proyectos: proyectosExport, facturaProyectos: vinculosExport, gastos, clientes });
+      toastOk(`${formato === "pdf" ? "PDF" : "Excel"} de facturación ${anio}${busqueda ? " filtrada" : ""} descargado.`);
     } catch (err) {
       toastError(err.message || "No se ha podido generar el Excel.");
     } finally {
