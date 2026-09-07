@@ -3,12 +3,10 @@ import { eur, dateEs, ESTADOS_FACTURA, ESTADOS_PRESUPUESTO } from "../utils/form
 import { construirLedger } from "../utils/resumen.js";
 import { round2 } from "../utils/invoice-calc.js";
 import { toastOk, toastError, confirmarBorrado, animarVista, skeletonTabla } from "../utils/ui.js";
-import { opcionesDoughnut } from "../utils/charts.js";
+import { opcionesBase, barra, eurEje } from "../utils/charts.js";
 import { parseClienteDesdeTexto } from "../ai/parser.js";
 
 let chartClientes = null;
-const PALETA_CLIENTES = ["#3E6FE0","#F2B84B","#6B3FA0","#4CAF82","#E8985B","#B4453A","#5B8DEE","#8B5CF6"];
-
 const CLIENTE_VACIO = { nombre: "", tipo: "empresa", nif: "", email: "", telefono: "", direccion: "", notas: "" };
 
 export async function renderClientes(container, param) {
@@ -72,14 +70,22 @@ export async function renderClientes(container, param) {
     if (!top.length) {
       container.querySelector("#clientes-chart-wrap").innerHTML = `<p class="muted" style="padding-top:20px;">Todavía no hay proyectos facturados a ningún cliente.</p>`;
     } else {
-      const colores = top.map((_, i) => PALETA_CLIENTES[i % PALETA_CLIENTES.length]);
       chartClientes = new window.Chart(ctx, {
-        type: "doughnut",
+        type: "bar",
         data: {
           labels: top.map(r => r.cliente.nombre),
-          datasets: [{ data: top.map(r => r.total), backgroundColor: colores, borderWidth: 0, spacing: 3, hoverOffset: 8 }],
+          datasets: [{ label: "Facturado", data: top.map(r => r.total), ...barra("#3E6FE0", { maxBarThickness: 24 }), borderRadius: 7 }],
         },
-        options: opcionesDoughnut(eur),
+        options: (() => {
+          const o = opcionesBase(eur);
+          o.indexAxis = "y";
+          o.plugins.legend.display = false;
+          o.scales.x.grid = { color: "rgba(122,131,153,.10)", drawTicks: false, borderDash: [4, 4] };
+          o.scales.x.ticks.callback = eurEje;
+          o.scales.y.grid.display = false;
+          o.scales.y.ticks = { font: { size: 11, family: "Inter" }, color: "#7A8399", autoSkip: false };
+          return o;
+        })(),
       });
     }
   }
