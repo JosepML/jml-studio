@@ -110,6 +110,7 @@ export async function renderClientes(container, param) {
         options: (() => {
           const o = opcionesBase(eur);
           o.indexAxis = "y";
+          o.interaction = { mode: "nearest", intersect: true };
           o.plugins.legend.display = false;
           o.scales.x.grid = { color: "rgba(122,131,153,.10)", drawTicks: false, borderDash: [4, 4] };
           o.scales.x.ticks.callback = eurEje;

@@ -49,7 +49,10 @@ function tooltipHtml(contexto, formatearValor) {
   const filas = (tooltip.dataPoints || []).map(p => {
     const color = p.dataset.backgroundColor;
     const muestra = typeof color === "string" ? color : (p.element?.options?.backgroundColor || "#3E6FE0");
-    const valor = formatearValor ? formatearValor(p.parsed.y ?? p.parsed) : (p.parsed.y ?? p.parsed);
+    const valorNumerico = chart.options.indexAxis === "y"
+      ? (p.parsed.x ?? p.parsed)
+      : (p.parsed.y ?? p.parsed);
+    const valor = formatearValor ? formatearValor(valorNumerico) : valorNumerico;
     const etiqueta = p.dataset.label && (tooltip.dataPoints.length > 1) ? p.dataset.label : "";
     return `<div class="chart-tooltip-row">
       <span class="chart-tooltip-dot" style="background:${typeof muestra === "string" ? muestra : "#3E6FE0"}"></span>
