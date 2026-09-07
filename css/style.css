@@ -150,7 +150,7 @@ body{
 .cliente-facturado strong{font-size:13px; font-variant-numeric:tabular-nums;}
 .cliente-flecha{color:var(--grey); font-size:17px; transition:color var(--dur) var(--ease), transform var(--dur) var(--ease);}
 .cliente-fila:hover .cliente-flecha{color:var(--blue); transform:translateX(2px);}
-.clientes-pie{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px; padding:10px 8px 0; border-top:1px solid var(--border); color:var(--grey); font-size:11.5px;}
+.clientes-pie{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:auto; padding:10px 8px 0; border-top:1px solid var(--border); color:var(--grey); font-size:11.5px;}
 .clientes-paginacion{display:flex; align-items:center; gap:8px; color:var(--text);}
 .clientes-paginacion .icon-btn{width:28px; height:28px;}
 .clientes-sin-resultados{padding:24px 8px; color:var(--grey); text-align:center; font-size:13px;}
