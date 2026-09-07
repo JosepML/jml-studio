@@ -11,11 +11,14 @@ const CLIENTE_VACIO = { nombre: "", tipo: "empresa", nif: "", email: "", telefon
 
 export async function renderClientes(container, param) {
   container.innerHTML = `
-    <div class="toolbar">
-      <button class="btn btn-primary toolbar-action" id="btn-nuevo-cliente">+ Nuevo cliente</button>
-    </div>
     <div class="grid grid-side" style="margin-bottom:20px;">
-      <div class="card"><div id="clientes-list">${skeletonTabla(8)}</div></div>
+      <div class="card">
+        <div class="clientes-list-head">
+          <h3>Todos los clientes</h3>
+          <button class="btn btn-primary" id="btn-nuevo-cliente">+ Nuevo cliente</button>
+        </div>
+        <div id="clientes-list">${skeletonTabla(8)}</div>
+      </div>
       <div class="card">
         <div class="card-head"><h3>Clientes por valor</h3><span class="help-tip" title="Total facturado real por cliente (transferencia + efectivo, incluyendo proyectos aún sin factura formal), de más a menos.">i</span></div>
         <div id="clientes-chart-wrap" class="clientes-chart-wrap"><canvas id="chart-clientes" role="img" aria-label="Facturación por cliente"></canvas></div>

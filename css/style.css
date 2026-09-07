@@ -128,6 +128,9 @@ body{
 /* El ranking de clientes no debe estirarse hasta la altura de la tabla:
    necesita aire alrededor, pero no una gran zona blanca debajo del gráfico. */
 .clientes-chart-wrap{position:relative; height:300px;}
+.clientes-list-head{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;}
+.clientes-list-head h3{margin:0;}
+@media(max-width:480px){.clientes-list-head{align-items:flex-start; flex-direction:column;}.clientes-list-head .btn{width:100%;}}
 
 /* ---------- Tarjetas ---------- */
 .card{
