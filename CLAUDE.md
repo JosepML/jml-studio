@@ -46,6 +46,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - Responsive: tablas operativas con desplazamiento táctil y aviso de contenido horizontal; filas del Dashboard accesibles con teclado (pendiente de probar en móvil físico).
 - Prueba `tests/finanzas-deterministas.mjs`: protege las reglas de emitidas, futuros, efectivo, IVA e IRPF.
 - La prueba confirmó que “emitida” y “dentro del trimestre vigente” son filtros independientes; ambos deben aplicarse.
+- Corrección pendiente de publicar: el reintento de Facturas/Presupuestos debe renderizar con su configuración de sección (`cfg`).
 - `a3b01d7` — paginación del directorio de clientes fijada al fondo de la tarjeta.
 - `cd0f845` — tooltips sin datos evitados.
 - `3fb6c89` — círculo de estados de proyectos conservado.

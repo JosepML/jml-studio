@@ -85,7 +85,7 @@ async function renderLista(container, cfg) {
     db.from("facturas").select("*").order("fecha", { ascending: false }).exec(),
     db.from("clientes").select("id,nombre,nif,direccion").exec(),
   ]);
-  if (error) { container.innerHTML = estadoError(error); container.querySelector("[data-reintentar]")?.addEventListener("click", () => renderFacturacion(container, param)); return; }
+  if (error) { container.innerHTML = estadoError(error); container.querySelector("[data-reintentar]")?.addEventListener("click", () => renderLista(container, cfg)); return; }
   const clientesMap = Object.fromEntries((clientes || []).map(c => [c.id, c]));
   // Orden del listado: por número, el más alto arriba. Antes iba por fecha, y
   // como Josep emite varios el mismo día el orden salía arbitrario (y al
