@@ -32,6 +32,20 @@ const $content = document.getElementById("content");
 const $pageTitle = document.getElementById("page-title");
 const $userEmail = document.getElementById("user-email");
 let renderSequence = 0;
+let chartPromise = null;
+
+function cargarGraficas() {
+  if (window.Chart) return Promise.resolve();
+  if (chartPromise) return chartPromise;
+  chartPromise = new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js";
+    script.onload = resolve;
+    script.onerror = () => { chartPromise = null; resolve(); };
+    document.head.appendChild(script);
+  });
+  return chartPromise;
+}
 
 function currentRoute() {
   const raw = location.hash.replace(/^#\//, "") || "dashboard";
@@ -53,6 +67,7 @@ async function render() {
   document.querySelectorAll(".modal-backdrop").forEach(m => m.remove());
   closeSidebar();
   try {
+    if (["dashboard", "clientes", "gastos", "financiero"].includes(routeName)) await cargarGraficas();
     await route.render($content, param);
   } catch (err) {
     // Si el usuario ha cambiado de sección mientras cargaban los datos,
