@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-07 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit: `46b41e3`.
+> · Último commit: `4289ee1`.
 
 ## Situación actual y reglas operativas
 
