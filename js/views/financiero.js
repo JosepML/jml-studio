@@ -4,7 +4,7 @@ import { calcularModelo130Trimestral, gastoDeducibleEnRango, round2, PLAZOS_MODE
 import { construirLedger, resumenPeriodo, resumenTrimestre, resumenIvaTrimestre, rangoMes, rangoAnio, estadoEfectivo } from "../utils/resumen.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { skeletonPagina, animarVista, toastOk, toastError } from "../utils/ui.js";
-import { opcionesBase, opcionesDoughnut, barra, barraApilada, leyendaConTotales } from "../utils/charts.js";
+import { opcionesBase, barra, barraApilada, leyendaConTotales, eurEje } from "../utils/charts.js";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 let chartMensual = null;
@@ -261,7 +261,7 @@ export async function renderFinanciero(container) {
         <div style="display:flex; flex-direction:column; gap:20px;">
           <div class="card">
             <h3>Ingresos por tipo de servicio</h3>
-            <div style="position:relative; height:170px;"><canvas id="chart-ingresos-servicio" role="img" aria-label="Ingresos por tipo de servicio"></canvas></div>
+            <div style="position:relative; height:220px;"><canvas id="chart-ingresos-servicio" role="img" aria-label="Ingresos por tipo de servicio"></canvas></div>
           </div>
           <div class="card">
             <div class="card-head">
@@ -484,11 +484,19 @@ export async function renderFinanciero(container) {
       if (chartIngresosServicio) { chartIngresosServicio.destroy(); chartIngresosServicio = null; }
       const labels = ingresosEntradas.map(([k]) => (CATEGORIAS_SERVICIO[k]||CATEGORIAS_SERVICIO.otros).label);
       const data = ingresosEntradas.map(([,v]) => v);
-      const colors = ingresosEntradas.map(([k]) => (CATEGORIAS_SERVICIO[k]||CATEGORIAS_SERVICIO.otros).fg);
       chartIngresosServicio = new window.Chart(ctxServicio, {
-        type: "doughnut",
-        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0, spacing: 3, hoverOffset: 8 }] },
-        options: opcionesDoughnut(eur, { leyenda: "right" }),
+        type: "bar",
+        data: { labels, datasets: [{ label: "Facturado", data, ...barra("#3FA97A", { maxBarThickness: 28 }), borderRadius: 8 }] },
+        options: (() => {
+          const o = opcionesBase(eur);
+          o.indexAxis = "y";
+          o.interaction = { mode: "nearest", intersect: true };
+          o.plugins.legend.display = false;
+          o.scales.x.ticks.callback = eurEje;
+          o.scales.y.grid.display = false;
+          o.scales.y.ticks = { font: { size: 11, family: "Inter" }, color: "#7A8399", autoSkip: false };
+          return o;
+        })(),
       });
     }
 
@@ -506,16 +514,25 @@ export async function renderFinanciero(container) {
           `<p class="muted" style="padding-top:20px;">Todavía no hay nada facturado en ${anio}.</p>`;
       } else {
         chartFormaPago = new window.Chart(ctxFormaPago, {
-          type: "doughnut",
+          type: "bar",
           data: {
             labels: ["Transferencia", "Efectivo"],
             datasets: [{
               data: datosFormaPago,
               backgroundColor: ["#3E6FE0", "#F2B84B"],
-              borderWidth: 0, spacing: 3, hoverOffset: 8,
+              ...barra("#3E6FE0", { maxBarThickness: 30 }), borderRadius: 8,
             }],
           },
-          options: opcionesDoughnut(eur, { leyenda: "right" }),
+          options: (() => {
+            const o = opcionesBase(eur);
+            o.indexAxis = "y";
+            o.interaction = { mode: "nearest", intersect: true };
+            o.plugins.legend.display = false;
+            o.scales.x.ticks.callback = eurEje;
+            o.scales.y.grid.display = false;
+            o.scales.y.ticks = { font: { size: 11, family: "Inter" }, color: "#7A8399", autoSkip: false };
+            return o;
+          })(),
         });
       }
     }
