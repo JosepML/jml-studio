@@ -27,6 +27,9 @@ export async function renderDashboard(container) {
 
   const clientesMap = Object.fromEntries((clientes||[]).map(c=>[c.id,c.nombre]));
   const ledger = construirLedger(proyectos, facturaProyectos);
+  // Fiscalmente solo entran trabajos ya emitidos (emitidos o pagados). Los
+  // proyectos aún pendientes de emitir se excluyen hasta que se formalicen.
+  const ledgerEmitido = ledger.filter(f => estadoEfectivo(f) !== "pendiente");
   const hoy = new Date();
   const anio = hoy.getFullYear();
   const qActual = Math.floor(hoy.getMonth()/3) + 1;
@@ -48,18 +51,18 @@ export async function renderDashboard(container) {
   // Previsión del trimestre actual: facturación menos gastos deducibles.
   // Para no anticipar cifras futuras, el trimestre en curso se corta en hoy.
   const cfg = getConfig();
-  const trimestre = resumenTrimestre(ledger, facturas, gastos, anio, qActual);
+  const trimestre = resumenTrimestre(ledgerEmitido, facturas, gastos, anio, qActual);
   const hastaTrimestre = trimestre.hasta > hoyIso ? hoyIso : trimestre.hasta;
   const trimestreCorte = hastaTrimestre === trimestre.hasta
     ? trimestre
-    : resumenPeriodo(ledger, gastos, trimestre.desde, hastaTrimestre);
+    : resumenPeriodo(ledgerEmitido, gastos, trimestre.desde, hastaTrimestre);
   const provision = calcularModelo130Trimestral({
     ingresosTrimestre: trimestreCorte.totalBase,
     gastosTrimestre: trimestreCorte.gastosDeducibles,
     retencionesTrimestre: 0,
     pctModelo130: cfg.modelo130_pct,
   });
-  const ivaTrimestre = resumenIvaTrimestre(ledger, facturas, gastos, anio, qActual);
+  const ivaTrimestre = resumenIvaTrimestre(ledgerEmitido, facturas, gastos, anio, qActual);
   const ivaAPagar = round2(Math.max(ivaTrimestre.resultado, 0));
 
   // Son dos listas distintas: "en curso" son proyectos aún no emitidos y

@@ -1,7 +1,7 @@
 import { db } from "../supabase.js";
 import { eur, CATEGORIAS_SERVICIO, CATEGORIAS_GASTO } from "../utils/format.js";
 import { calcularModelo130Trimestral, gastoDeducibleEnRango, round2, PLAZOS_MODELO_130_2026 } from "../utils/invoice-calc.js";
-import { construirLedger, resumenPeriodo, resumenTrimestre, resumenIvaTrimestre, rangoMes, rangoAnio } from "../utils/resumen.js";
+import { construirLedger, resumenPeriodo, resumenTrimestre, resumenIvaTrimestre, rangoMes, rangoAnio, estadoEfectivo } from "../utils/resumen.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { skeletonPagina, animarVista, toastOk, toastError } from "../utils/ui.js";
 import { opcionesBase, opcionesDoughnut, barra, barraApilada } from "../utils/charts.js";
@@ -60,6 +60,9 @@ export async function renderFinanciero(container) {
   if (e1 || e2 || e3 || e4) { container.innerHTML = `<p class="muted">Error cargando datos: ${e1||e2||e3||e4}</p>`; return; }
 
   const ledger = construirLedger(proyectos, facturaProyectos);
+  // Las previsiones fiscales solo consideran trabajos ya emitidos o pagados;
+  // un proyecto pendiente de emitir aún puede retrasarse y no se declara.
+  const ledgerEmitido = ledger.filter(f => estadoEfectivo(f) !== "pendiente");
   const anioActual = new Date().getFullYear();
   const anios = Array.from(new Set([...ledger.map(f=>f.fecha ? new Date(f.fecha).getFullYear() : anioActual), anioActual])).sort();
   const cfg = getConfig();
@@ -135,9 +138,9 @@ export async function renderFinanciero(container) {
     const hoyIsoQ = new Date().toISOString().slice(0, 10);
     const presentados = leerPresentados();
     const trimestres = [1,2,3,4].map(q => {
-      const t = resumenTrimestre(ledger, facturas, gastos, anio, q);
+      const t = resumenTrimestre(ledgerEmitido, facturas, gastos, anio, q);
       const hastaCap = t.hasta > hoyIsoQ ? hoyIsoQ : t.hasta;
-      const tCorte = hastaCap === t.hasta ? t : resumenPeriodo(ledger, gastos, t.desde, hastaCap);
+      const tCorte = hastaCap === t.hasta ? t : resumenPeriodo(ledgerEmitido, gastos, t.desde, hastaCap);
       const r = calcularModelo130Trimestral({ ingresosTrimestre: tCorte.totalBase, gastosTrimestre: tCorte.gastosDeducibles, retencionesTrimestre: 0, pctModelo130: cfg.modelo130_pct });
       const plazo = PLAZOS_MODELO_130_2026[q-1];
       const presentado = !!presentados[`${anio}-T${q}`];
@@ -155,7 +158,7 @@ export async function renderFinanciero(container) {
     // compensa en el siguiente.
     let creditoIvaAcumulado = 0;
     const ivaTrimestres = [1,2,3,4].map(q => {
-      const t = resumenIvaTrimestre(ledger, facturas, gastos, anio, q);
+      const t = resumenIvaTrimestre(ledgerEmitido, facturas, gastos, anio, q);
       const neto = round2(t.resultado - creditoIvaAcumulado);
       const aIngresar = neto > 0 ? neto : 0;
       const aCompensar = neto < 0 ? round2(-neto) : 0;
@@ -328,7 +331,7 @@ export async function renderFinanciero(container) {
       </div>
 
       <div class="card" style="margin-bottom:20px;">
-        <div class="card-head"><h3>Modelo 130 — pago fraccionado trimestral</h3><span class="help-tip" title='Estimación personalizada: ${cfg.modelo130_pct}% (editable en Configuración) sobre (facturación del trimestre − gastos deducibles del trimestre). El trimestre en curso se calcula hasta hoy.'>i</span></div>
+        <div class="card-head"><h3>Modelo 130 — pago fraccionado trimestral</h3><span class="help-tip" title='Estimación personalizada: ${cfg.modelo130_pct}% (editable en Configuración) sobre (facturación ya emitida del trimestre − gastos deducibles del trimestre). Los trabajos aún no emitidos quedan fuera.'>i</span></div>
         <div class="grid grid-4">
           ${trimestres.map(t => {
             const vencido = new Date(t.plazo.fin) < hoy;
