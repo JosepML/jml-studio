@@ -19,7 +19,7 @@ export async function renderMensual(container) {
     db.from("gastos").select("*").exec(),
     db.from("facturas").select("id,numero,estado,tipo").order("numero").exec(),
   ]);
-  if (e1 || e2) { container.innerHTML = estadoError(e1 || e2); container.querySelector("[data-reintentar]")?.addEventListener("click", () => renderMensual(container, param)); return; }
+  if (e1 || e2) { container.innerHTML = estadoError(e1 || e2); container.querySelector("[data-reintentar]")?.addEventListener("click", () => renderMensual(container)); return; }
 
   const clientesMap = Object.fromEntries((clientes || []).map(c => [c.id, c.nombre]));
   const anioActual = new Date().getFullYear();

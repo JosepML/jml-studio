@@ -57,7 +57,7 @@ export async function renderFinanciero(container) {
     db.from("facturas").select("*").exec(),
     db.from("gastos").select("*").exec(),
   ]);
-  if (e1 || e2 || e3 || e4) { container.innerHTML = estadoError(e1||e2||e3||e4); container.querySelector("[data-reintentar]")?.addEventListener("click", () => renderFinanciero(container, param)); return; }
+  if (e1 || e2 || e3 || e4) { container.innerHTML = estadoError(e1||e2||e3||e4); container.querySelector("[data-reintentar]")?.addEventListener("click", () => renderFinanciero(container)); return; }
 
   const ledger = construirLedger(proyectos, facturaProyectos);
   // Las previsiones fiscales solo consideran trabajos ya emitidos o pagados;

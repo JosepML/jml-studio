@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-07 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit: `886e615`.
+> · Último commit: pendiente de publicar.
 
 ## Situación actual y reglas operativas
 
@@ -25,13 +25,20 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - Diseño: gráficos financieros directos; círculo de estados de proyectos conservado; tarjetas y ranking equilibrados; paginación del directorio fijada al fondo.
 - Accesibilidad y rendimiento: foco visible, filas de clientes operables con teclado, etiquetas de gráficos, módulos PDF/Excel/Chart.js bajo demanda, historial de conversaciones y origen de datos de IA.
 
-### Pendiente de trabajo de Codex
+### Pendiente de verificación o decisión
 
-1. **Responsive real:** revisar tablas y modales en móvil/tablet y convertir las tablas que aún no tengan una presentación cómoda en tarjetas o bloques desplazables.
-2. **Accesibilidad visual:** mejorar las barras apiladas del Dashboard/Financiero para que transferencia, efectivo y pendiente no dependan solo del color (trama, etiqueta o separación clara).
-3. **Consistencia de estados:** revisar que carga, vacío, error y acciones destructivas usen el mismo lenguaje visual y que los botones mantengan posición estable.
+1. **Responsive físico:** el código ya adapta tablas, desplazamiento táctil, menú, chat y modales; falta comprobarlo en el móvil/tablet reales.
+2. **Accesibilidad visual:** resuelto en código: las barras apiladas usan tramas por serie, nombres escritos y totales en la leyenda.
+3. **Consistencia de estados:** resuelto en código: carga con esqueletos, vacío con estados propios, errores homogéneos con reintento y foco visible.
 4. **Verificación funcional:** probar de punta a punta reordenación, asignación de facturas, calendario y exportaciones en un navegador real; la sintaxis no sustituye estas pruebas.
-5. **Mantenimiento:** resolver la deuda de numeración de borradores `020/021/022-2026` sin borrar ni renumerar nada automáticamente; valorar exportar solo los resultados filtrados y optimizar cargas cuando crezca el histórico.
+5. **Mantenimiento:** la numeración usa el máximo secuencial y el listado avisa de duplicados/huecos; no se modifican automáticamente los borradores `020/021/022-2026`.
+
+### Mejoras opcionales futuras
+
+- Exportar solo los resultados filtrados.
+- Optimizar cargas cuando crezca el histórico.
+- Exportar presupuestos.
+- Valorar Verifactu.
 
 ### Pendiente del usuario
 
@@ -51,6 +58,10 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - `cd0f845` — tooltips sin datos evitados.
 - `3fb6c89` — círculo de estados de proyectos conservado.
 - `b5ee786` — smoke test de navegación añadido.
+- `57cbd5b` — estados de error homogéneos con reintento.
+- `886e615` — reintento de Facturas/Presupuestos corregido.
+- `5218b8b` — registro de tareas sincronizado.
+- Corrección preparada: reintentos de Facturación mensual y Financiero sin parámetros inexistentes.
 
 Cuando se complete o cambie un punto, actualiza esta sección y añade una línea al
 registro antes de hacer commit. Si una decisión del usuario contradice el histórico
