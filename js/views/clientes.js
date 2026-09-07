@@ -36,7 +36,7 @@ export async function renderClientes(container, param) {
   container.querySelector("#btn-nuevo-cliente").addEventListener("click", () => abrirModalNuevoCliente(() => renderClientes(container)));
 
   const [{ data, error }, { data: proyectos }, { data: facturaProyectos }] = await Promise.all([
-    db.from("clientes").select("*").order("nombre").exec(),
+    db.from("clientes").select("*").order("created_at", { ascending: false }).exec(),
     db.from("proyectos").select("*").exec(),
     db.from("factura_proyectos").select("importe,factura_id,proyecto_id,facturas(numero,estado,fecha,tipo)").exec(),
   ]);
@@ -101,11 +101,15 @@ export async function renderClientes(container, param) {
   }
 
   const totalPorRankingId = Object.fromEntries(ranking.map(r => [r.cliente.id, r.total]));
+  // El directorio operativo solo muestra clientes con actividad económica.
+  // No se borran de Supabase: siguen disponibles mediante un enlace directo
+  // o si vuelven a tener un proyecto facturado.
+  const clientesConFacturacion = data.filter(c => Number(totalPorRankingId[c.id] || 0) > 0);
   let pagina = 1;
   const porPagina = 8;
   function pintarListaClientes() {
     const q = (container.querySelector("#buscar-clientes")?.value || "").trim().toLowerCase();
-    const filtrados = data.filter(c => `${c.nombre} ${c.email || ""} ${c.telefono || ""}`.toLowerCase().includes(q));
+    const filtrados = clientesConFacturacion.filter(c => `${c.nombre} ${c.email || ""} ${c.telefono || ""}`.toLowerCase().includes(q));
     const totalPaginas = Math.max(1, Math.ceil(filtrados.length / porPagina));
     pagina = Math.min(pagina, totalPaginas);
     const visibles = filtrados.slice((pagina - 1) * porPagina, pagina * porPagina);
