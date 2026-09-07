@@ -22,6 +22,27 @@ export function faltanDatosFacturacion(cliente) {
   if (!String(cliente.direccion || "").trim()) faltan.push("dirección fiscal");
   return faltan;
 }
+
+// Datos mínimos para generar un PDF que el usuario pueda enviar. Guardar no
+// usa esta comprobación: un documento incompleto sigue siendo un borrador
+// válido y debe poder conservarse para continuar más tarde.
+export function faltanDatosParaPdf(doc, cliente) {
+  const faltan = [];
+  if (!cliente?.id) faltan.push("cliente");
+  if (!String(doc?.numero || "").trim()) faltan.push("número");
+  if (!String(doc?.fecha || "").trim()) faltan.push("fecha");
+  const lineas = Array.isArray(doc?.lineas) ? doc.lineas : [];
+  if (!lineas.length || lineas.some(l => !String(l?.concepto || "").trim() || Number(l?.precio || 0) <= 0)) {
+    faltan.push("líneas con concepto y precio");
+  }
+  if (doc?.tipo === "presupuesto" && !String(doc?.proyecto_nombre || "").trim()) {
+    faltan.push("proyecto");
+  }
+  if (doc?.tipo === "factura") {
+    faltan.push(...faltanDatosFacturacion(cliente).filter(c => c !== "cliente sin seleccionar"));
+  }
+  return [...new Set(faltan)];
+}
 const MARCA_BORRADOR = "BORRADOR — SIN VALIDEZ FISCAL";
 
 const ICONO_DESCARGA = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7.2 10.2 12 15l4.8-4.8"/><path d="M4.5 19.5h15"/></svg>`;
@@ -194,8 +215,11 @@ async function renderLista(container, cfg) {
         // Misma protección que en el editor: si al cliente le faltan datos
         // fiscales, el PDF sale marcado como borrador y se avisa.
         const cliente = clientesMap[doc.cliente_id];
-        const faltan = doc.tipo === "factura" ? faltanDatosFacturacion(cliente) : [];
-        if (faltan.length) toastError(`Previsualización de ${doc.numero}: faltan ${faltan.join(", ")} del cliente.`);
+        const faltan = faltanDatosParaPdf(doc, cliente);
+        if (faltan.length) {
+          toastError(`No se puede descargar ${doc.numero}: faltan ${faltan.join(", ")}.`);
+          return;
+        }
         btn.disabled = true;
         await descargarPdfDocumento({ ...doc, marcaAgua: faltan.length ? MARCA_BORRADOR : null }, cliente);
         btn.disabled = false;
@@ -540,6 +564,7 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
           <p class="resumen-total" id="res-total">—</p>
           <div class="resumen-desglose" id="res-desglose"></div>
           <div id="aviso-cliente"></div>
+          <div id="aviso-pdf" class="hint-sm" style="margin-top:8px;" aria-live="polite"></div>
           <div class="resumen-acciones">
             <button class="btn btn-primary" id="btn-guardar">Guardar</button>
             <button class="btn btn-dark" id="btn-pdf">Descargar PDF</button>
@@ -887,7 +912,31 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
       retencionPct > 0 ? fila(`Retención IRPF ${retencionPct}%`, `−${eur(calc.retencion_importe)}`, "es-descuento") : "",
     ].join("");
 
+    actualizarEstadoPdf();
+
     return calc;
+  }
+
+  function actualizarEstadoPdf() {
+    const $pdf = container.querySelector("#btn-pdf");
+    const $aviso = container.querySelector("#aviso-pdf");
+    if (!$pdf) return;
+    const cliente = (clientes || []).find(c => c.id === container.querySelector("#f-cliente")?.value);
+    const faltan = faltanDatosParaPdf({
+      tipo: draft.tipo,
+      numero: container.querySelector("#f-numero")?.value,
+      fecha: container.querySelector("#f-fecha")?.value,
+      proyecto_nombre: container.querySelector("#f-proyecto-nombre")?.value || draft.proyecto_nombre,
+      lineas: draft.lineas,
+    }, cliente);
+    $pdf.disabled = faltan.length > 0;
+    $pdf.setAttribute("aria-disabled", String(faltan.length > 0));
+    $pdf.title = faltan.length
+      ? `Completa antes de descargar: ${faltan.join(", ")}. Guardar borrador sigue disponible.`
+      : "Descargar PDF";
+    if ($aviso) $aviso.textContent = faltan.length
+      ? `Completa ${faltan.join(", ")} para descargar el PDF. Puedes guardar el borrador ahora.`
+      : "";
   }
 
   // --- Desplegable de servicios (tarifas guardadas) ---
@@ -1308,7 +1357,17 @@ pintarCondiciones();
   container.querySelector("#btn-pdf").addEventListener("click", () => {
     const calc = actualizar();
     const cliente = (clientes || []).find(c => c.id === container.querySelector("#f-cliente").value);
-    const faltan = draft.tipo === "factura" ? camposClienteQueFaltan() : [];
+    const faltan = faltanDatosParaPdf({
+      tipo: draft.tipo,
+      numero: container.querySelector("#f-numero").value,
+      fecha: container.querySelector("#f-fecha").value,
+      proyecto_nombre: container.querySelector("#f-proyecto-nombre")?.value || draft.proyecto_nombre,
+      lineas: draft.lineas,
+    }, cliente);
+    if (faltan.length) {
+      toastError(`No se puede descargar el PDF: faltan ${faltan.join(", ")}.`);
+      return;
+    }
     // Nombre del proyecto REAL: antes el PDF ponía en "Proyecto" el primer
     // concepto de la lista, que casi nunca coincide con el proyecto elegido.
     const idsProyecto = [...new Set(draft.lineas.map(l => l.proyecto_id).filter(Boolean))];
@@ -1328,9 +1387,6 @@ pintarCondiciones();
       // El generador estampa la marca de agua si recibe este campo.
       marcaAgua: faltan.length ? MARCA_BORRADOR : null,
     };
-    if (faltan.length) {
-      toastError(`Previsualización: faltan ${faltan.join(", ")} del cliente. El PDF sale marcado como borrador.`);
-    }
     descargarPdfDocumento(docParaPdf, cliente);
   });
 }

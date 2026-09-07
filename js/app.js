@@ -31,6 +31,7 @@ const $app = document.getElementById("app");
 const $content = document.getElementById("content");
 const $pageTitle = document.getElementById("page-title");
 const $userEmail = document.getElementById("user-email");
+let renderSequence = 0;
 
 function currentRoute() {
   const raw = location.hash.replace(/^#\//, "") || "dashboard";
@@ -39,6 +40,7 @@ function currentRoute() {
 }
 
 async function render() {
+  const sequence = ++renderSequence;
   const { routeName, param } = currentRoute();
   const route = ROUTES[routeName];
   document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("active", a.dataset.route === routeName));
@@ -53,9 +55,13 @@ async function render() {
   try {
     await route.render($content, param);
   } catch (err) {
+    // Si el usuario ha cambiado de sección mientras cargaban los datos,
+    // descarta el error antiguo: no debe pintar encima de la vista nueva.
+    if (sequence !== renderSequence) return;
     console.error(err);
     $content.innerHTML = `<div class="card"><strong>Ha ocurrido un error cargando esta sección.</strong><p class="muted">${(err && err.message) || err}</p></div>`;
   }
+  if (sequence !== renderSequence) return;
   animarEntradaVista();
 }
 

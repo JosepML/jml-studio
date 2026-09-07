@@ -33,6 +33,9 @@ export async function renderClientes(container, param) {
     db.from("factura_proyectos").select("importe,factura_id,proyecto_id,facturas(numero,estado,fecha,tipo)").exec(),
   ]);
   const $list = container.querySelector("#clientes-list");
+  // La navegación es asíncrona: si se cambia de sección mientras llegan los
+  // datos, esta vista puede haber sido desmontada y no debe tocar nodos viejos.
+  if (!$list?.isConnected || container !== document.getElementById("content")) return;
   if (error) { $list.innerHTML = `<p class="muted">Error cargando clientes: ${error}</p>`; return; }
 
   // Ojo: el arranque pinta la vista dos veces (la segunda al llegar los datos
@@ -40,7 +43,8 @@ export async function renderClientes(container, param) {
   if (param === "nuevo" && !document.querySelector(".modal-backdrop")) abrirModalNuevoCliente(() => renderClientes(container));
 
   if (!data || !data.length) {
-    container.querySelector("#clientes-chart-wrap").innerHTML = `<p class="muted" style="padding-top:20px;">Sin datos todavía.</p>`;
+    const $chartWrap = container.querySelector("#clientes-chart-wrap");
+    if ($chartWrap) $chartWrap.innerHTML = `<p class="muted" style="padding-top:20px;">Sin datos todavía.</p>`;
     $list.innerHTML = `<div class="empty-state">Todavía no tienes clientes. Pulsa "+ Nuevo cliente": puedes pegar sus datos de un email y se rellenan solos.</div>`;
     return;
   }
