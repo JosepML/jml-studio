@@ -19,7 +19,10 @@ export async function renderClientes(container, param) {
       <div class="card">
         <div class="clientes-list-head">
           <h3>Todos los clientes</h3>
-          <button class="btn btn-primary" id="btn-nuevo-cliente">+ Nuevo cliente</button>
+          <div class="clientes-list-actions">
+            <input id="buscar-clientes" type="search" placeholder="Buscar cliente…" aria-label="Buscar cliente">
+            <button class="btn btn-primary" id="btn-nuevo-cliente">+ Nuevo cliente</button>
+          </div>
         </div>
         <div id="clientes-list">${skeletonTabla(8)}</div>
       </div>
@@ -98,8 +101,16 @@ export async function renderClientes(container, param) {
   }
 
   const totalPorRankingId = Object.fromEntries(ranking.map(r => [r.cliente.id, r.total]));
-  $list.innerHTML = `<div class="clientes-lista">
-    ${data.map(c => {
+  let pagina = 1;
+  const porPagina = 8;
+  function pintarListaClientes() {
+    const q = (container.querySelector("#buscar-clientes")?.value || "").trim().toLowerCase();
+    const filtrados = data.filter(c => `${c.nombre} ${c.email || ""} ${c.telefono || ""}`.toLowerCase().includes(q));
+    const totalPaginas = Math.max(1, Math.ceil(filtrados.length / porPagina));
+    pagina = Math.min(pagina, totalPaginas);
+    const visibles = filtrados.slice((pagina - 1) * porPagina, pagina * porPagina);
+    $list.innerHTML = `<div class="clientes-lista">
+    ${visibles.map(c => {
       const incompleto = !c.nif || !c.direccion;
       const contacto = c.email || c.telefono || "Sin datos de contacto";
       return `<div class="cliente-fila clickable" data-id="${c.id}">
@@ -113,6 +124,11 @@ export async function renderClientes(container, param) {
         <span class="cliente-flecha" aria-hidden="true">→</span>
       </div>`;
     }).join("")}
+  </div>
+  ${!visibles.length ? `<div class="clientes-sin-resultados">No hay clientes que coincidan.</div>` : ""}
+  <div class="clientes-pie">
+    <span>${filtrados.length} cliente${filtrados.length === 1 ? "" : "s"}${q ? " encontrados" : ""}</span>
+    ${totalPaginas > 1 ? `<div class="clientes-paginacion"><button class="icon-btn" data-pagina="anterior" type="button" ${pagina === 1 ? "disabled" : ""} aria-label="Página anterior">←</button><strong>${pagina} / ${totalPaginas}</strong><button class="icon-btn" data-pagina="siguiente" type="button" ${pagina === totalPaginas ? "disabled" : ""} aria-label="Página siguiente">→</button></div>` : ""}
   </div>`;
 
   $list.querySelectorAll(".cliente-fila[data-id]").forEach(fila => {
@@ -121,6 +137,13 @@ export async function renderClientes(container, param) {
       abrirFicha(container, cliente);
     });
   });
+  $list.querySelectorAll("[data-pagina]").forEach(btn => btn.addEventListener("click", () => {
+    pagina += btn.dataset.pagina === "siguiente" ? 1 : -1;
+    pintarListaClientes();
+  }));
+  }
+  container.querySelector("#buscar-clientes").addEventListener("input", () => { pagina = 1; pintarListaClientes(); });
+  pintarListaClientes();
 
   // Enlace directo: #/clientes/<id> abre la ficha de ese cliente.
   if (param && param !== "nuevo") {
