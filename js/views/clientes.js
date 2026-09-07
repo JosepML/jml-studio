@@ -20,7 +20,7 @@ export async function renderClientes(container, param) {
       <div class="card"><div id="clientes-list">${skeletonTabla(8)}</div></div>
       <div class="card">
         <div class="card-head"><h3>Clientes por valor</h3><span class="help-tip" title="Total facturado real por cliente (transferencia + efectivo, incluyendo proyectos aún sin factura formal), de más a menos.">i</span></div>
-        <div id="clientes-chart-wrap" style="position:relative; height:260px;"><canvas id="chart-clientes"></canvas></div>
+        <div id="clientes-chart-wrap" style="position:relative; height:260px;"><canvas id="chart-clientes" role="img" aria-label="Facturación por cliente"></canvas></div>
       </div>
     </div>
   `;

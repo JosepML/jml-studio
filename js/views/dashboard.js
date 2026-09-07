@@ -95,18 +95,18 @@ export async function renderDashboard(container) {
       <div class="dash-graficas">
         <div class="card">
           <h3>Facturación ${anio} <span class="muted" style="font-weight:400; font-size:12px;">(transferencia vs. efectivo)</span></h3>
-          <div class="grafica"><canvas id="chart-dash-mensual"></canvas></div>
+          <div class="grafica"><canvas id="chart-dash-mensual" role="img" aria-label="Facturación mensual por transferencia y efectivo"></canvas></div>
         </div>
         <div class="card">
           <div class="card-head">
             <h3>Beneficio mensual ${anio} <span class="muted" style="font-weight:400; font-size:12px;">(facturado − gastos del mes)</span></h3>
             <span class="help-tip" title="Solo meses ya cerrados. Los meses que aún no han llegado no se dibujan: llevan la cuota de autónomo y la gestoría dadas de alta por adelantado pero todavía no tienen ingresos, así que saldrían en rojo como si el negocio perdiera dinero.">i</span>
           </div>
-          <div class="grafica"><canvas id="chart-dash-beneficio"></canvas></div>
+          <div class="grafica"><canvas id="chart-dash-beneficio" role="img" aria-label="Beneficio mensual"></canvas></div>
         </div>
         <div class="card">
           <h3>Proyectos por estado</h3>
-          <div class="grafica"><canvas id="chart-dash-estados"></canvas></div>
+          <div class="grafica"><canvas id="chart-dash-estados" role="img" aria-label="Distribución de proyectos por estado de cobro"></canvas></div>
         </div>
       </div>
     </div>

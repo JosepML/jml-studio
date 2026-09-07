@@ -45,7 +45,7 @@ export async function renderGastos(container, param) {
       </div>
       <div class="card">
         <h3>Reparto del gasto</h3>
-        <div style="position:relative; height:180px;"><canvas id="chart-categorias"></canvas></div>
+        <div style="position:relative; height:180px;"><canvas id="chart-categorias" role="img" aria-label="Gastos por categoría"></canvas></div>
       </div>
     </div>
     <div id="gastos-meses"></div>

@@ -261,14 +261,14 @@ export async function renderFinanciero(container) {
         <div style="display:flex; flex-direction:column; gap:20px;">
           <div class="card">
             <h3>Ingresos por tipo de servicio</h3>
-            <div style="position:relative; height:170px;"><canvas id="chart-ingresos-servicio"></canvas></div>
+            <div style="position:relative; height:170px;"><canvas id="chart-ingresos-servicio" role="img" aria-label="Ingresos por tipo de servicio"></canvas></div>
           </div>
           <div class="card">
             <div class="card-head">
               <h3>Transferencia vs efectivo</h3>
               <span class="help-tip" title="Reparto de TODO lo facturado del año por forma de pago (base imponible), tanto lo ya cobrado como lo que sigue pendiente. Importa porque solo la transferencia entra en el Modelo 130.">i</span>
             </div>
-            <div id="wrap-forma-pago" style="position:relative; height:170px;"><canvas id="chart-forma-pago"></canvas></div>
+            <div id="wrap-forma-pago" style="position:relative; height:170px;"><canvas id="chart-forma-pago" role="img" aria-label="Ingresos por forma de pago"></canvas></div>
             <p class="hint-sm" style="margin:10px 0 0;">
               Total facturado ${anio}: <strong>${eur(round2(anual.transferencia + anual.efectivo))}</strong>${
                 anual.noPagado > 0 ? ` · ${eur(anual.noPagado)} aún sin cobrar` : ""
@@ -291,7 +291,7 @@ export async function renderFinanciero(container) {
 
       <div class="card" style="margin-bottom:20px;">
         <h3>Facturación mensual ${anio} <span class="muted" style="font-weight:400; font-size:12px;">(transferencia · efectivo · aún sin cobrar)</span></h3>
-        <div style="position:relative; height:220px;"><canvas id="chart-mensual"></canvas></div>
+        <div style="position:relative; height:220px;"><canvas id="chart-mensual" role="img" aria-label="Facturación mensual por transferencia, efectivo y cobros pendientes"></canvas></div>
       </div>
 
       <div class="card" style="margin-bottom:20px;">
@@ -299,7 +299,7 @@ export async function renderFinanciero(container) {
           <h3>Beneficio mensual ${anio} <span class="muted" style="font-weight:400; font-size:12px;">(facturado − gastos del mes)</span></h3>
           <span class="help-tip" title="Solo meses ya cerrados. Los que aún no han llegado no se dibujan: llevan la cuota de autónomo y la gestoría dadas de alta por adelantado pero todavía no tienen ingresos, así que saldrían en rojo como si el negocio perdiera dinero.">i</span>
         </div>
-        <div style="position:relative; height:220px;"><canvas id="chart-beneficio-financiero"></canvas></div>
+        <div style="position:relative; height:220px;"><canvas id="chart-beneficio-financiero" role="img" aria-label="Beneficio mensual"></canvas></div>
       </div>
 
       <div class="card" style="margin-bottom:20px;">
