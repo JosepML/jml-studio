@@ -76,11 +76,12 @@ export async function renderDashboard(container) {
   const porEstado = Object.keys(ESTADOS_COBRO).map(k => ({ key: k, label: ESTADOS_COBRO[k].label, fg: ESTADOS_COBRO[k].fg, count: ledger.filter(f=>estadoEfectivo(f)===k).length }));
 
   container.innerHTML = `
-    <div class="grid grid-4" style="margin-bottom:20px;">
+    <div class="grid grid-5" style="margin-bottom:20px;">
       <div class="card kpi"><div class="label">Facturado este mes</div><div class="value">${eur(resumenMes.transferencia + resumenMes.efectivo)}</div><div class="stat-note">Transferencia + efectivo</div></div>
       <div class="card kpi"><div class="label">Pendiente de facturar</div><div class="value">${eur(pendienteTotal)}</div><div class="stat-note">Total por cobrar, incluidos los proyectos por emitir</div></div>
       <div class="card kpi"><div class="label">Beneficio fiscal (cobrado, año)</div><div class="value pos">${eur(resumenAnualCobrado.beneficioFiscalPagado)}</div><div class="stat-note">Cobrado − gastos deducibles</div></div>
-      <div class="card kpi dark"><div class="label">Pagos del trimestre (T${qActual})</div><div class="value" style="font-size:20px;">IRPF ${eur(provision.aIngresar)} · IVA ${eur(ivaAPagar)}</div><div class="stat-note" style="color:#B9C0DA">Facturación − gastos deducibles · ${cfg.modelo130_pct}% IRPF</div></div>
+      <div class="card kpi dark"><div class="label">IRPF previsto · T${qActual}</div><div class="value">${eur(provision.aIngresar)}</div><div class="stat-note" style="color:#B9C0DA">${cfg.modelo130_pct}% del beneficio trimestral</div></div>
+      <div class="card kpi impuesto-iva"><div class="label">IVA previsto · T${qActual}</div><div class="value">${eur(ivaAPagar)}</div><div class="stat-note">IVA repercutido − soportado</div></div>
     </div>
 
     <!-- El calendario es un widget acotado a la izquierda y las tres gráficas

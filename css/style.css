@@ -117,10 +117,11 @@ body{
 /* ---------- Rejillas ---------- */
 .grid{display:grid; gap:16px;}
 .grid-4{grid-template-columns:repeat(4,1fr);}
+.grid-5{grid-template-columns:repeat(5,1fr);}
 .grid-2{grid-template-columns:1fr 1fr;}
 .grid-3{grid-template-columns:repeat(3,1fr);}
 .grid-side{grid-template-columns:1.6fr 1fr;}
-@media(max-width:1180px){.grid-4{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:1180px){.grid-4, .grid-5{grid-template-columns:repeat(2,1fr);}}
 @media(max-width:900px){.grid-2{grid-template-columns:1fr;} .grid-3{grid-template-columns:1fr;}}
 @media(max-width:860px){.grid-side{grid-template-columns:1fr;}}
 
@@ -155,6 +156,8 @@ body{
 .kpi.dark::after{background:radial-gradient(circle, rgba(120,155,245,.22), transparent 68%);}
 .kpi.dark .label{color:#B9C0DA;}
 .kpi.dark .stat-note{color:#B9C0DA;}
+.kpi.impuesto-iva{border-top:3px solid var(--blue);}
+.kpi.impuesto-iva .label{color:var(--blue);}
 
 /* ---------- Utilidades de texto ---------- */
 .stat-label{color:var(--grey); font-size:11px; text-transform:uppercase; letter-spacing:.07em; font-weight:700;}
@@ -358,7 +361,7 @@ details.card table input[type="checkbox"]{width:auto; padding:0;}
 }
 
 @media (max-width:480px){
-  .grid-4, .grid-2{grid-template-columns:1fr;}
+  .grid-4, .grid-5, .grid-2{grid-template-columns:1fr;}
   .kpi .value{font-size:24px;}
   .login-box{width:88vw; padding:26px;}
 }
