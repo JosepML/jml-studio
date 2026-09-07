@@ -153,6 +153,20 @@ const ICONOS = {
   factura: "◆",
 };
 
+const PRIORIDAD_ALERTA = { factura: 0, cobro: 1, cliente: 2, gasto: 3, amortizacion: 4 };
+
+function pintarAlertas(alertas) {
+  const ordenadas = [...alertas].sort((a, b) => (PRIORIDAD_ALERTA[a.tipo] ?? 9) - (PRIORIDAD_ALERTA[b.tipo] ?? 9));
+  const grupos = [];
+  ordenadas.forEach(a => {
+    let grupo = grupos.find(g => g.tipo === a.tipo);
+    if (!grupo) { grupo = { tipo: a.tipo, items: [] }; grupos.push(grupo); }
+    grupo.items.push(a);
+  });
+  const nombres = { factura: "Facturas", cobro: "Cobros", cliente: "Clientes y proyectos", gasto: "Gastos", amortizacion: "Amortizaciones" };
+  return grupos.map(g => `<section class="campana-grupo"><h4>${nombres[g.tipo] || "Otros"}<span>${g.items.length}</span></h4>${g.items.map(a => `<div class="campana-item"><a href="${escapeAttr(a.href)}"><i class="campana-ico ${escapeAttr(a.tipo)}">${ICONOS[a.tipo] || "•"}</i><span>${escapeHtml(a.texto)}</span></a><button type="button" class="campana-x" data-descartar="${escapeAttr(a.id)}" title="Descartar este aviso">×</button></div>`).join("")}</section>`).join("");
+}
+
 export function olvidarAlertas() {
   document.getElementById("campana-wrap")?.remove();
   montado = false;
@@ -195,7 +209,7 @@ export function montarCampana() {
       const alertas = await calcularAlertas();
       ponerNumero(alertas.length);
       $lista.innerHTML = alertas.length
-        ? alertas.map(a => `<div class="campana-item"><a href="${escapeAttr(a.href)}"><i class="campana-ico ${escapeAttr(a.tipo)}">${ICONOS[a.tipo] || "•"}</i><span>${escapeHtml(a.texto)}</span></a><button type="button" class="campana-x" data-descartar="${escapeAttr(a.id)}" title="Descartar este aviso">×</button></div>`).join("")
+        ? pintarAlertas(alertas)
         : `<p class="campana-vacio">${numDescartadas() ? "No queda ningún aviso a la vista." : "Todo en orden. No hay nada pendiente."}</p>`;
       pintarPie();
     } catch (e) {

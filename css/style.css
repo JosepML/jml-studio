@@ -1359,6 +1359,9 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 }
 .campana-panel header button:hover{background:var(--border);}
 .campana-lista{overflow-y:auto; padding:6px;}
+.campana-grupo + .campana-grupo{border-top:1px solid var(--border); margin-top:4px; padding-top:4px;}
+.campana-grupo h4{display:flex; justify-content:space-between; align-items:center; margin:7px 8px 3px; color:var(--grey); font-size:10px; text-transform:uppercase; letter-spacing:.07em;}
+.campana-grupo h4 span{font-size:10px; font-weight:700; color:var(--text); background:var(--light); border-radius:10px; padding:2px 6px;}
 .campana-vacio{margin:18px 12px; color:var(--grey); font-size:12.5px; text-align:center; line-height:1.6;}
 /* Cada aviso: el enlace ocupa todo y la "×" de descartar aparece al pasar
    el ratón, para no llenar la lista de aspas. */
