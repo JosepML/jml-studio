@@ -121,10 +121,33 @@ export function montarCalendario(host) {
     // falta el clic. Por eso el texto no dice "conecta tu cuenta" (suena a
     // configurar algo) sino que es un gesto de un segundo.
     estado(gcal.yaAutorizado()
-      ? `<button class="btn btn-primary" type="button" data-conectar>Ver mi agenda</button>
-         <small class="muted" style="display:block; margin-top:6px;">Google caduca el permiso cada hora y obliga a un clic para renovarlo.</small>`
+      ? `<button class="btn btn-primary" type="button" data-conectar>Actualizar conexión</button>
+         <small class="muted" style="display:block; margin-top:6px;">Google pide un clic para renovar el acceso cuando caduca.</small>`
       : `Conecta tu Google Calendar para ver aquí tu agenda.
          <button class="btn btn-sec" type="button" data-conectar>Conectar con Google</button>`);
+  }
+
+  // GIS exige que la renovación parta directamente de un gesto del usuario.
+  // Este camino se usa desde los controles del calendario para que pulsar
+  // "mes siguiente" o "recargar" sea suficiente, sin mostrar un segundo
+  // botón después de que la petición ya haya fallado.
+  function renovarDesdeGesto() {
+    if (gcal.estaConectado()) { cargar(); return; }
+    if (!gcal.yaAutorizado()) { cargar(); return; }
+    estado("Actualizando conexión con Google…");
+    gcal.pedirToken()
+      .then(() => { calendarios = []; cargar(); })
+      .catch(e => {
+        estado(`No se ha podido actualizar la conexión. <button class="btn btn-sec" type="button" data-conectar>Reintentar</button>
+                <small class="muted" style="display:block; margin-top:6px;">${escapeHtml(e.message || "")}</small>`);
+        pintar();
+      });
+  }
+
+  function asegurarTokenDesdeGesto() {
+    if (gcal.estaConectado()) return Promise.resolve();
+    if (gcal.yaAutorizado()) return gcal.pedirToken();
+    return Promise.reject(new Error("Conecta Google Calendar antes de guardar el evento."));
   }
 
   async function cargar() {
@@ -166,15 +189,15 @@ export function montarCalendario(host) {
       if (paso === 0) { mes = new Date(); mes.setDate(1); mes.setHours(0,0,0,0); }
       else mes.setMonth(mes.getMonth() + paso);
       pintar();
-      cargar();
+      renovarDesdeGesto();
       return;
     }
-    if (ev.target.closest("[data-recargar]")) { calendarios = []; cargar(); return; }
+    if (ev.target.closest("[data-recargar]")) { calendarios = []; renovarDesdeGesto(); return; }
     if (ev.target.closest("[data-conectar]")) {
       // Nada de await antes de esto: el navegador exige que la ventana de
       // Google salga del propio clic.
       gcal.pedirToken()
-        .then(() => { estado(""); cargar(); })
+        .then(() => { calendarios = []; estado(""); cargar(); })
         .catch(e => estado(`No se ha podido conectar. <button class="btn btn-sec" type="button" data-conectar>Reintentar</button>
                             <small class="muted" style="display:block; margin-top:6px;">${escapeHtml(e.message || "")}</small>`));
       return;
@@ -269,6 +292,9 @@ export function montarCalendario(host) {
         descripcion: $("#ev-desc").value.trim(),
       });
       try {
+        // La llamada a pedirToken ocurre antes del primer await de este
+        // handler, conservando el gesto que Google necesita para renovar.
+        await asegurarTokenDesdeGesto();
         if (nuevo) await gcal.crearEvento($("#ev-cal").value, cuerpo);
         else await gcal.actualizarEvento(evento.calendarId, evento.id, cuerpo);
         cerrar();
