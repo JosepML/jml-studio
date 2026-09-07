@@ -37,7 +37,7 @@ function leerGuardado() {
 function guardar() {
   localStorage.setItem(CLAVE_ESTADO, estado);
   // Solo los mensajes de verdad: los "pensando…" no tienen sentido guardados.
-  try { localStorage.setItem(CLAVE_HIST, JSON.stringify(historial.filter(m => !m.pensando).slice(-40))); }
+  try { localStorage.setItem(CLAVE_HIST, JSON.stringify(historial.filter(m => !m.pensando).slice(-24))); }
   catch { /* si no cabe, se pierde: no es crítico */ }
 }
 
@@ -156,6 +156,8 @@ export function montarChatFlotante() {
   const $panel = document.createElement("aside");
   $panel.id = "chat-flotante";
   $panel.className = "chat-panel";
+  $panel.setAttribute("role", "dialog");
+  $panel.setAttribute("aria-label", "Chat financiero");
   $panel.innerHTML = `
     <header class="chat-cab">
       <div class="chat-cab-txt">
@@ -163,13 +165,14 @@ export function montarChatFlotante() {
         <small>Responde con tus cifras reales</small>
       </div>
       <div class="chat-cab-btns">
-        <button type="button" data-min title="Minimizar">–</button>
-        <button type="button" data-cerrar title="Cerrar">×</button>
+        <button type="button" data-limpiar title="Limpiar conversación" aria-label="Limpiar conversación">⌫</button>
+        <button type="button" data-min title="Minimizar" aria-label="Minimizar chat">–</button>
+        <button type="button" data-cerrar title="Cerrar" aria-label="Cerrar chat">×</button>
       </div>
     </header>
     <div class="chat-cuerpo" data-mensajes></div>
     <form class="chat-pie" data-form>
-      <input type="text" data-input placeholder="Pregunta sobre tu facturación, gastos…" autocomplete="off">
+      <input type="text" data-input aria-label="Pregunta al chat financiero" placeholder="Pregunta sobre tu facturación, gastos…" autocomplete="off">
       <button class="btn btn-primary" type="submit">Enviar</button>
     </form>
     <p class="chat-nota">Respuestas orientativas — confírmalo con tu gestoría.</p>
@@ -210,6 +213,13 @@ export function montarChatFlotante() {
   $panel.querySelector("[data-min]").addEventListener("click", () => {
     estado = estado === "minimizado" ? "abierto" : "minimizado";
     aplicarEstado();
+  });
+  $panel.querySelector("[data-limpiar]").addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (!historial.length || !window.confirm("¿Limpiar toda la conversación?")) return;
+    historial = [];
+    guardar();
+    pintar();
   });
   $panel.querySelector("[data-cerrar]").addEventListener("click", () => {
     estado = "cerrado";
