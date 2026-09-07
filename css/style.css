@@ -120,10 +120,14 @@ body{
 .grid-5{grid-template-columns:repeat(5,1fr);}
 .grid-2{grid-template-columns:1fr 1fr;}
 .grid-3{grid-template-columns:repeat(3,1fr);}
-.grid-side{grid-template-columns:1.6fr 1fr;}
+.grid-side{grid-template-columns:1.6fr 1fr; align-items:start;}
 @media(max-width:1180px){.grid-4, .grid-5{grid-template-columns:repeat(2,1fr);}}
 @media(max-width:900px){.grid-2{grid-template-columns:1fr;} .grid-3{grid-template-columns:1fr;}}
 @media(max-width:860px){.grid-side{grid-template-columns:1fr;}}
+
+/* El ranking de clientes no debe estirarse hasta la altura de la tabla:
+   necesita aire alrededor, pero no una gran zona blanca debajo del gráfico. */
+.clientes-chart-wrap{position:relative; height:300px;}
 
 /* ---------- Tarjetas ---------- */
 .card{
