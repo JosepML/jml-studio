@@ -16,7 +16,7 @@ function inicialesCliente(nombre) {
 export async function renderClientes(container, param) {
   container.innerHTML = `
     <div class="grid grid-side" style="margin-bottom:20px;">
-      <div class="card">
+      <div class="card clientes-list-card">
         <div class="clientes-list-head">
           <h3>Todos los clientes</h3>
           <div class="clientes-list-actions">
