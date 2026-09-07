@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-07 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit: `8b93b7a`.
+> · Último commit: `225f10e`.
 
 ## Situación actual y reglas operativas
 
@@ -42,7 +42,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 ## Registro de cambios recientes
 
 - `8b93b7a` — filas del directorio de clientes accesibles con teclado.
-- Pendiente de accesibilidad visual de barras apiladas: resuelto localmente con tramas por serie; pendiente de publicar tras validación.
+- `225f10e` — barras apiladas con tramas por serie para no depender solo del color.
 - `a3b01d7` — paginación del directorio de clientes fijada al fondo de la tarjeta.
 - `cd0f845` — tooltips sin datos evitados.
 - `3fb6c89` — círculo de estados de proyectos conservado.
