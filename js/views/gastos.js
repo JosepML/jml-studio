@@ -4,7 +4,7 @@ import { gastoDeducibleTotal, sumaGastosDeduciblesEnRango, round2 } from "../uti
 import { TABLA_AMORTIZACION, mesesPorTipoBien, UMBRAL_AMORTIZACION } from "../utils/amortizacion.js";
 import { escapeHtml, escapeAttr } from "./clientes.js";
 import { toastOk, toastError, confirmarBorrado, skeletonPagina, animarVista } from "../utils/ui.js";
-import { opcionesDoughnut } from "../utils/charts.js";
+import { opcionesBase, barra, eurEje } from "../utils/charts.js";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 let chartCategorias = null;
@@ -44,8 +44,8 @@ export async function renderGastos(container, param) {
         <div id="categorias-chips" class="chip-row"></div>
       </div>
       <div class="card">
-        <h3>Reparto del gasto</h3>
-        <div style="position:relative; height:180px;"><canvas id="chart-categorias" role="img" aria-label="Gastos por categoría"></canvas></div>
+        <h3>Gastos por categoría</h3>
+        <div class="gastos-chart-wrap"><canvas id="chart-categorias" role="img" aria-label="Gastos por categoría"></canvas></div>
       </div>
     </div>
     <div id="gastos-meses"></div>
@@ -194,17 +194,27 @@ export async function renderGastos(container, param) {
       btn.addEventListener("click", () => { categoriaFiltro = btn.dataset.cat; pintar(); });
     });
 
-    // --- Gráfica doughnut ---
+    // --- Ranking directo por categoría ---
     const ctx = container.querySelector("#chart-categorias");
     if (ctx && window.Chart) {
       if (chartCategorias) { chartCategorias.destroy(); chartCategorias = null; }
       const labels = entradas.map(([k]) => (CATEGORIAS_GASTO[k]||CATEGORIAS_GASTO.otros).label);
       const data = entradas.map(([,v]) => v.total);
-      const colors = entradas.map(([k]) => (CATEGORIAS_GASTO[k]||CATEGORIAS_GASTO.otros).fg);
       chartCategorias = new window.Chart(ctx, {
-        type: "doughnut",
-        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0, spacing: 3, hoverOffset: 8 }] },
-        options: opcionesDoughnut(eur, { leyenda: "right" }),
+        type: "bar",
+        data: { labels, datasets: [{ label: "Gasto", data, ...barra("#6B3FA0", { maxBarThickness: 28 }), borderRadius: 8 }] },
+        options: (() => {
+          const o = opcionesBase(eur);
+          o.indexAxis = "y";
+          o.interaction = { mode: "nearest", intersect: true };
+          o.plugins.legend.display = false;
+          o.scales.x.grid = { color: "rgba(122,131,153,.10)", drawTicks: false, borderDash: [4, 4] };
+          o.scales.x.ticks.callback = eurEje;
+          o.scales.y.grid.display = false;
+          o.scales.y.ticks = { font: { size: 11, family: "Inter" }, color: "#7A8399", autoSkip: false };
+          o.layout = { padding: { right: 62 } };
+          return o;
+        })(),
       });
     }
 
