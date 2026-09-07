@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-07 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit: `a8ab98b`.
+> · Último commit: `46b41e3`.
 
 ## Situación actual y reglas operativas
 
@@ -62,6 +62,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - `886e615` — reintento de Facturas/Presupuestos corregido.
 - `5218b8b` — registro de tareas sincronizado.
 - `a8ab98b` — reintentos de Facturación mensual y Financiero corregidos sin parámetros inexistentes.
+- Verificación real 2026-09-07: Dashboard, Facturación mensual, Financiero, Facturas y Clientes cargan en GitHub Pages con sesión y datos reales; paginación y filas accesibles visibles.
 
 Cuando se complete o cambie un punto, actualiza esta sección y añade una línea al
 registro antes de hacer commit. Si una decisión del usuario contradice el histórico
