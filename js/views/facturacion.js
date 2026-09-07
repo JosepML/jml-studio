@@ -109,7 +109,7 @@ async function renderLista(container, cfg) {
     const vencidas = documentos.filter(f => f.estado === "vencida").length;
     kpisHtml = `
       <div class="card kpi"><div class="label">Facturas ${anio}</div><div class="value">${documentos.filter(f=>(f.fecha||"").startsWith(String(anio))).length}</div></div>
-      <div class="card kpi"><div class="label">Facturado ${anio}</div><div class="value">${eur(totalFacturadoAnio)}</div></div>
+      <div class="card kpi"><div class="label">Total facturas ${anio}</div><div class="value">${eur(totalFacturadoAnio)}</div><div class="stat-note">Incluye borradores y emitidas</div></div>
       <div class="card kpi"><div class="label">Sin cobrar</div><div class="value" style="color:var(--orange-fg)">${sinCobrar}</div></div>
       <div class="card kpi"><div class="label">Vencidas</div><div class="value" style="color:${vencidas ? "var(--red-fg,#B4453A)" : "var(--text)"}">${vencidas}</div></div>`;
 

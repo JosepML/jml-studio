@@ -94,10 +94,10 @@ export async function renderDashboard(container) {
 
   container.innerHTML = `
     <div class="grid grid-4" style="margin-bottom:20px;">
-      <div class="card kpi"><div class="label">Facturado este mes</div><div class="value">${eur(resumenMes.transferencia + resumenMes.efectivo)}</div></div>
+      <div class="card kpi"><div class="label">Facturado este mes</div><div class="value">${eur(resumenMes.transferencia + resumenMes.efectivo)}</div><div class="stat-note">Transferencia + efectivo</div></div>
       <div class="card kpi"><div class="label">Pendiente de cobro</div><div class="value">${eur(pendienteTotal)}</div><div class="stat-note">${pendientes.length} proyecto(s) emitido(s)</div></div>
-      <div class="card kpi"><div class="label">Beneficio fiscal (cobrado, año)</div><div class="value pos">${eur(resumenAnualCobrado.beneficioFiscalPagado)}</div></div>
-      <div class="card kpi dark"><div class="label">Provisión Modelo 130 (T${qActual})</div><div class="value">${eur(provision.aIngresar)}</div></div>
+      <div class="card kpi"><div class="label">Beneficio fiscal (cobrado, año)</div><div class="value pos">${eur(resumenAnualCobrado.beneficioFiscalPagado)}</div><div class="stat-note">Cobrado − gastos deducibles</div></div>
+      <div class="card kpi dark"><div class="label">Provisión Modelo 130 (T${qActual})</div><div class="value">${eur(provision.aIngresar)}</div><div class="stat-note" style="color:#B9C0DA">Estimación del trimestre</div></div>
     </div>
 
     <!-- El calendario es un widget acotado a la izquierda y las tres gráficas
