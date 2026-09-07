@@ -5,7 +5,7 @@ import { construirLedger, resumenPeriodo, resumenTrimestre, resumenIvaTrimestre,
 import { escapeHtml } from "./clientes.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { skeletonPagina, animarVista } from "../utils/ui.js";
-import { opcionesBase, barra, barraApilada, leyendaConTotales } from "../utils/charts.js";
+import { opcionesBase, opcionesDoughnut, barra, barraApilada, leyendaConTotales } from "../utils/charts.js";
 import { montarCalendario } from "./calendario.js";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
@@ -174,28 +174,18 @@ export async function renderDashboard(container) {
     if (chartEstados) { chartEstados.destroy(); chartEstados = null; }
     const conDatos = porEstado.filter(e => e.count > 0);
     chartEstados = new window.Chart(ctxEst, {
-      type: "bar",
+      type: "doughnut",
       data: {
         labels: conDatos.map(e=>e.label),
         datasets: [{
           data: conDatos.map(e=>e.count),
           backgroundColor: conDatos.map(e=>e.fg),
           borderWidth: 0,
-          borderRadius: 8,
-          maxBarThickness: 30,
+          spacing: 3,
+          hoverOffset: 8,
         }],
       },
-      options: (() => {
-        const o = opcionesBase(v => `${v} proyecto${v === 1 ? "" : "s"}`);
-        o.indexAxis = "y";
-        o.interaction = { mode: "nearest", intersect: true };
-        o.plugins.legend.display = false;
-        o.scales.x.ticks.callback = v => `${v} proyecto${v === 1 ? "" : "s"}`;
-        o.scales.y.grid.display = false;
-        o.scales.y.ticks = { font: { size: 11, family: "Inter" }, color: "#7A8399", autoSkip: false };
-        o.layout = { padding: { right: 12 } };
-        return o;
-      })(),
+      options: opcionesDoughnut(v => `${v} proyecto${v === 1 ? "" : "s"}`),
     });
   }
 
