@@ -142,7 +142,7 @@ export async function renderClientes(container, param) {
     ${visibles.map(c => {
       const incompleto = !c.nif || !c.direccion;
       const contacto = c.email || c.telefono || "Sin datos de contacto";
-      return `<div class="cliente-fila clickable" data-id="${c.id}">
+      return `<div class="cliente-fila clickable" data-id="${c.id}" role="button" tabindex="0" aria-label="Abrir ficha de ${escapeAttr(c.nombre)}">
         <div class="cliente-avatar" aria-hidden="true">${escapeHtml(inicialesCliente(c.nombre))}</div>
         <div class="cliente-identidad">
           <strong>${escapeHtml(c.nombre)}</strong>
@@ -161,9 +161,16 @@ export async function renderClientes(container, param) {
   </div>`;
 
   $list.querySelectorAll(".cliente-fila[data-id]").forEach(fila => {
-    fila.addEventListener("click", () => {
+    const abrirDesdeFila = () => {
       const cliente = data.find(c => c.id === fila.dataset.id);
       abrirFicha(container, cliente);
+    };
+    fila.addEventListener("click", abrirDesdeFila);
+    fila.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        abrirDesdeFila();
+      }
     });
   });
   $list.querySelectorAll("[data-pagina]").forEach(btn => btn.addEventListener("click", () => {
