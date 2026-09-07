@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-07 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit de código verificado: `565f13e`.
+> · Último commit de código verificado: `6606cf1` · documentación/caché: `99f6ec2`.
 
 ## Situación actual y reglas operativas
 
@@ -24,13 +24,14 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - Clientes: ficha por pestañas, alta en modal, búsqueda, paginación, orden reciente, ocultación de clientes a 0 €, ranking con `Otros (N)` sin excluir importes, etiquetas exactas y tooltips corregidos.
 - Diseño: gráficos financieros directos; círculo de estados de proyectos conservado; tarjetas y ranking equilibrados; paginación del directorio fijada al fondo.
 - Accesibilidad y rendimiento: foco visible, filas de clientes operables con teclado, etiquetas de gráficos, módulos PDF/Excel/Chart.js bajo demanda, historial de conversaciones y origen de datos de IA.
+- Google Calendar: renovación del token verificada en producción desde el cambio de mes; tras renovar, los eventos se cargan correctamente.
 
 ### Pendiente de verificación o decisión
 
 1. **Responsive físico:** el código ya adapta tablas, desplazamiento táctil, menú, chat y modales; falta comprobarlo en el móvil/tablet reales.
 2. **Accesibilidad visual:** resuelto en código: las barras apiladas usan tramas por serie, nombres escritos y totales en la leyenda.
 3. **Consistencia de estados:** resuelto en código: carga con esqueletos, vacío con estados propios, errores homogéneos con reintento y foco visible.
-4. **Verificación funcional parcial:** en navegador real ya se han comprobado navegación, exportaciones Excel/PDF, búsqueda y paginación de Clientes y apertura del editor de facturas sin guardar; queda probar de punta a punta reordenación, asignación de facturas y calendario.
+4. **Verificación funcional parcial:** en navegador real ya se han comprobado navegación, exportaciones Excel/PDF, búsqueda y paginación de Clientes, apertura del editor de facturas sin guardar y renovación/carga de Google Calendar; queda probar de punta a punta reordenación y asignación de facturas.
 5. **Mantenimiento:** la numeración usa el máximo secuencial y el listado avisa de duplicados/huecos; no se modifican automáticamente los borradores `020/021/022-2026`.
 
 ### Mejoras opcionales futuras
@@ -66,6 +67,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - Verificación funcional 2026-09-07: Facturación mensual exporta Excel y PDF con aviso de descarga; Clientes filtra por búsqueda, cambia a la página 2 y vuelve a la 1; el editor de factura abre con cliente vacío y permite avanzar sin guardar, manteniendo la descarga bloqueada hasta completar los datos.
 - `6606cf1` — renovación de Google Calendar integrada en cambiar de mes, recargar y guardar/editar eventos; caché del service worker actualizada a `v54`.
 - `565f13e` — invalidación de `app → dashboard → calendario` para que GitHub Pages no reutilice módulos antiguos del navegador.
+- Verificación real 2026-09-07: con el token de Calendar caducado, cambiar de mes inició la renovación y cargó los eventos de octubre correctamente.
 
 Cuando se complete o cambie un punto, actualiza esta sección y añade una línea al
 registro antes de hacer commit. Si una decisión del usuario contradice el histórico
@@ -767,9 +769,10 @@ hay refresh token sin servidor. La renovación se hace con `requestAccessToken()
 pegado al clic que inició la acción del calendario; no se intenta pedir desde
 un `await` posterior porque Google lo bloquea.
 
-⚠️ **Sin verificar de punta a punta:** que el clic real produzca el token no se
-pudo comprobar desde la sesión —los clics sintéticos no llegaban a la página—.
-Si Josep dice que sigue apareciendo el botón, empieza por ahí.
+**Verificado en producción el 2026-09-07:** con la sesión de Josep y el token
+caducado, el cambio de mes inició la renovación desde el gesto del usuario y,
+al terminar, cargó los eventos de octubre. El mismo mecanismo se usa al
+recargar y al guardar/editar eventos.
 
 ### La IA pasó de Gemini a Mistral
 Google no sirve su capa gratuita a la UE. `js/ai/gemini.js` está BORRADO;
@@ -962,8 +965,6 @@ llegaban a la página).
 
 - **Reordenar líneas arrastrando dentro del editor** de factura/presupuesto.
   El arrastre de Facturación mensual sí está probado y aguanta una recarga.
-- **El botón "Ver mi agenda"** de Google Calendar: que el clic real devuelva
-  el token.
 - **Asignar y desasignar facturas** desde Facturación mensual con los arreglos
   de hoy: comprobado a nivel de datos y de render, no clicando.
 - **Las exportaciones en el móvil** (descargar un xlsx desde el teléfono).
