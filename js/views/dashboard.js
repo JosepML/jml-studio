@@ -5,7 +5,7 @@ import { construirLedger, resumenPeriodo, resumenTrimestre, rangoMes, rangoAnio,
 import { escapeHtml } from "./clientes.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { skeletonPagina, animarVista } from "../utils/ui.js";
-import { opcionesBase, opcionesDoughnut, barra, barraApilada } from "../utils/charts.js";
+import { opcionesBase, opcionesDoughnut, barra, barraApilada, patronBarrasApiladas } from "../utils/charts.js";
 import { montarCalendario } from "./calendario.js";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
@@ -172,8 +172,10 @@ export async function renderDashboard(container) {
           { label: "Efectivo", data: datosEfectivo, ...barraApilada("#F2B84B"), stack: "s" },
         ],
       },
+      plugins: [patronBarrasApiladas],
       options: (() => {
         const o = opcionesBase(eur);
+        o.plugins.patronBarrasApiladas = { patrones: { 1: "rayas" } };
         o.scales.x.stacked = true;
         o.scales.y.stacked = true;
         return o;

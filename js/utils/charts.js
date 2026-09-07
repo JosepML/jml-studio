@@ -202,3 +202,48 @@ export function barraApilada(color, { encimaDe = null } = {}) {
     ...GEOMETRIA,
   };
 }
+
+// Tramas para las barras apiladas: el color sigue aportando jerarquía visual,
+// pero cada serie tiene además una textura reconocible.
+export const patronBarrasApiladas = {
+  id: "patronBarrasApiladas",
+  afterDatasetsDraw(chart, _args, opciones = {}) {
+    const patrones = opciones.patrones || {};
+    const canvas = chart.ctx;
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      const patron = patrones[datasetIndex];
+      if (!patron) return;
+      chart.getDatasetMeta(datasetIndex).data.forEach((barra) => {
+        const props = barra.getProps(["x", "y", "base", "width"], true);
+        const alto = Math.abs(props.base - props.y);
+        if (!props.width || alto < 5) return;
+        const izquierda = props.x - props.width / 2;
+        const arriba = Math.min(props.y, props.base);
+        canvas.save();
+        canvas.beginPath();
+        canvas.rect(izquierda, arriba, props.width, alto);
+        canvas.clip();
+        canvas.strokeStyle = "rgba(35, 43, 66, .38)";
+        canvas.fillStyle = "rgba(35, 43, 66, .38)";
+        canvas.lineWidth = 1.5;
+        if (patron === "rayas") {
+          for (let x = izquierda - alto; x < izquierda + props.width + alto; x += 7) {
+            canvas.beginPath();
+            canvas.moveTo(x, arriba + alto);
+            canvas.lineTo(x + alto, arriba);
+            canvas.stroke();
+          }
+        } else if (patron === "puntos") {
+          for (let x = izquierda + 3; x < izquierda + props.width; x += 7) {
+            for (let y = arriba + 3; y < arriba + alto; y += 7) {
+              canvas.beginPath();
+              canvas.arc(x, y, 1.2, 0, Math.PI * 2);
+              canvas.fill();
+            }
+          }
+        }
+        canvas.restore();
+      });
+    });
+  },
+};

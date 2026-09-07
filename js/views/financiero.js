@@ -4,7 +4,7 @@ import { calcularModelo130Trimestral, gastoDeducibleEnRango, round2, gastoDifici
 import { construirLedger, resumenPeriodo, resumenTrimestre, resumenIvaTrimestre, rangoMes, rangoAnio } from "../utils/resumen.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { skeletonPagina, animarVista, toastOk, toastError } from "../utils/ui.js";
-import { opcionesBase, opcionesDoughnut, barra, barraApilada } from "../utils/charts.js";
+import { opcionesBase, opcionesDoughnut, barra, barraApilada, patronBarrasApiladas } from "../utils/charts.js";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 let chartMensual = null;
@@ -435,8 +435,10 @@ export async function renderFinanciero(container) {
             { label: "Aún sin cobrar", data: dSinCobrar, ...barraApilada("#C6CCE0"), stack: "s" },
           ],
         },
+        plugins: [patronBarrasApiladas],
         options: (() => {
           const o = opcionesBase(eur);
+          o.plugins.patronBarrasApiladas = { patrones: { 1: "rayas", 2: "puntos" } };
           o.scales.x.stacked = true;
           o.scales.y.stacked = true;
           return o;
