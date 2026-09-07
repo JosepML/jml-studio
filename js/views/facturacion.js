@@ -3,7 +3,6 @@ import { calcularFactura, desglosarLinea, aplicarDescuentoGlobal, round2 } from 
 import { ESTADOS_FACTURA, ESTADOS_PRESUPUESTO, eur, dateEs, todayIso, CATEGORIAS_SERVICIO } from "../utils/format.js";
 import { escapeHtml, escapeAttr, abrirModalNuevoCliente } from "./clientes.js";
 import { CONFIG_NEGOCIO } from "../utils/config-negocio.js";
-import { crearFacturaPdf, crearPresupuestoPdf, cargarLogoDataUrl } from "../utils/pdf-documentos.js";
 import { mejorarDescripcionConIA, tieneClaveIA } from "../ai/mistral.js";
 import { toastOk, toastError, confirmar, confirmarBorrado, skeletonTabla, engancharArrastre } from "../utils/ui.js";
 import { listarCondiciones, crearCondicion, borrarCondicion, textosPorDefecto, textosFijasDeGrupo, GRUPOS_CONDICION } from "../utils/condiciones.js";
@@ -1468,6 +1467,14 @@ function cargarJsPdf() {
 async function descargarPdfDocumento(doc, cliente) {
   let jspdfNs;
   try { jspdfNs = await cargarJsPdf(); } catch (e) { toastError(e.message); return; }
+  // La maquetación del documento solo hace falta al descargarlo. Mantenerla
+  // como import dinámico evita cargarla al entrar en Facturas o Presupuestos.
+  let pdfDocumentos;
+  try { pdfDocumentos = await import("../utils/pdf-documentos.js"); } catch (e) {
+    toastError("No se ha podido cargar el diseño del PDF: " + e.message);
+    return;
+  }
+  const { crearFacturaPdf, crearPresupuestoPdf, cargarLogoDataUrl } = pdfDocumentos;
   const { jsPDF } = jspdfNs;
   const pdf = new jsPDF({ unit: "pt", format: "a4" });
 
