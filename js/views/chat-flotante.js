@@ -6,8 +6,9 @@
 // el panel sobrevive intacto —con su conversación y su estado— al pasar de
 // Dashboard a Facturación mensual o a donde sea.
 //
-// El estado (cerrado / abierto / minimizado) y la conversación se guardan
-// además en localStorage, así que también aguantan un F5 o cerrar la app.
+// El estado de la ventana se guarda en localStorage. Las conversaciones y sus
+// mensajes viven en Supabase para poder recuperar varios chats desde cualquier
+// dispositivo.
 
 import { db } from "../supabase.js";
 import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
@@ -22,6 +23,8 @@ const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov"
 
 let estado = "cerrado";     // cerrado | abierto | minimizado
 let historial = [];
+let conversaciones = [];
+let conversacionActual = null;
 let contexto = null;
 let contextoCargado = 0;    // marca de tiempo, para no repetir la consulta
 let montado = false;
@@ -36,13 +39,53 @@ function leerGuardado() {
 
 function guardar() {
   localStorage.setItem(CLAVE_ESTADO, estado);
-  // Solo los mensajes de verdad: los "pensando…" no tienen sentido guardados.
-  try { localStorage.setItem(CLAVE_HIST, JSON.stringify(historial.filter(m => !m.pensando).slice(-24))); }
-  catch { /* si no cabe, se pierde: no es crítico */ }
+}
+
+async function cargarConversaciones() {
+  const { data, error } = await db.from("chat_conversaciones").select("id,titulo,created_at,updated_at").order("updated_at", { ascending: false }).limit(30).exec();
+  if (error) throw new Error(error);
+  conversaciones = data || [];
+  if (!conversaciones.length) {
+    // Migración transparente del único historial antiguo guardado en el navegador.
+    const antiguos = historial.filter(m => !m.pensando && !m.error && m.texto);
+    if (antiguos.length) {
+      const nueva = await crearConversacion("Conversación anterior");
+      await guardarMensajes(nueva.id, antiguos);
+      localStorage.removeItem(CLAVE_HIST);
+      conversaciones = [nueva];
+    }
+  }
+  const primera = conversaciones[0];
+  if (primera) await seleccionarConversacion(primera.id);
+  else historial = [];
+  localStorage.removeItem(CLAVE_HIST);
+}
+
+async function crearConversacion(titulo = "Nueva conversación") {
+  const { data, error } = await db.from("chat_conversaciones").insert({ titulo }).exec();
+  if (error) throw new Error(error);
+  return Array.isArray(data) ? data[0] : data;
+}
+
+async function guardarMensajes(conversacionId, mensajes) {
+  for (const m of mensajes) {
+    const { error } = await db.from("chat_mensajes").insert({ conversacion_id: conversacionId, rol: m.rol, contenido: m.texto }).exec();
+    if (error) throw new Error(error);
+  }
+  await db.from("chat_conversaciones").update({ updated_at: new Date().toISOString() }).eq("id", conversacionId).exec();
+}
+
+async function seleccionarConversacion(id) {
+  conversacionActual = id;
+  const { data, error } = await db.from("chat_mensajes").select("rol,contenido,created_at").eq("conversacion_id", id).order("created_at").limit(100).exec();
+  if (error) throw new Error(error);
+  historial = (data || []).map(m => ({ rol: m.rol, texto: m.contenido }));
 }
 
 export function olvidarChat() {
   historial = [];
+  conversaciones = [];
+  conversacionActual = null;
   estado = "cerrado";
   contexto = null;
   localStorage.removeItem(CLAVE_HIST);
@@ -165,11 +208,14 @@ export function montarChatFlotante() {
         <small>Responde con tus cifras reales</small>
       </div>
       <div class="chat-cab-btns">
-        <button type="button" data-limpiar title="Limpiar conversación" aria-label="Limpiar conversación">⌫</button>
         <button type="button" data-min title="Minimizar" aria-label="Minimizar chat">–</button>
         <button type="button" data-cerrar title="Cerrar" aria-label="Cerrar chat">×</button>
       </div>
     </header>
+    <div class="chat-historial">
+      <select data-conversacion aria-label="Conversación actual"><option>Cargando conversaciones…</option></select>
+      <button type="button" data-nueva title="Nueva conversación" aria-label="Nueva conversación">+</button>
+    </div>
     <div class="chat-cuerpo" data-mensajes></div>
     <form class="chat-pie" data-form>
       <input type="text" data-input aria-label="Pregunta al chat financiero" placeholder="Pregunta sobre tu facturación, gastos…" autocomplete="off">
@@ -183,6 +229,13 @@ export function montarChatFlotante() {
 
   const $mensajes = $panel.querySelector("[data-mensajes]");
   const $input = $panel.querySelector("[data-input]");
+  const $conversacion = $panel.querySelector("[data-conversacion]");
+
+  function pintarConversaciones() {
+    $conversacion.innerHTML = conversaciones.length
+      ? conversaciones.map(c => `<option value="${escapeHtml(c.id)}" ${c.id === conversacionActual ? "selected" : ""}>${escapeHtml(c.titulo || "Nueva conversación")}</option>`).join("")
+      : `<option value="">Sin conversaciones todavía</option>`;
+  }
 
   function aplicarEstado() {
     $panel.classList.toggle("abierto", estado === "abierto");
@@ -193,6 +246,7 @@ export function montarChatFlotante() {
   }
 
   function pintar() {
+    pintarConversaciones();
     $mensajes.innerHTML = historial.length
       // Sin saltos ni sangría dentro del <div>: la burbuja usa white-space
       // pre-wrap, así que cualquier espacio del propio HTML se vería como un
@@ -214,12 +268,28 @@ export function montarChatFlotante() {
     estado = estado === "minimizado" ? "abierto" : "minimizado";
     aplicarEstado();
   });
-  $panel.querySelector("[data-limpiar]").addEventListener("click", (e) => {
+  $conversacion.addEventListener("change", async () => {
+    try {
+      await seleccionarConversacion($conversacion.value);
+      pintar();
+    } catch (err) {
+      historial = [{ rol: "ia", texto: err.message || "No se ha podido cargar la conversación.", error: true }];
+      pintar();
+    }
+  });
+  $panel.querySelector("[data-nueva]").addEventListener("click", async (e) => {
     e.stopPropagation();
-    if (!historial.length || !window.confirm("¿Limpiar toda la conversación?")) return;
-    historial = [];
-    guardar();
-    pintar();
+    try {
+      const nueva = await crearConversacion();
+      conversaciones = [nueva, ...conversaciones];
+      conversacionActual = nueva.id;
+      historial = [];
+      pintar();
+      $input.focus();
+    } catch (err) {
+      historial = [{ rol: "ia", texto: err.message || "No se ha podido crear un chat nuevo.", error: true }];
+      pintar();
+    }
   });
   $panel.querySelector("[data-cerrar]").addEventListener("click", () => {
     estado = "cerrado";
@@ -236,6 +306,18 @@ export function montarChatFlotante() {
       return;
     }
 
+    if (!conversacionActual) {
+      try {
+        const nueva = await crearConversacion(pregunta.slice(0, 42));
+        conversaciones = [nueva, ...conversaciones];
+        conversacionActual = nueva.id;
+      } catch (err) {
+        historial.push({ rol: "ia", texto: err.message || "No se ha podido guardar el chat.", error: true });
+        pintar();
+        return;
+      }
+    }
+
     historial.push({ rol: "usuario", texto: pregunta });
     historial.push({ rol: "ia", texto: "Pensando…", pensando: true });
     $input.value = "";
@@ -247,6 +329,19 @@ export function montarChatFlotante() {
       const respuesta = await preguntarAsistenteFinanciero(pregunta, ctx, previos);
       historial = historial.filter(m => !m.pensando);
       historial.push({ rol: "ia", texto: respuesta });
+      await guardarMensajes(conversacionActual, [
+        { rol: "usuario", texto: pregunta },
+        { rol: "ia", texto: respuesta },
+      ]);
+      const c = conversaciones.find(x => x.id === conversacionActual);
+      if (c) {
+        c.updated_at = new Date().toISOString();
+        if (!c.titulo || c.titulo === "Nueva conversación") {
+          c.titulo = pregunta.slice(0, 42);
+          await db.from("chat_conversaciones").update({ titulo: c.titulo }).eq("id", conversacionActual).exec();
+        }
+      }
+      conversaciones.sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
     } catch (err) {
       historial = historial.filter(m => !m.pensando);
       historial.push({ rol: "ia", texto: err.message || "No he podido responder.", error: true });
@@ -261,4 +356,11 @@ export function montarChatFlotante() {
 
   aplicarEstado();
   pintar();
+  cargarConversaciones().then(pintar).catch((err) => {
+    // La app sigue siendo utilizable si una sesión antigua aún no tiene las
+    // tablas nuevas: mostramos el historial local y dejamos constancia clara.
+    historial = [{ rol: "ia", texto: "No se ha podido cargar el historial de chats. Puedes seguir usando el chat en esta sesión.", error: true }];
+    pintar();
+    console.warn("Historial de chat no disponible", err);
+  });
 }
