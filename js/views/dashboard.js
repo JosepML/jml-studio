@@ -81,20 +81,22 @@ export async function renderDashboard(container) {
     });
   }
 
-  // Todo trabajo con fecha pasada y estado distinto de pagado es dinero que
-  // todavía no se ha cobrado. Antes solo se incluían las filas "emitida", de
-  // modo que proyectos antiguos aún marcados como "pendiente" desaparecían
-  // del KPI y se clasificaban engañosamente como trabajos en curso.
-  const pendientes = ledger.filter(f => estadoEfectivo(f) !== "pagada" && (!f.fecha || f.fecha <= hoyIso));
-  const pendienteTotal = pendientes.reduce((s,f)=>s+conIvaSegunPago(f.importeBase, f.proyecto.forma_pago),0);
-  const enCurso = ledger.filter(f => estadoEfectivo(f) === "pendiente" && f.fecha && f.fecha > hoyIso).slice(0, 8);
+  // Son dos listas distintas: "en curso" son proyectos aún no emitidos y
+  // "pendiente de cobro" son solo los ya emitidos que siguen sin pagar.
+  // El KPI superior es deliberadamente más amplio: suma todo lo que aún no
+  // consta como pagado, incluidos los trabajos todavía por emitir.
+  const pendientes = ledger.filter(f => estadoEfectivo(f) === "emitida");
+  const pendienteTotal = ledger
+    .filter(f => estadoEfectivo(f) !== "pagada")
+    .reduce((s,f)=>s+conIvaSegunPago(f.importeBase, f.proyecto.forma_pago),0);
+  const enCurso = ledger.filter(f => estadoEfectivo(f) === "pendiente").slice(0, 8);
 
   const porEstado = Object.keys(ESTADOS_COBRO).map(k => ({ key: k, label: ESTADOS_COBRO[k].label, fg: ESTADOS_COBRO[k].fg, count: ledger.filter(f=>estadoEfectivo(f)===k).length }));
 
   container.innerHTML = `
     <div class="grid grid-4" style="margin-bottom:20px;">
       <div class="card kpi"><div class="label">Facturado este mes</div><div class="value">${eur(resumenMes.transferencia + resumenMes.efectivo)}</div><div class="stat-note">Transferencia + efectivo</div></div>
-      <div class="card kpi"><div class="label">Pendiente de cobro</div><div class="value">${eur(pendienteTotal)}</div><div class="stat-note">${pendientes.length} proyecto(s) sin cobrar</div></div>
+      <div class="card kpi"><div class="label">Pendiente de cobro</div><div class="value">${eur(pendienteTotal)}</div><div class="stat-note">Total por cobrar, incluidos los proyectos por emitir</div></div>
       <div class="card kpi"><div class="label">Beneficio fiscal (cobrado, año)</div><div class="value pos">${eur(resumenAnualCobrado.beneficioFiscalPagado)}</div><div class="stat-note">Cobrado − gastos deducibles</div></div>
       <div class="card kpi dark"><div class="label">Provisión Modelo 130 (T${qActual})</div><div class="value">${eur(provision.aIngresar)}</div><div class="stat-note" style="color:#B9C0DA">Estimación del trimestre</div></div>
     </div>
@@ -140,10 +142,10 @@ export async function renderDashboard(container) {
         </table>
       </div>
       <div class="card">
-        <div class="card-head"><h3>Pendiente de cobro</h3><span class="help-tip" title="Proyectos con fecha pasada que todavía no constan como cobrados. Se indica si están emitidos o aún por facturar.">i</span></div>
+        <div class="card-head"><h3>Pendiente de cobro</h3><span class="help-tip" title="Proyectos ya emitidos que todavía no se han cobrado.">i</span></div>
         <table>
-          <thead><tr><th>Proyecto</th><th>Cliente</th><th>Estado</th><th class="money">Importe c/IVA</th></tr></thead>
-          <tbody>${pendientes.slice(0,8).map(f => `<tr class="clickable" data-proyecto-id="${f.proyecto.id}"><td><strong>${escapeHtml(f.proyecto.nombre)}</strong></td><td>${escapeHtml(clientesMap[f.proyecto.cliente_id]||"—")}</td><td>${estadoEfectivo(f) === "emitida" ? "Emitido" : "Por facturar"}</td><td class="money">${eur(conIvaSegunPago(f.importeBase, f.proyecto.forma_pago))}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">Nada pendiente 🎉</td></tr>`}</tbody>
+          <thead><tr><th>Proyecto</th><th>Cliente</th><th class="money">Importe c/IVA</th></tr></thead>
+          <tbody>${pendientes.slice(0,8).map(f => `<tr class="clickable" data-proyecto-id="${f.proyecto.id}"><td><strong>${escapeHtml(f.proyecto.nombre)}</strong></td><td>${escapeHtml(clientesMap[f.proyecto.cliente_id]||"—")}</td><td class="money">${eur(conIvaSegunPago(f.importeBase, f.proyecto.forma_pago))}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Nada pendiente 🎉</td></tr>`}</tbody>
         </table>
         ${pendientes.length ? `<p style="margin-top:10px;"><a href="#/mensual">Ver y marcar como pagadas →</a></p>` : ""}
       </div>
