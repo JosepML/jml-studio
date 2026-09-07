@@ -9,6 +9,10 @@ import { parseClienteDesdeTexto } from "../ai/parser.js";
 let chartClientes = null;
 const CLIENTE_VACIO = { nombre: "", tipo: "empresa", nif: "", email: "", telefono: "", direccion: "", notas: "" };
 
+function inicialesCliente(nombre) {
+  return String(nombre || "?").trim().split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join("").toUpperCase();
+}
+
 export async function renderClientes(container, param) {
   container.innerHTML = `
     <div class="grid grid-side" style="margin-bottom:20px;">
@@ -94,24 +98,26 @@ export async function renderClientes(container, param) {
   }
 
   const totalPorRankingId = Object.fromEntries(ranking.map(r => [r.cliente.id, r.total]));
-  $list.innerHTML = `
-    <table>
-      <thead><tr><th>Nombre</th><th>Tipo</th><th>Email</th><th>Teléfono</th><th class="money">Facturado</th></tr></thead>
-      <tbody>
-        ${data.map(c => `
-          <tr class="clickable" data-id="${c.id}">
-            <td><strong>${escapeHtml(c.nombre)}</strong>${(!c.nif || !c.direccion) ? `<span class="cli-incompleto" title="Sin NIF o sin dirección fiscal no puedes emitirle una factura válida.">datos incompletos</span>` : ""}</td>
-            <td>${c.tipo === "empresa" ? "Empresa" : "Particular"}</td>
-            <td>${escapeHtml(c.email || "—")}</td>
-            <td>${escapeHtml(c.telefono || "—")}</td>
-            <td class="money" style="font-weight:600;">${eur(totalPorRankingId[c.id] || 0)}</td>
-          </tr>`).join("")}
-      </tbody>
-    </table>`;
+  $list.innerHTML = `<div class="clientes-lista">
+    ${data.map(c => {
+      const incompleto = !c.nif || !c.direccion;
+      const contacto = c.email || c.telefono || "Sin datos de contacto";
+      return `<div class="cliente-fila clickable" data-id="${c.id}">
+        <div class="cliente-avatar" aria-hidden="true">${escapeHtml(inicialesCliente(c.nombre))}</div>
+        <div class="cliente-identidad">
+          <strong>${escapeHtml(c.nombre)}</strong>
+          <span>${c.tipo === "empresa" ? "Empresa" : "Particular"} · ${escapeHtml(contacto)}</span>
+        </div>
+        <div class="cliente-estado ${incompleto ? "incompleto" : "completo"}">${incompleto ? "Datos pendientes" : "Listo para facturar"}</div>
+        <div class="cliente-facturado"><span>Facturado</span><strong>${eur(totalPorRankingId[c.id] || 0)}</strong></div>
+        <span class="cliente-flecha" aria-hidden="true">→</span>
+      </div>`;
+    }).join("")}
+  </div>`;
 
-  $list.querySelectorAll("tr[data-id]").forEach(tr => {
-    tr.addEventListener("click", () => {
-      const cliente = data.find(c => c.id === tr.dataset.id);
+  $list.querySelectorAll(".cliente-fila[data-id]").forEach(fila => {
+    fila.addEventListener("click", () => {
+      const cliente = data.find(c => c.id === fila.dataset.id);
       abrirFicha(container, cliente);
     });
   });
