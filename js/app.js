@@ -62,7 +62,27 @@ async function render() {
     $content.innerHTML = `<div class="card"><strong>Ha ocurrido un error cargando esta sección.</strong><p class="muted">${(err && err.message) || err}</p></div>`;
   }
   if (sequence !== renderSequence) return;
+  mejorarAccesibilidad($content);
   animarEntradaVista();
+}
+
+// Las vistas se generan desde plantillas y no siempre necesitan repetir la
+// misma lógica de accesibilidad. Aquí asociamos cada etiqueta al control que
+// la sigue y damos un nombre útil a gráficas y tablas resumidas.
+function mejorarAccesibilidad(container) {
+  container.querySelectorAll(".field label:not([for])").forEach(label => {
+    const control = label.parentElement?.querySelector("input, select, textarea");
+    if (control?.id) label.htmlFor = control.id;
+  });
+  container.querySelectorAll("canvas:not([aria-label])").forEach(canvas => {
+    const titulo = canvas.closest(".card")?.querySelector("h3")?.textContent?.trim();
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute("aria-label", titulo ? `Gráfica: ${titulo}` : "Gráfica financiera");
+  });
+  container.querySelectorAll("table:not([aria-label])").forEach(table => {
+    const titulo = table.closest(".card")?.querySelector("h3")?.textContent?.trim();
+    if (titulo) table.setAttribute("aria-label", titulo);
+  });
 }
 
 // Relanza la animación de despliegue del contenido en cada cambio de sección.
