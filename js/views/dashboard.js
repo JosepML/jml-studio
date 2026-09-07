@@ -83,11 +83,11 @@ export async function renderDashboard(container) {
 
   // Son dos listas distintas: "en curso" son proyectos aún no emitidos y
   // "pendiente de cobro" son solo los ya emitidos que siguen sin pagar.
-  // El KPI superior es deliberadamente más amplio: suma todo lo que aún no
-  // consta como pagado, incluidos los trabajos todavía por emitir.
+  // El KPI superior es independiente de la tabla: suma solo los trabajos
+  // todavía por emitir, que son el pendiente de facturar.
   const pendientes = ledger.filter(f => estadoEfectivo(f) === "emitida");
   const pendienteTotal = ledger
-    .filter(f => estadoEfectivo(f) !== "pagada")
+    .filter(f => estadoEfectivo(f) === "pendiente")
     .reduce((s,f)=>s+conIvaSegunPago(f.importeBase, f.proyecto.forma_pago),0);
   const enCurso = ledger.filter(f => estadoEfectivo(f) === "pendiente").slice(0, 8);
 
