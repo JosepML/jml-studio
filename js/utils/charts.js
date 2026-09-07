@@ -52,6 +52,10 @@ function tooltipHtml(contexto, formatearValor) {
     const valorNumerico = chart.options.indexAxis === "y"
       ? (p.parsed.x ?? p.parsed)
       : (p.parsed.y ?? p.parsed);
+    // Los meses futuros usan null para no dibujar barras. Chart.js todavía
+    // puede incluirlos en la interacción por índice; no debemos convertirlos
+    // en un falso "NaN €" dentro del tooltip.
+    if (valorNumerico == null || !Number.isFinite(Number(valorNumerico))) return "";
     const valor = formatearValor ? formatearValor(valorNumerico) : valorNumerico;
     const etiqueta = p.dataset.label && (tooltip.dataPoints.length > 1) ? p.dataset.label : "";
     return `<div class="chart-tooltip-row">
@@ -59,8 +63,9 @@ function tooltipHtml(contexto, formatearValor) {
       ${etiqueta ? `<span class="chart-tooltip-label">${etiqueta}</span>` : ""}
       <strong>${valor}</strong>
     </div>`;
-  }).join("");
+  }).filter(Boolean).join("");
 
+  if (!filas) { $el.style.opacity = "0"; return; }
   $el.innerHTML = `${titulo ? `<div class="chart-tooltip-title">${titulo}</div>` : ""}${filas}`;
 
   const { offsetLeft, offsetTop } = chart.canvas;
