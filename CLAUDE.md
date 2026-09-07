@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-07 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit de código verificado: `6606cf1`.
+> · Último commit de código verificado: `565f13e`.
 
 ## Situación actual y reglas operativas
 
@@ -65,6 +65,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - Verificación real 2026-09-07: Dashboard, Facturación mensual, Financiero, Facturas y Clientes cargan en GitHub Pages con sesión y datos reales; paginación y filas accesibles visibles.
 - Verificación funcional 2026-09-07: Facturación mensual exporta Excel y PDF con aviso de descarga; Clientes filtra por búsqueda, cambia a la página 2 y vuelve a la 1; el editor de factura abre con cliente vacío y permite avanzar sin guardar, manteniendo la descarga bloqueada hasta completar los datos.
 - `6606cf1` — renovación de Google Calendar integrada en cambiar de mes, recargar y guardar/editar eventos; caché del service worker actualizada a `v54`.
+- `565f13e` — invalidación de `app → dashboard → calendario` para que GitHub Pages no reutilice módulos antiguos del navegador.
 
 Cuando se complete o cambie un punto, actualiza esta sección y añade una línea al
 registro antes de hacer commit. Si una decisión del usuario contradice el histórico
