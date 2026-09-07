@@ -254,7 +254,9 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado) {
     const { data } = await db.from("clientes").select("id,nombre").order("nombre").exec();
     clientes = data || [];
   }
-  proyecto = proyecto || { nombre: "", cliente_id: clientes[0]?.id || "", estado: "en_curso", fecha_inicio: todayIso(), fecha_entrega: "", horas_invertidas: 0, coste_asociado: 0, precio_acordado: 0, entregables: [], forma_pago: "transferencia", estado_facturacion: "pendiente", categoria_servicio: "otros", notas: "" };
+  // Al crear un proyecto no se debe asignar silenciosamente el primer cliente
+  // de la lista: es fácil guardar un trabajo con datos de otra persona.
+  proyecto = proyecto || { nombre: "", cliente_id: "", estado: "en_curso", fecha_inicio: todayIso(), fecha_entrega: "", horas_invertidas: 0, coste_asociado: 0, precio_acordado: 0, entregables: [], forma_pago: "transferencia", estado_facturacion: "pendiente", categoria_servicio: "otros", notas: "" };
 
   const $detalle = document.createElement("div");
   $detalle.className = "modal-backdrop";
