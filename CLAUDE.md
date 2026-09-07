@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-07 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit: `4289ee1`.
+> · Último commit de código verificado: `1668ab6`.
 
 ## Situación actual y reglas operativas
 
@@ -30,7 +30,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 1. **Responsive físico:** el código ya adapta tablas, desplazamiento táctil, menú, chat y modales; falta comprobarlo en el móvil/tablet reales.
 2. **Accesibilidad visual:** resuelto en código: las barras apiladas usan tramas por serie, nombres escritos y totales en la leyenda.
 3. **Consistencia de estados:** resuelto en código: carga con esqueletos, vacío con estados propios, errores homogéneos con reintento y foco visible.
-4. **Verificación funcional:** probar de punta a punta reordenación, asignación de facturas, calendario y exportaciones en un navegador real; la sintaxis no sustituye estas pruebas.
+4. **Verificación funcional parcial:** en navegador real ya se han comprobado navegación, exportaciones Excel/PDF, búsqueda y paginación de Clientes y apertura del editor de facturas sin guardar; queda probar de punta a punta reordenación, asignación de facturas y calendario.
 5. **Mantenimiento:** la numeración usa el máximo secuencial y el listado avisa de duplicados/huecos; no se modifican automáticamente los borradores `020/021/022-2026`.
 
 ### Mejoras opcionales futuras
@@ -63,6 +63,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - `5218b8b` — registro de tareas sincronizado.
 - `a8ab98b` — reintentos de Facturación mensual y Financiero corregidos sin parámetros inexistentes.
 - Verificación real 2026-09-07: Dashboard, Facturación mensual, Financiero, Facturas y Clientes cargan en GitHub Pages con sesión y datos reales; paginación y filas accesibles visibles.
+- Verificación funcional 2026-09-07: Facturación mensual exporta Excel y PDF con aviso de descarga; Clientes filtra por búsqueda, cambia a la página 2 y vuelve a la 1; el editor de factura abre con cliente vacío y permite avanzar sin guardar, manteniendo la descarga bloqueada hasta completar los datos.
 
 Cuando se complete o cambie un punto, actualiza esta sección y añade una línea al
 registro antes de hacer commit. Si una decisión del usuario contradice el histórico
