@@ -1,7 +1,7 @@
 import { db } from "../supabase.js";
 import { eur, ESTADOS_PROYECTO, ESTADOS_COBRO } from "../utils/format.js";
-import { calcularModelo130Trimestral, gastoDificilJustificacion, round2 } from "../utils/invoice-calc.js";
-import { construirLedger, resumenPeriodo, resumenTrimestre, rangoMes, rangoAnio, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
+import { calcularModelo130Trimestral, round2 } from "../utils/invoice-calc.js";
+import { construirLedger, resumenPeriodo, resumenTrimestre, resumenIvaTrimestre, rangoMes, rangoAnio, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
 import { escapeHtml } from "./clientes.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { skeletonPagina, animarVista } from "../utils/ui.js";
@@ -45,41 +45,22 @@ export async function renderDashboard(container) {
 
   const porMes = MESES.map((_, i) => resumenPeriodo(ledger, gastos, rangoMes(anio,i).desde, rangoMes(anio,i).hasta));
 
-  // Provisión Modelo 130 del trimestre en curso — % configurable sobre el
-  // rendimiento neto de ese trimestre en solitario (sin acumular con los
-  // anteriores), mismo método que Financiero para que las dos pantallas
-  // coincidan siempre.
-  //
-  // Se recorren los trimestres desde el primero hasta el actual, no solo el
-  // actual: la deducción por "difícil justificación" tiene un tope ANUAL de
-  // 2.000 € que se va consumiendo, así que para saber cuánta queda disponible
-  // en este trimestre hay que haber pasado por los anteriores.
-  //
-  // Antes esta pantalla no aplicaba esa deducción (sí lo hacía Financiero), y
-  // por eso el mismo trimestre salía con dos cifras distintas.
+  // Previsión del trimestre actual: facturación menos gastos deducibles.
+  // Para no anticipar cifras futuras, el trimestre en curso se corta en hoy.
   const cfg = getConfig();
-  const hoyIsoQ = hoy.toISOString().slice(0, 10);
-  let acumuladoDificilJustificacion = 0;
-  let provision = { aIngresar: 0 };
-  for (let q = 1; q <= qActual; q++) {
-    const t = resumenTrimestre(ledger, facturas, gastos, anio, q);
-    // Los gastos de un trimestre aún sin terminar se topan en hoy; si no, se
-    // colarían cuotas de amortización de meses que todavía no han pasado.
-    const hastaCap = t.hasta > hoyIsoQ ? hoyIsoQ : t.hasta;
-    const gastosDeduciblesCap = hastaCap === t.hasta
-      ? t.gastosDeducibles
-      : resumenPeriodo(ledger, gastos, t.desde, hastaCap).gastosDeducibles;
-    const dificilJustificacion = gastoDificilJustificacion(
-      t.transferenciaPagada, gastosDeduciblesCap, acumuladoDificilJustificacion
-    );
-    acumuladoDificilJustificacion = round2(acumuladoDificilJustificacion + dificilJustificacion);
-    provision = calcularModelo130Trimestral({
-      ingresosTrimestre: t.transferenciaPagada,
-      gastosTrimestre: round2(gastosDeduciblesCap + dificilJustificacion),
-      retencionesTrimestre: t.retenciones,
-      pctModelo130: cfg.modelo130_pct,
-    });
-  }
+  const trimestre = resumenTrimestre(ledger, facturas, gastos, anio, qActual);
+  const hastaTrimestre = trimestre.hasta > hoyIso ? hoyIso : trimestre.hasta;
+  const trimestreCorte = hastaTrimestre === trimestre.hasta
+    ? trimestre
+    : resumenPeriodo(ledger, gastos, trimestre.desde, hastaTrimestre);
+  const provision = calcularModelo130Trimestral({
+    ingresosTrimestre: trimestreCorte.totalBase,
+    gastosTrimestre: trimestreCorte.gastosDeducibles,
+    retencionesTrimestre: 0,
+    pctModelo130: cfg.modelo130_pct,
+  });
+  const ivaTrimestre = resumenIvaTrimestre(ledger, facturas, gastos, anio, qActual);
+  const ivaAPagar = round2(Math.max(ivaTrimestre.resultado, 0));
 
   // Son dos listas distintas: "en curso" son proyectos aún no emitidos y
   // "pendiente de cobro" son solo los ya emitidos que siguen sin pagar.
@@ -99,7 +80,7 @@ export async function renderDashboard(container) {
       <div class="card kpi"><div class="label">Facturado este mes</div><div class="value">${eur(resumenMes.transferencia + resumenMes.efectivo)}</div><div class="stat-note">Transferencia + efectivo</div></div>
       <div class="card kpi"><div class="label">Pendiente de facturar</div><div class="value">${eur(pendienteTotal)}</div><div class="stat-note">Total por cobrar, incluidos los proyectos por emitir</div></div>
       <div class="card kpi"><div class="label">Beneficio fiscal (cobrado, año)</div><div class="value pos">${eur(resumenAnualCobrado.beneficioFiscalPagado)}</div><div class="stat-note">Cobrado − gastos deducibles</div></div>
-      <div class="card kpi dark"><div class="label">Provisión Modelo 130 (T${qActual})</div><div class="value">${eur(provision.aIngresar)}</div><div class="stat-note" style="color:#B9C0DA">Estimación del trimestre</div></div>
+      <div class="card kpi dark"><div class="label">Pagos del trimestre (T${qActual})</div><div class="value" style="font-size:20px;">IRPF ${eur(provision.aIngresar)} · IVA ${eur(ivaAPagar)}</div><div class="stat-note" style="color:#B9C0DA">Facturación − gastos deducibles · ${cfg.modelo130_pct}% IRPF</div></div>
     </div>
 
     <!-- El calendario es un widget acotado a la izquierda y las tres gráficas

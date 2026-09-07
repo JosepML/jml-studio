@@ -1,6 +1,6 @@
 import { db } from "../supabase.js";
 import { eur, CATEGORIAS_SERVICIO, CATEGORIAS_GASTO } from "../utils/format.js";
-import { calcularModelo130Trimestral, gastoDeducibleEnRango, round2, gastoDificilJustificacion, PLAZOS_MODELO_130_2026 } from "../utils/invoice-calc.js";
+import { calcularModelo130Trimestral, gastoDeducibleEnRango, round2, PLAZOS_MODELO_130_2026 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, resumenTrimestre, resumenIvaTrimestre, rangoMes, rangoAnio } from "../utils/resumen.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { skeletonPagina, animarVista, toastOk, toastError } from "../utils/ui.js";
@@ -129,27 +129,19 @@ export async function renderFinanciero(container) {
       return resumenPeriodo(ledger, gastos, r.desde, r.hasta);
     });
 
-    // --- Trimestral (Modelo 130) --- Solo lo ya cobrado (pagada), según lo
-    // pedido. Método "plano": % configurable (ver Configuración) sobre el
-    // rendimiento neto de CADA trimestre por separado, sin acumular con
-    // trimestres anteriores del año — así lo usa Josep mientras esté en su
-    // situación actual. Igual que en el KPI "(cobrado)", los gastos de un
-    // trimestre que aún no ha terminado se topan en la fecha de hoy (si no,
-    // se colarían cuotas de amortización de meses futuros).
+    // --- Trimestral (Modelo 130) --- Facturación del trimestre menos gastos
+    // deducibles del trimestre; el porcentaje configurable se aplica al
+    // beneficio resultante. El trimestre en curso se corta en hoy.
     const hoyIsoQ = new Date().toISOString().slice(0, 10);
-    let acumuladoDificilJustificacion = 0;
     const presentados = leerPresentados();
     const trimestres = [1,2,3,4].map(q => {
       const t = resumenTrimestre(ledger, facturas, gastos, anio, q);
       const hastaCap = t.hasta > hoyIsoQ ? hoyIsoQ : t.hasta;
-      const gastosDeduciblesCap = hastaCap === t.hasta ? t.gastosDeducibles : resumenPeriodo(ledger, gastos, t.desde, hastaCap).gastosDeducibles;
-      const dificilJustificacion = gastoDificilJustificacion(t.transferenciaPagada, gastosDeduciblesCap, acumuladoDificilJustificacion);
-      acumuladoDificilJustificacion = round2(acumuladoDificilJustificacion + dificilJustificacion);
-      const gastosConDificilJustificacion = round2(gastosDeduciblesCap + dificilJustificacion);
-      const r = calcularModelo130Trimestral({ ingresosTrimestre: t.transferenciaPagada, gastosTrimestre: gastosConDificilJustificacion, retencionesTrimestre: t.retenciones, pctModelo130: cfg.modelo130_pct });
+      const tCorte = hastaCap === t.hasta ? t : resumenPeriodo(ledger, gastos, t.desde, hastaCap);
+      const r = calcularModelo130Trimestral({ ingresosTrimestre: tCorte.totalBase, gastosTrimestre: tCorte.gastosDeducibles, retencionesTrimestre: 0, pctModelo130: cfg.modelo130_pct });
       const plazo = PLAZOS_MODELO_130_2026[q-1];
       const presentado = !!presentados[`${anio}-T${q}`];
-      return { q, ...t, gastosDeducibles: gastosDeduciblesCap, dificilJustificacion, gastosConDificilJustificacion, ...r, plazo, presentado };
+      return { q, ...t, facturadoTrimestre: tCorte.totalBase, gastosDeducibles: tCorte.gastosDeducibles, ...r, plazo, presentado };
     });
 
     // --- Trimestral (IVA — Modelo 303). A diferencia del Modelo 130 de arriba
@@ -202,7 +194,7 @@ export async function renderFinanciero(container) {
     container.querySelector("#financiero-body").innerHTML = `
       <div class="grid grid-4" style="margin-bottom:20px;">
         <div class="card kpi"><div class="label">Cobrado por transferencia ${anio}</div><div class="value">${eur(anual.transferenciaPagada)}</div><div class="muted" style="font-size:11px;">${eur(anual.transferenciaNoPagada)} facturado y aún sin cobrar</div></div>
-        <div class="card kpi"><div class="label">Gastos deducibles ${anio}</div><div class="value">${eur(anual.gastosDeducibles)}</div><div class="muted" style="font-size:11px;">+ ${eur(acumuladoDificilJustificacion)} difícil justificación</div></div>
+        <div class="card kpi"><div class="label">Gastos deducibles ${anio}</div><div class="value">${eur(anual.gastosDeducibles)}</div><div class="muted" style="font-size:11px;">Imputados al cálculo fiscal</div></div>
         <div class="card kpi"><div class="label">Beneficio fiscal neto (cobrado)</div><div class="value" style="color:var(--green-fg)">${eur(anualCobrado.beneficioFiscalPagado)}</div><div class="muted" style="font-size:11px;">Cobrado y gastos, ambos hasta hoy</div></div>
         <div class="card kpi dark" style="${plazoProximoVencido && !proximoTrimestre.presentado ? "outline:2px solid #E8985B;" : ""}">
           <div class="label">${proximoTrimestre.presentado ? "Modelo 130 (T"+trimestreActual+")" : "Pendiente de presentar — T"+trimestreActual}</div>
@@ -336,7 +328,7 @@ export async function renderFinanciero(container) {
       </div>
 
       <div class="card" style="margin-bottom:20px;">
-        <div class="card-head"><h3>Modelo 130 — pago fraccionado trimestral</h3><span class="help-tip" title='Se aplica el ${cfg.modelo130_pct}% (editable en Configuración) sobre (cobrado − gastos deducibles) de CADA trimestre por separado, sin acumular con trimestres anteriores. Solo cuenta lo ya cobrado por transferencia (marcado como "pagada" en Facturación mensual) e incluye la deducción automática por "difícil justificación" (5%, tope 2.000€/año) que también aplica tu gestoría.'>i</span></div>
+        <div class="card-head"><h3>Modelo 130 — pago fraccionado trimestral</h3><span class="help-tip" title='Estimación personalizada: ${cfg.modelo130_pct}% (editable en Configuración) sobre (facturación del trimestre − gastos deducibles del trimestre). El trimestre en curso se calcula hasta hoy.'>i</span></div>
         <div class="grid grid-4">
           ${trimestres.map(t => {
             const vencido = new Date(t.plazo.fin) < hoy;
@@ -352,9 +344,8 @@ export async function renderFinanciero(container) {
               <div style="font-size:22px; font-weight:800; letter-spacing:-.02em;">${eur(t.aIngresar)}</div>
               <div class="muted" style="font-size:11px; margin-bottom:12px;">a ingresar · plazo ${t.plazo.inicio.slice(8,10)}–${t.plazo.fin.slice(8,10)}/${t.plazo.fin.slice(5,7)}</div>
               <div style="font-size:12px; display:flex; flex-direction:column; gap:4px; border-top:1px solid var(--border); padding-top:10px;">
-                <div style="display:flex; justify-content:space-between;"><span class="muted">Cobrado</span><span>${eur(t.transferenciaPagada)}</span></div>
+                <div style="display:flex; justify-content:space-between;"><span class="muted">Facturado</span><span>${eur(t.facturadoTrimestre)}</span></div>
                 <div style="display:flex; justify-content:space-between;"><span class="muted">Gastos deducibles</span><span>${eur(t.gastosDeducibles)}</span></div>
-                <div style="display:flex; justify-content:space-between;"><span class="muted">Difícil justif.</span><span>+${eur(t.dificilJustificacion)}</span></div>
                 <div style="display:flex; justify-content:space-between;"><span class="muted">Rendimiento neto</span><span>${eur(t.rendimientoNeto)}</span></div>
               </div>
               <label style="display:flex; align-items:center; gap:6px; margin-top:12px; font-size:12px; cursor:pointer;">
@@ -364,7 +355,7 @@ export async function renderFinanciero(container) {
           }).join("")}
         </div>
         <div class="muted" style="font-size:12px; margin-top:16px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; border-top:1px solid var(--border); padding-top:12px;">
-          <span>Total ${anio}: cobrado ${eur(anual.transferenciaPagada)} · gastos deducibles ${eur(anual.gastosDeducibles)} (+${eur(acumuladoDificilJustificacion)} difícil justif.)</span>
+          <span>Total ${anio}: facturado ${eur(anual.totalBase)} · gastos deducibles ${eur(anual.gastosDeducibles)}</span>
           <strong style="color:var(--text);">A ingresar total: ${eur(trimestres.reduce((s,t)=>s+t.aIngresar,0))}</strong>
         </div>
         <p class="muted" style="font-size:11px; margin-top:8px;">Estimación orientativa — confírmala con tu gestor/a antes de presentar.</p>
