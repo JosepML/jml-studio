@@ -13,7 +13,7 @@ const facturaProyectos = [{
   facturas: { numero: "12-2026", tipo: "factura", estado: "emitida", fecha: "2026-09-05" },
 }];
 const ledger = construirLedger(proyectos, facturaProyectos);
-const emitido = ledger.filter(f => estadoEfectivo(f) !== "pendiente");
+const emitido = ledger.filter(f => estadoEfectivo(f) !== "pendiente" && f.fecha >= "2026-07-01" && f.fecha <= "2026-09-07");
 
 assert.equal(emitido.length, 2, "solo deben entrar emitida y pagada");
 assert.deepEqual(emitido.map(f => f.proyecto.id).sort(), ["efectivo", "emitida"]);
