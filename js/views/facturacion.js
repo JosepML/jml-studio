@@ -46,6 +46,7 @@ export function faltanDatosParaPdf(doc, cliente) {
 const MARCA_BORRADOR = "BORRADOR — SIN VALIDEZ FISCAL";
 
 const ICONO_DESCARGA = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7.2 10.2 12 15l4.8-4.8"/><path d="M4.5 19.5h15"/></svg>`;
+const ICONO_DUPLICAR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
 
 // --- Facturas (documentos tipo="factura") ---
 export async function renderFacturacion(container, param) {
@@ -203,10 +204,33 @@ async function renderLista(container, cfg) {
           <td>${dateEs(f.fecha)}</td>
           <td class="money">${eur(f.total)}</td>
           <td><span class="badge" style="background:${cfg.estados[f.estado]?.bg};color:${cfg.estados[f.estado]?.fg}">${cfg.estados[f.estado]?.label || f.estado}</span></td>
-          <td class="row-actions"><button class="icon-btn btn-descarga-rapida" data-id="${f.id}" type="button" title="Descargar PDF">${ICONO_DESCARGA}</button></td>
+          <td class="row-actions">
+            <button class="icon-btn btn-duplicar" data-id="${f.id}" type="button" title="Duplicar">${ICONO_DUPLICAR}</button>
+            <button class="icon-btn btn-descarga-rapida" data-id="${f.id}" type="button" title="Descargar PDF">${ICONO_DESCARGA}</button>
+          </td>
         </tr>`).join("")}</tbody></table>`;
 
     $list.querySelectorAll("tr[data-id]").forEach(tr => tr.addEventListener("click", () => location.hash = `${cfg.volverA}/${tr.dataset.id}`));
+    $list.querySelectorAll(".btn-duplicar").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const doc = documentos.find(d => d.id === btn.dataset.id);
+        if (!doc) return;
+        // Se pasa por sessionStorage para abrir el editor como documento nuevo:
+        // así se calcula una numeración nueva y nunca se pisa el original.
+        sessionStorage.setItem("jml_documento_duplicar", JSON.stringify({
+          ...doc,
+          id: undefined,
+          numero: "",
+          fecha: todayIso(),
+          fecha_vencimiento: "",
+          estado: "borrador",
+          lineas: (doc.lineas || []).map(l => ({ ...l, proyecto_id: "" })),
+          proyecto_id: null,
+        }));
+        location.hash = `${cfg.volverA}/nuevo`;
+      });
+    });
     $list.querySelectorAll(".btn-descarga-rapida").forEach(btn => {
       btn.addEventListener("click", async (e) => {
         e.stopPropagation();
@@ -303,7 +327,28 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
   let draft = { numero: "", tipo: tipoDefecto || "factura", fecha: todayIso(), fecha_vencimiento: "", cliente_id: "", proyecto_id: null, proyecto_nombre: "", lineas: [{ concepto: "", cantidad: 1, precio: 0, proyecto_id: "", descripcion: "", descuento_tipo: "porcentaje", descuento_valor: 0 }], iva_pct: 21, retencion_pct: 0, estado: "borrador", descuento_tipo: "porcentaje", descuento_valor: 0, condiciones: [] };
   let origenProyectoTexto = "";
 
-  if (facturaId) {
+  let duplicado = null;
+  if (!facturaId) {
+    try {
+      const raw = sessionStorage.getItem("jml_documento_duplicar");
+      if (raw) { duplicado = JSON.parse(raw); sessionStorage.removeItem("jml_documento_duplicar"); }
+    } catch (_) { duplicado = null; }
+  }
+
+  if (duplicado) {
+    draft = {
+      ...draft,
+      ...duplicado,
+      id: undefined,
+      numero: "",
+      fecha: todayIso(),
+      fecha_vencimiento: "",
+      estado: "borrador",
+      proyecto_id: null,
+      lineas: (duplicado.lineas || []).map(l => ({ proyecto_id: "", descripcion: "", descuento_tipo: "porcentaje", descuento_valor: 0, ...l, proyecto_id: "" })),
+    };
+    draft.numero = draft.tipo === "presupuesto" ? await nextNumeroPresupuesto() : await nextNumero();
+  } else if (facturaId) {
     const [{ data }, { data: vinculos }] = await Promise.all([
       db.from("facturas").select("*").eq("id", facturaId).single().exec(),
       db.from("factura_proyectos").select("importe,proyecto_id,proyectos(nombre)").eq("factura_id", facturaId).exec(),
