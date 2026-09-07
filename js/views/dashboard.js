@@ -5,7 +5,7 @@ import { construirLedger, resumenPeriodo, resumenTrimestre, rangoMes, rangoAnio,
 import { escapeHtml } from "./clientes.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { skeletonPagina, animarVista } from "../utils/ui.js";
-import { opcionesBase, opcionesDoughnut, barra, barraApilada, patronBarrasApiladas } from "../utils/charts.js";
+import { opcionesBase, opcionesDoughnut, barra, barraApilada } from "../utils/charts.js";
 import { montarCalendario } from "./calendario.js";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
@@ -81,21 +81,20 @@ export async function renderDashboard(container) {
     });
   }
 
-  // "Pendiente de cobro" = ya facturado/emitido pero todavía no cobrado.
-  // "Proyectos en curso" = creado pero aún sin facturar — en cuanto se marca
-  // como emitido/facturado, pasa a la lista de pendiente de cobro. Ambas se
-  // basan en el estado de cobro real del ledger (no en el campo kanban
-  // `proyectos.estado`, que no refleja si ya se ha facturado o cobrado).
-  const pendientes = ledger.filter(f => estadoEfectivo(f) === "emitida");
+  // Todo trabajo con fecha pasada y estado distinto de pagado es dinero que
+  // todavía no se ha cobrado. Antes solo se incluían las filas "emitida", de
+  // modo que proyectos antiguos aún marcados como "pendiente" desaparecían
+  // del KPI y se clasificaban engañosamente como trabajos en curso.
+  const pendientes = ledger.filter(f => estadoEfectivo(f) !== "pagada" && (!f.fecha || f.fecha <= hoyIso));
   const pendienteTotal = pendientes.reduce((s,f)=>s+conIvaSegunPago(f.importeBase, f.proyecto.forma_pago),0);
-  const enCurso = ledger.filter(f => estadoEfectivo(f) === "pendiente").slice(0, 8);
+  const enCurso = ledger.filter(f => estadoEfectivo(f) === "pendiente" && f.fecha && f.fecha > hoyIso).slice(0, 8);
 
   const porEstado = Object.keys(ESTADOS_COBRO).map(k => ({ key: k, label: ESTADOS_COBRO[k].label, fg: ESTADOS_COBRO[k].fg, count: ledger.filter(f=>estadoEfectivo(f)===k).length }));
 
   container.innerHTML = `
     <div class="grid grid-4" style="margin-bottom:20px;">
       <div class="card kpi"><div class="label">Facturado este mes</div><div class="value">${eur(resumenMes.transferencia + resumenMes.efectivo)}</div><div class="stat-note">Transferencia + efectivo</div></div>
-      <div class="card kpi"><div class="label">Pendiente de cobro</div><div class="value">${eur(pendienteTotal)}</div><div class="stat-note">${pendientes.length} proyecto(s) emitido(s)</div></div>
+      <div class="card kpi"><div class="label">Pendiente de cobro</div><div class="value">${eur(pendienteTotal)}</div><div class="stat-note">${pendientes.length} proyecto(s) sin cobrar</div></div>
       <div class="card kpi"><div class="label">Beneficio fiscal (cobrado, año)</div><div class="value pos">${eur(resumenAnualCobrado.beneficioFiscalPagado)}</div><div class="stat-note">Cobrado − gastos deducibles</div></div>
       <div class="card kpi dark"><div class="label">Provisión Modelo 130 (T${qActual})</div><div class="value">${eur(provision.aIngresar)}</div><div class="stat-note" style="color:#B9C0DA">Estimación del trimestre</div></div>
     </div>
@@ -141,10 +140,10 @@ export async function renderDashboard(container) {
         </table>
       </div>
       <div class="card">
-        <div class="card-head"><h3>Pendiente de cobro</h3><span class="help-tip" title="Proyectos ya facturados/emitidos que todavía no se han cobrado.">i</span></div>
+        <div class="card-head"><h3>Pendiente de cobro</h3><span class="help-tip" title="Proyectos con fecha pasada que todavía no constan como cobrados. Se indica si están emitidos o aún por facturar.">i</span></div>
         <table>
-          <thead><tr><th>Proyecto</th><th>Cliente</th><th class="money">Importe c/IVA</th></tr></thead>
-          <tbody>${pendientes.slice(0,8).map(f => `<tr class="clickable" data-proyecto-id="${f.proyecto.id}"><td><strong>${escapeHtml(f.proyecto.nombre)}</strong></td><td>${escapeHtml(clientesMap[f.proyecto.cliente_id]||"—")}</td><td class="money">${eur(conIvaSegunPago(f.importeBase, f.proyecto.forma_pago))}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Nada pendiente 🎉</td></tr>`}</tbody>
+          <thead><tr><th>Proyecto</th><th>Cliente</th><th>Estado</th><th class="money">Importe c/IVA</th></tr></thead>
+          <tbody>${pendientes.slice(0,8).map(f => `<tr class="clickable" data-proyecto-id="${f.proyecto.id}"><td><strong>${escapeHtml(f.proyecto.nombre)}</strong></td><td>${escapeHtml(clientesMap[f.proyecto.cliente_id]||"—")}</td><td>${estadoEfectivo(f) === "emitida" ? "Emitido" : "Por facturar"}</td><td class="money">${eur(conIvaSegunPago(f.importeBase, f.proyecto.forma_pago))}</td></tr>`).join("") || `<tr><td colspan="4" class="muted">Nada pendiente 🎉</td></tr>`}</tbody>
         </table>
         ${pendientes.length ? `<p style="margin-top:10px;"><a href="#/mensual">Ver y marcar como pagadas →</a></p>` : ""}
       </div>
@@ -172,10 +171,8 @@ export async function renderDashboard(container) {
           { label: "Efectivo", data: datosEfectivo, ...barraApilada("#F2B84B"), stack: "s" },
         ],
       },
-      plugins: [patronBarrasApiladas],
       options: (() => {
         const o = opcionesBase(eur);
-        o.plugins.patronBarrasApiladas = { patrones: { 1: "rayas" } };
         o.scales.x.stacked = true;
         o.scales.y.stacked = true;
         return o;
