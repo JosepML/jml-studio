@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-07 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit: pendiente de publicar.
+> · Último commit: `a8ab98b`.
 
 ## Situación actual y reglas operativas
 
@@ -61,7 +61,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - `57cbd5b` — estados de error homogéneos con reintento.
 - `886e615` — reintento de Facturas/Presupuestos corregido.
 - `5218b8b` — registro de tareas sincronizado.
-- Corrección preparada: reintentos de Facturación mensual y Financiero sin parámetros inexistentes.
+- `a8ab98b` — reintentos de Facturación mensual y Financiero corregidos sin parámetros inexistentes.
 
 Cuando se complete o cambie un punto, actualiza esta sección y añade una línea al
 registro antes de hacer commit. Si una decisión del usuario contradice el histórico
