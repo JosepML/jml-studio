@@ -6,7 +6,7 @@ import { escapeHtml } from "./clientes.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { skeletonPagina, animarVista, estadoError } from "../utils/ui.js";
 import { opcionesBase, opcionesDoughnut, barra, barraApilada, leyendaConTotales } from "../utils/charts.js";
-import { montarCalendario } from "./calendario.js";
+import { montarCalendario } from "./calendario.js?v=6606cf1";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 let chartMensualDash = null;
