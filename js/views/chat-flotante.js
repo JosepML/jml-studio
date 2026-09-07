@@ -137,6 +137,9 @@ async function cargarContexto() {
 
   contexto = {
     fecha_hoy: hoy.toISOString().slice(0, 10),
+    fuente: "proyectos, facturas, clientes y gastos guardados en Supabase",
+    num_proyectos: (proyectos || []).length,
+    num_gastos: (gastos || []).length,
     anio,
     trimestre_actual: Math.floor(hoy.getMonth() / 3) + 1,
     modelo130_pct_configurado: cfg.modelo130_pct,
@@ -221,6 +224,10 @@ export function montarChatFlotante() {
       <input type="text" data-input aria-label="Pregunta al chat financiero" placeholder="Pregunta sobre tu facturación, gastos…" autocomplete="off">
       <button class="btn btn-primary" type="submit">Enviar</button>
     </form>
+    <details class="chat-fuentes">
+      <summary>Datos usados para responder</summary>
+      <p data-fuentes>Se actualizarán al hacer una pregunta.</p>
+    </details>
     <p class="chat-nota">Respuestas orientativas — confírmalo con tu gestoría.</p>
   `;
 
@@ -230,6 +237,16 @@ export function montarChatFlotante() {
   const $mensajes = $panel.querySelector("[data-mensajes]");
   const $input = $panel.querySelector("[data-input]");
   const $conversacion = $panel.querySelector("[data-conversacion]");
+
+  function pintarFuentes(ctx) {
+    const fecha = ctx?.fecha_hoy
+      ? new Date(`${ctx.fecha_hoy}T00:00:00`).toLocaleDateString("es-ES")
+      : "—";
+    const texto = ctx
+      ? `Fuente: ${ctx.fuente}. ${ctx.num_proyectos} proyectos y ${ctx.num_gastos} gastos. Actualizado el ${fecha}.`
+      : "Se actualizarán al hacer una pregunta.";
+    $panel.querySelector("[data-fuentes]").textContent = texto;
+  }
 
   function pintarConversaciones() {
     $conversacion.innerHTML = conversaciones.length
@@ -325,6 +342,7 @@ export function montarChatFlotante() {
 
     try {
       const ctx = await cargarContexto();
+      pintarFuentes(ctx);
       const previos = historial.filter(m => !m.pensando && !m.error).slice(0, -1);
       const respuesta = await preguntarAsistenteFinanciero(pregunta, ctx, previos);
       historial = historial.filter(m => !m.pensando);

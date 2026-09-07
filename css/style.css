@@ -1280,6 +1280,7 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 .chat-panel.minimizado{height:58px;}
 .chat-panel.minimizado .chat-cuerpo,
 .chat-panel.minimizado .chat-pie,
+.chat-panel.minimizado .chat-fuentes,
 .chat-panel.minimizado .chat-nota{display:none;}
 .chat-panel.minimizado .chat-cab{cursor:pointer;}
 
@@ -1318,6 +1319,9 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
 .chat-pie{display:flex; gap:8px; padding:11px 12px 0; flex:0 0 auto;}
 .chat-pie input{flex:1; min-width:0;}
 .chat-nota{margin:7px 12px 11px; font-size:10.5px; color:var(--grey); flex:0 0 auto;}
+.chat-fuentes{margin:8px 12px 0; font-size:10.5px; color:var(--grey); flex:0 0 auto;}
+.chat-fuentes summary{cursor:pointer; color:var(--grey-fg); font-weight:600;}
+.chat-fuentes p{margin:5px 0 0; line-height:1.45;}
 
 @media (max-width:600px){
   .chat-panel{right:10px; left:10px; bottom:10px; width:auto; height:min(72vh, calc(100vh - 20px));}
