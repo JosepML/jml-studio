@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-07 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit de código verificado: `1668ab6`.
+> · Último commit de código verificado: `6606cf1`.
 
 ## Situación actual y reglas operativas
 
@@ -64,6 +64,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - `a8ab98b` — reintentos de Facturación mensual y Financiero corregidos sin parámetros inexistentes.
 - Verificación real 2026-09-07: Dashboard, Facturación mensual, Financiero, Facturas y Clientes cargan en GitHub Pages con sesión y datos reales; paginación y filas accesibles visibles.
 - Verificación funcional 2026-09-07: Facturación mensual exporta Excel y PDF con aviso de descarga; Clientes filtra por búsqueda, cambia a la página 2 y vuelve a la 1; el editor de factura abre con cliente vacío y permite avanzar sin guardar, manteniendo la descarga bloqueada hasta completar los datos.
+- `6606cf1` — renovación de Google Calendar integrada en cambiar de mes, recargar y guardar/editar eventos; caché del service worker actualizada a `v54`.
 
 Cuando se complete o cambie un punto, actualiza esta sección y añade una línea al
 registro antes de hacer commit. Si una decisión del usuario contradice el histórico
@@ -692,13 +693,14 @@ cada lado:
   siempre: si el proyecto tiene factura vinculada marca la factura; si no, el
   proyecto.
 
-### Google Calendar: revertido el intento del "primer clic"
-No funcionaba y encima molestaba ("clicas y no lleva a nada"). Vuelve el botón
-explícito, con el texto "Ver mi agenda" cuando el permiso ya está dado. Lo
-único que se queda del intento es el token en `localStorage` (antes en
-sessionStorage), así que dura su hora completa aunque cierre el navegador.
-**En `gcal.js` hay escrito qué se probó y por qué no puede funcionar: no lo
-vuelvas a intentar sin leerlo.**
+### Google Calendar: renovación desde acciones reales
+Google Identity Services no permite renovar silenciosamente un token caducado
+en una app estática: exige un gesto del usuario. El token se conserva en
+`localStorage` durante su hora de vida, y la app pide la renovación directamente
+desde los controles de cambiar de mes, recargar y guardar/editar eventos. Así no
+hay un segundo paso después de que falle una petición. El botón explícito
+`Actualizar conexión` solo aparece al conectar por primera vez o si Google
+rechaza la renovación.
 
 ### Exportación a Excel y PDF (lo más grande de la sesión)
 Dos módulos nuevos, con botones "⤓ Excel" y "⤓ PDF" en **Facturación mensual**,
@@ -760,15 +762,9 @@ responde `popup_failed_to_open`. Por eso hay `gcal.preparar()` (al montar la
 vista) separado de `gcal.pedirToken()` (pegado al clic).
 
 **No existe renovación silenciosa en este flujo.** El token dura una hora y no
-hay refresh token sin servidor. Se probaron en producción las dos vías que
-prometen silencio y las DOS contestan `popup_failed_to_open`: `prompt: "none"`
-a secas, y `prompt: "none"` + `hint` con su correo. Google exige gesto siempre.
-La salida (a petición suya, 2026-08-02) es `enPrimerClic()`: si ya autorizó
-antes (`jml_gcal_autorizado` en localStorage), se deja un oyente `once` en
-`document` y el token se pide en el primer clic que haga en cualquier parte de
-la app, con `prompt: "none"`, sin enseñarle ningún botón. El botón "Conectar"
-solo aparece si ese intento falla. El token vive ahora en **localStorage**
-(antes en sessionStorage, y por eso se perdía al cerrar el navegador).
+hay refresh token sin servidor. La renovación se hace con `requestAccessToken()`
+pegado al clic que inició la acción del calendario; no se intenta pedir desde
+un `await` posterior porque Google lo bloquea.
 
 ⚠️ **Sin verificar de punta a punta:** que el clic real produzca el token no se
 pudo comprobar desde la sesión —los clics sintéticos no llegaban a la página—.
