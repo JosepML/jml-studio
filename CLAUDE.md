@@ -43,6 +43,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 
 - `8b93b7a` — filas del directorio de clientes accesibles con teclado.
 - `225f10e` — barras apiladas con tramas por serie para no depender solo del color.
+- Responsive: tablas operativas con desplazamiento táctil y aviso de contenido horizontal; filas del Dashboard accesibles con teclado (pendiente de probar en móvil físico).
 - `a3b01d7` — paginación del directorio de clientes fijada al fondo de la tarjeta.
 - `cd0f845` — tooltips sin datos evitados.
 - `3fb6c89` — círculo de estados de proyectos conservado.

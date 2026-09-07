@@ -124,14 +124,14 @@ export async function renderDashboard(container) {
              el mismo realce de fila (tr.clickable:hover) que Pendiente de cobro. -->
         <table>
           <thead><tr><th>Proyecto</th><th>Cliente</th><th class="money">Importe</th></tr></thead>
-          <tbody>${enCurso.map(f => `<tr class="clickable" data-proyecto-id="${f.proyecto.id}"><td><strong>${escapeHtml(f.proyecto.nombre)}</strong></td><td>${escapeHtml(clientesMap[f.proyecto.cliente_id]||"—")}</td><td class="money">${eur(f.importeBase)}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">No hay proyectos sin facturar. <a href="#/proyectos">Crea uno</a>.</td></tr>`}</tbody>
+          <tbody>${enCurso.map(f => `<tr class="clickable" data-proyecto-id="${f.proyecto.id}" role="button" tabindex="0" aria-label="Abrir proyecto ${escapeHtml(f.proyecto.nombre)}"><td><strong>${escapeHtml(f.proyecto.nombre)}</strong></td><td>${escapeHtml(clientesMap[f.proyecto.cliente_id]||"—")}</td><td class="money">${eur(f.importeBase)}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">No hay proyectos sin facturar. <a href="#/proyectos">Crea uno</a>.</td></tr>`}</tbody>
         </table>
       </div>
       <div class="card">
         <div class="card-head"><h3>Pendiente de cobro</h3><span class="help-tip" title="Proyectos ya emitidos que todavía no se han cobrado.">i</span></div>
         <table>
           <thead><tr><th>Proyecto</th><th>Cliente</th><th class="money">Importe c/IVA</th></tr></thead>
-          <tbody>${pendientes.slice(0,8).map(f => `<tr class="clickable" data-proyecto-id="${f.proyecto.id}"><td><strong>${escapeHtml(f.proyecto.nombre)}</strong></td><td>${escapeHtml(clientesMap[f.proyecto.cliente_id]||"—")}</td><td class="money">${eur(conIvaSegunPago(f.importeBase, f.proyecto.forma_pago))}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Nada pendiente 🎉</td></tr>`}</tbody>
+          <tbody>${pendientes.slice(0,8).map(f => `<tr class="clickable" data-proyecto-id="${f.proyecto.id}" role="button" tabindex="0" aria-label="Abrir proyecto ${escapeHtml(f.proyecto.nombre)}"><td><strong>${escapeHtml(f.proyecto.nombre)}</strong></td><td>${escapeHtml(clientesMap[f.proyecto.cliente_id]||"—")}</td><td class="money">${eur(conIvaSegunPago(f.importeBase, f.proyecto.forma_pago))}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Nada pendiente 🎉</td></tr>`}</tbody>
         </table>
         ${pendientes.length ? `<p style="margin-top:10px;"><a href="#/mensual">Ver y marcar como pagadas →</a></p>` : ""}
       </div>
@@ -139,7 +139,14 @@ export async function renderDashboard(container) {
 
   container.querySelectorAll("[data-proyecto-id]").forEach(el => {
     el.style.cursor = "pointer";
-    el.addEventListener("click", () => { location.hash = `#/proyectos/${el.dataset.proyectoId}`; });
+    const abrirProyecto = () => { location.hash = `#/proyectos/${el.dataset.proyectoId}`; };
+    el.addEventListener("click", abrirProyecto);
+    el.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        abrirProyecto();
+      }
+    });
   });
 
   const ctxMes = container.querySelector("#chart-dash-mensual");

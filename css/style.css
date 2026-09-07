@@ -233,7 +233,8 @@ tr:last-child td{border-bottom:none;}
 tr.clickable{cursor:pointer; transition:background-color .14s var(--ease);}
 tr.clickable:hover{background:linear-gradient(90deg, rgba(62,111,224,.05), rgba(62,111,224,.02));}
 th.money, td.money{text-align:right;}
-.table-scroll{overflow:auto; max-height:62vh;}
+.table-scroll{overflow:auto; max-height:62vh; -webkit-overflow-scrolling:touch; scrollbar-gutter:stable;}
+.table-scroll table{min-width:680px;}
 .table-scroll thead th{position:sticky; top:0; background:rgba(255,255,255,.92); backdrop-filter:blur(6px); z-index:1;}
 
 /* ---------- Botones ---------- */
@@ -395,6 +396,14 @@ details.card table input[type="checkbox"]{width:auto; padding:0;}
   .mes-meta{display:none;}
   .mes-nombre{min-width:0;}
   .mes-total{min-width:0;}
+}
+
+@media (max-width:700px){
+  /* Las tablas operativas conservan todas sus columnas, pero se deslizan con
+     inercia y dejan claro que hay más contenido a la derecha. */
+  .table-scroll{margin-inline:-12px; padding-inline:12px;}
+  .table-scroll table{min-width:640px;}
+  .table-scroll::after{content:"Desliza horizontalmente para ver más"; display:block; padding:8px 0 0; color:var(--grey); font-size:11px; text-align:right;}
 }
 
 @media (max-width:480px){
