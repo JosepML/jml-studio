@@ -76,7 +76,10 @@ export async function renderClientes(container, param) {
   const ctx = container.querySelector("#chart-clientes");
   if (ctx && window.Chart) {
     if (chartClientes) { chartClientes.destroy(); chartClientes = null; }
-      const top = ranking.slice(0, 8);
+    const otros = ranking.slice(7);
+    const top = ranking.length > 8
+      ? [...ranking.slice(0, 7), { cliente: { nombre: `Otros (${otros.length})` }, total: round2(otros.reduce((s, r) => s + r.total, 0)) }]
+      : ranking;
     if (!top.length) {
       container.querySelector("#clientes-chart-wrap").innerHTML = `<p class="muted" style="padding-top:20px;">Todavía no hay proyectos facturados a ningún cliente.</p>`;
     } else {
