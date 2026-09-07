@@ -18,7 +18,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 
 ### Completado
 
-- Fiabilidad: carga con esqueletos, errores visibles, smoke test de navegación y fuente única para cifras financieras.
+- Fiabilidad: carga con esqueletos, estados de error/vacío unificados con reintento, smoke test de navegación y fuente única para cifras financieras.
 - Flujo diario: cliente vacío por defecto, validaciones de factura, wizard de documentos, duplicado de facturas/presupuestos, borrado de borradores y alertas agrupadas.
 - Dashboard: lógica separada de pendiente de facturar y pendiente de cobro; se excluyen futuros; IVA e IRPF solo cuentan documentos emitidos del trimestre vigente; tarjetas separadas y sin texto accesorio innecesario.
 - Clientes: ficha por pestañas, alta en modal, búsqueda, paginación, orden reciente, ocultación de clientes a 0 €, ranking con `Otros (N)` sin excluir importes, etiquetas exactas y tooltips corregidos.

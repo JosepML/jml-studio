@@ -4,7 +4,7 @@ import { calcularModelo130Trimestral, round2 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, resumenTrimestre, resumenIvaTrimestre, rangoMes, rangoAnio, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
 import { escapeHtml } from "./clientes.js";
 import { getConfig } from "../utils/config-usuario.js";
-import { skeletonPagina, animarVista } from "../utils/ui.js";
+import { skeletonPagina, animarVista, estadoError } from "../utils/ui.js";
 import { opcionesBase, opcionesDoughnut, barra, barraApilada, leyendaConTotales } from "../utils/charts.js";
 import { montarCalendario } from "./calendario.js";
 
@@ -23,7 +23,7 @@ export async function renderDashboard(container) {
     db.from("gastos").select("*").exec(),
     db.from("clientes").select("id,nombre").exec(),
   ]);
-  if (e1 || e2 || e3 || e4) { container.innerHTML = `<p class="muted">Error cargando el dashboard: ${e1||e2||e3||e4}</p>`; return; }
+  if (e1 || e2 || e3 || e4) { container.innerHTML = estadoError(e1||e2||e3||e4); container.querySelector("[data-reintentar]")?.addEventListener("click", () => renderDashboard(container)); return; }
 
   const clientesMap = Object.fromEntries((clientes||[]).map(c=>[c.id,c.nombre]));
   const ledger = construirLedger(proyectos, facturaProyectos);

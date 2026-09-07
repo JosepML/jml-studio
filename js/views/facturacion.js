@@ -4,7 +4,7 @@ import { ESTADOS_FACTURA, ESTADOS_PRESUPUESTO, eur, dateEs, todayIso, CATEGORIAS
 import { escapeHtml, escapeAttr, abrirModalNuevoCliente } from "./clientes.js";
 import { CONFIG_NEGOCIO } from "../utils/config-negocio.js";
 import { mejorarDescripcionConIA, tieneClaveIA } from "../ai/mistral.js";
-import { toastOk, toastError, confirmar, confirmarBorrado, skeletonTabla, engancharArrastre } from "../utils/ui.js";
+import { toastOk, toastError, confirmar, confirmarBorrado, skeletonTabla, engancharArrastre, estadoError } from "../utils/ui.js";
 import { listarCondiciones, crearCondicion, borrarCondicion, textosPorDefecto, textosFijasDeGrupo, GRUPOS_CONDICION } from "../utils/condiciones.js";
 import { listarServicios, crearServicio, etiquetaServicio, servicioALinea } from "../utils/servicios.js";
 
@@ -85,7 +85,7 @@ async function renderLista(container, cfg) {
     db.from("facturas").select("*").order("fecha", { ascending: false }).exec(),
     db.from("clientes").select("id,nombre,nif,direccion").exec(),
   ]);
-  if (error) { container.innerHTML = `<p class="muted">Error: ${error}</p>`; return; }
+  if (error) { container.innerHTML = estadoError(error); container.querySelector("[data-reintentar]")?.addEventListener("click", () => renderFacturacion(container, param)); return; }
   const clientesMap = Object.fromEntries((clientes || []).map(c => [c.id, c]));
   // Orden del listado: por número, el más alto arriba. Antes iba por fecha, y
   // como Josep emite varios el mismo día el orden salía arbitrario (y al

@@ -49,6 +49,12 @@ export function toast(mensaje, { tipo = "", duracion = DURACION_DEFECTO } = {}) 
 export function toastOk(mensaje) { return toast(mensaje, { tipo: "ok" }); }
 export function toastError(mensaje) { return toast(mensaje, { tipo: "err", duracion: 0 }); }
 
+export function estadoError(mensaje) {
+  const texto = String(mensaje || "Error desconocido");
+  const seguro = texto.replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  return `<div class="estado-error" role="alert"><strong>No se ha podido cargar esta sección</strong><span>${seguro}</span><button class="btn btn-ghost" type="button" data-reintentar>Reintentar</button></div>`;
+}
+
 // Diálogo de confirmación. Devuelve una promesa que resuelve a true/false.
 // Se cierra con Escape, con clic fuera o con los botones. El foco entra
 // directamente en el botón de confirmar para poder responder con Enter.

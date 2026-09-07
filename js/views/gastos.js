@@ -3,7 +3,7 @@ import { eur, dateEs, todayIso, CATEGORIAS_GASTO } from "../utils/format.js";
 import { gastoDeducibleTotal, sumaGastosDeduciblesEnRango, round2 } from "../utils/invoice-calc.js";
 import { TABLA_AMORTIZACION, mesesPorTipoBien, UMBRAL_AMORTIZACION } from "../utils/amortizacion.js";
 import { escapeHtml, escapeAttr } from "./clientes.js";
-import { toastOk, toastError, confirmarBorrado, skeletonPagina, animarVista } from "../utils/ui.js";
+import { toastOk, toastError, confirmarBorrado, skeletonPagina, animarVista, estadoError } from "../utils/ui.js";
 import { opcionesBase, barra, eurEje } from "../utils/charts.js";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
@@ -13,7 +13,7 @@ export async function renderGastos(container, param) {
   container.innerHTML = skeletonPagina({ kpis: 4, filas: 8 });
 
   const { data: gastos, error } = await db.from("gastos").select("*").order("fecha", { ascending: false }).exec();
-  if (error) { container.innerHTML = `<p class="muted">Error cargando gastos: ${error}</p>`; return; }
+  if (error) { container.innerHTML = estadoError(error); container.querySelector("[data-reintentar]")?.addEventListener("click", () => renderGastos(container, param)); return; }
 
   const anioActual = new Date().getFullYear();
   const anios = Array.from(new Set([...(gastos || []).map(g => new Date(g.fecha).getFullYear()), anioActual])).sort((a,b)=>b-a);

@@ -3,7 +3,7 @@ import { eur, CATEGORIAS_SERVICIO, CATEGORIAS_GASTO } from "../utils/format.js";
 import { calcularModelo130Trimestral, gastoDeducibleEnRango, round2, PLAZOS_MODELO_130_2026 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, resumenTrimestre, resumenIvaTrimestre, rangoMes, rangoAnio, estadoEfectivo } from "../utils/resumen.js";
 import { getConfig } from "../utils/config-usuario.js";
-import { skeletonPagina, animarVista, toastOk, toastError } from "../utils/ui.js";
+import { skeletonPagina, animarVista, toastOk, toastError, estadoError } from "../utils/ui.js";
 import { opcionesBase, barra, barraApilada, leyendaConTotales, eurEje } from "../utils/charts.js";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
@@ -57,7 +57,7 @@ export async function renderFinanciero(container) {
     db.from("facturas").select("*").exec(),
     db.from("gastos").select("*").exec(),
   ]);
-  if (e1 || e2 || e3 || e4) { container.innerHTML = `<p class="muted">Error cargando datos: ${e1||e2||e3||e4}</p>`; return; }
+  if (e1 || e2 || e3 || e4) { container.innerHTML = estadoError(e1||e2||e3||e4); container.querySelector("[data-reintentar]")?.addEventListener("click", () => renderFinanciero(container, param)); return; }
 
   const ledger = construirLedger(proyectos, facturaProyectos);
   // Las previsiones fiscales solo consideran trabajos ya emitidos o pagados;

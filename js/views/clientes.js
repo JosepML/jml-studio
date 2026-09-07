@@ -2,7 +2,7 @@ import { db } from "../supabase.js";
 import { eur, dateEs, ESTADOS_FACTURA, ESTADOS_PRESUPUESTO } from "../utils/format.js";
 import { construirLedger } from "../utils/resumen.js";
 import { round2 } from "../utils/invoice-calc.js";
-import { toastOk, toastError, confirmarBorrado, animarVista, skeletonTabla } from "../utils/ui.js";
+import { toastOk, toastError, confirmarBorrado, animarVista, skeletonTabla, estadoError } from "../utils/ui.js";
 import { opcionesBase, barra, eurEje } from "../utils/charts.js";
 import { parseClienteDesdeTexto } from "../ai/parser.js";
 
@@ -44,7 +44,7 @@ export async function renderClientes(container, param) {
   // La navegación es asíncrona: si se cambia de sección mientras llegan los
   // datos, esta vista puede haber sido desmontada y no debe tocar nodos viejos.
   if (!$list?.isConnected || container !== document.getElementById("content")) return;
-  if (error) { $list.innerHTML = `<p class="muted">Error cargando clientes: ${error}</p>`; return; }
+  if (error) { $list.innerHTML = estadoError(error); $list.querySelector("[data-reintentar]")?.addEventListener("click", () => renderClientes(container, param)); return; }
 
   // Ojo: el arranque pinta la vista dos veces (la segunda al llegar los datos
   // del emisor), así que sin esta guarda el diálogo se abría por duplicado.

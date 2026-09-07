@@ -5,7 +5,7 @@ import { round2 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
 import { escapeHtml } from "./clientes.js";
 import { nextNumero } from "./facturacion.js";
-import { toastOk, toastError, confirmar as confirmarDialogo, skeletonPagina, engancharArrastre } from "../utils/ui.js";
+import { toastOk, toastError, confirmar as confirmarDialogo, skeletonPagina, engancharArrastre, estadoError } from "../utils/ui.js";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
@@ -19,7 +19,7 @@ export async function renderMensual(container) {
     db.from("gastos").select("*").exec(),
     db.from("facturas").select("id,numero,estado,tipo").order("numero").exec(),
   ]);
-  if (e1 || e2) { container.innerHTML = `<p class="muted">Error cargando datos: ${e1 || e2}</p>`; return; }
+  if (e1 || e2) { container.innerHTML = estadoError(e1 || e2); container.querySelector("[data-reintentar]")?.addEventListener("click", () => renderMensual(container, param)); return; }
 
   const clientesMap = Object.fromEntries((clientes || []).map(c => [c.id, c.nombre]));
   const anioActual = new Date().getFullYear();

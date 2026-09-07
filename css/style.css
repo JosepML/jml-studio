@@ -318,6 +318,10 @@ select::-ms-expand{display:none;}
 .tabs button.active{color:var(--navy); font-weight:700; border-bottom-color:var(--blue);}
 .empty-state{text-align:center; padding:48px 20px; color:var(--grey); font-size:13.5px;}
 .empty-state .btn{margin-top:14px;}
+.estado-error{display:flex; flex-direction:column; align-items:center; gap:8px; padding:42px 20px; border:1px solid #F0CFC9; border-radius:var(--radius-sm); background:var(--red-bg); color:var(--red-fg); text-align:center;}
+.estado-error strong{font-size:14px;}
+.estado-error span{max-width:620px; font-size:12px; color:var(--grey-fg);}
+.estado-error .btn{margin-top:4px;}
 .ai-banner{background:linear-gradient(120deg,var(--purple-bg),#EFF3FD); color:var(--purple-fg); padding:14px 18px; border-radius:var(--radius-sm); font-size:13px; margin-bottom:16px; font-weight:500; border-left:3px solid var(--purple-fg);}
 
 /* ---------- Acordeones mensuales ---------- */

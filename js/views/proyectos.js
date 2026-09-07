@@ -3,7 +3,7 @@ import { ESTADOS_FACTURA, ESTADOS_COBRO, FORMAS_PAGO, CATEGORIAS_SERVICIO, eur, 
 import { construirLedger, conIva, estadoEfectivo, rangoAnio, resumenPeriodo, conIvaSegunPago } from "../utils/resumen.js";
 import { round2 } from "../utils/invoice-calc.js";
 import { escapeHtml, escapeAttr } from "./clientes.js";
-import { toastOk, toastError, confirmarBorrado, skeletonPagina } from "../utils/ui.js";
+import { toastOk, toastError, confirmarBorrado, skeletonPagina, estadoError } from "../utils/ui.js";
 
 export async function renderProyectos(container, param) {
   container.innerHTML = skeletonPagina({ kpis: 4, filas: 10 });
@@ -14,7 +14,7 @@ export async function renderProyectos(container, param) {
     db.from("factura_proyectos").select("importe,factura_id,proyecto_id,facturas(numero,estado,fecha,tipo)").exec(),
     db.from("gastos").select("id,proyecto_id").exec(),
   ]);
-  if (error) { container.innerHTML = `<p class="muted">Error cargando proyectos: ${error}</p>`; return; }
+  if (error) { container.innerHTML = estadoError(error); container.querySelector("[data-reintentar]")?.addEventListener("click", () => renderProyectos(container, param)); return; }
 
   const clientesMap = Object.fromEntries((clientes || []).map(c => [c.id, c.nombre]));
   const ledger = construirLedger(proyectos, facturaProyectos);
