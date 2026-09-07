@@ -76,10 +76,28 @@ export async function renderClientes(container, param) {
   const ctx = container.querySelector("#chart-clientes");
   if (ctx && window.Chart) {
     if (chartClientes) { chartClientes.destroy(); chartClientes = null; }
-    const top = ranking.slice(0, 8);
+      const top = ranking.slice(0, 8);
     if (!top.length) {
       container.querySelector("#clientes-chart-wrap").innerHTML = `<p class="muted" style="padding-top:20px;">Todavía no hay proyectos facturados a ningún cliente.</p>`;
     } else {
+      const etiquetasImporte = {
+        id: "etiquetas-importe-clientes",
+        afterDatasetsDraw(chart) {
+          const { ctx: canvas, chartArea, scales } = chart;
+          const valores = chart.data.datasets[0].data;
+          canvas.save();
+          canvas.font = "600 11px Inter, sans-serif";
+          canvas.fillStyle = "#26324D";
+          canvas.textBaseline = "middle";
+          canvas.textAlign = "left";
+          valores.forEach((valor, i) => {
+            const x = Math.min(scales.x.getPixelForValue(valor) + 8, chartArea.right - 58);
+            const y = scales.y.getPixelForValue(i);
+            canvas.fillText(eur(valor), x, y);
+          });
+          canvas.restore();
+        },
+      };
       chartClientes = new window.Chart(ctx, {
         type: "bar",
         data: {
@@ -94,8 +112,11 @@ export async function renderClientes(container, param) {
           o.scales.x.ticks.callback = eurEje;
           o.scales.y.grid.display = false;
           o.scales.y.ticks = { font: { size: 11, family: "Inter" }, color: "#7A8399", autoSkip: false };
+          o.scales.x.suggestedMax = Math.max(...top.map(r => r.total), 0) * 1.18;
+          o.layout = { padding: { right: 64 } };
           return o;
         })(),
+        plugins: [etiquetasImporte],
       });
     }
   }
