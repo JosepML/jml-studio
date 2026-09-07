@@ -300,7 +300,7 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
     listarServicios({ soloActivos: true }),
     listarCondiciones({ soloActivas: true }),
   ]);
-  let draft = { numero: "", tipo: tipoDefecto || "factura", fecha: todayIso(), fecha_vencimiento: "", cliente_id: clientes?.[0]?.id || "", proyecto_id: null, proyecto_nombre: "", lineas: [{ concepto: "", cantidad: 1, precio: 0, proyecto_id: "", descripcion: "", descuento_tipo: "porcentaje", descuento_valor: 0 }], iva_pct: 21, retencion_pct: 0, estado: "borrador", descuento_tipo: "porcentaje", descuento_valor: 0, condiciones: [] };
+  let draft = { numero: "", tipo: tipoDefecto || "factura", fecha: todayIso(), fecha_vencimiento: "", cliente_id: "", proyecto_id: null, proyecto_nombre: "", lineas: [{ concepto: "", cantidad: 1, precio: 0, proyecto_id: "", descripcion: "", descuento_tipo: "porcentaje", descuento_valor: 0 }], iva_pct: 21, retencion_pct: 0, estado: "borrador", descuento_tipo: "porcentaje", descuento_valor: 0, condiciones: [] };
   let origenProyectoTexto = "";
 
   if (facturaId) {
@@ -420,7 +420,10 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
                 <label>Cliente</label>
                 <button class="btn btn-ghost btn-sm" id="btn-nuevo-cliente-doc" type="button">+ Nuevo cliente</button>
               </div>
-              <select id="f-cliente">${(clientes || []).map(c => `<option value="${c.id}" ${c.id === draft.cliente_id ? "selected" : ""}>${escapeHtml(c.nombre)}</option>`).join("")}</select>
+              <select id="f-cliente">
+                <option value="">Selecciona un cliente</option>
+                ${(clientes || []).map(c => `<option value="${c.id}" ${c.id === draft.cliente_id ? "selected" : ""}>${escapeHtml(c.nombre)}</option>`).join("")}
+              </select>
             </div>
           </div>
           ${draft.tipo === "presupuesto" ? `
