@@ -120,14 +120,14 @@ body{
 .grid-5{grid-template-columns:repeat(5,1fr);}
 .grid-2{grid-template-columns:1fr 1fr;}
 .grid-3{grid-template-columns:repeat(3,1fr);}
-.grid-side{grid-template-columns:1.6fr 1fr; align-items:start;}
+.grid-side{grid-template-columns:1.35fr 1fr; align-items:start;}
 @media(max-width:1180px){.grid-4, .grid-5{grid-template-columns:repeat(2,1fr);}}
 @media(max-width:900px){.grid-2{grid-template-columns:1fr;} .grid-3{grid-template-columns:1fr;}}
 @media(max-width:860px){.grid-side{grid-template-columns:1fr;}}
 
 /* El ranking de clientes no debe estirarse hasta la altura de la tabla:
    necesita aire alrededor, pero no una gran zona blanca debajo del gráfico. */
-.clientes-chart-wrap{position:relative; height:300px;}
+.clientes-chart-wrap{position:relative; height:500px;}
 .clientes-list-head{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;}
 .clientes-list-head h3{margin:0;}
 .clientes-list-actions{display:flex; align-items:center; gap:8px;}
@@ -152,6 +152,7 @@ body{
 .clientes-paginacion .icon-btn{width:28px; height:28px;}
 .clientes-sin-resultados{padding:24px 8px; color:var(--grey); text-align:center; font-size:13px;}
 @media(max-width:640px){.clientes-list-head{align-items:flex-start; flex-direction:column;}.clientes-list-actions{width:100%;}.clientes-list-actions input{flex:1; width:auto;}.clientes-list-actions .btn{white-space:nowrap;}}
+@media(max-width:860px){.clientes-chart-wrap{height:340px;}}
 @media(max-width:700px){.cliente-fila{grid-template-columns:36px minmax(0,1fr) 18px; gap:10px;}.cliente-estado,.cliente-facturado{display:none;}.cliente-avatar{width:36px;height:36px;}}
 
 /* ---------- Tarjetas ---------- */

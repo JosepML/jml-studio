@@ -102,7 +102,7 @@ export async function renderClientes(container, param) {
         type: "bar",
         data: {
           labels: top.map(r => r.cliente.nombre),
-          datasets: [{ label: "Facturado", data: top.map(r => r.total), ...barra("#3E6FE0", { maxBarThickness: 24 }), borderRadius: 7 }],
+          datasets: [{ label: "Facturado", data: top.map(r => r.total), ...barra("#3E6FE0", { maxBarThickness: 32 }), borderRadius: 8 }],
         },
         options: (() => {
           const o = opcionesBase(eur);
