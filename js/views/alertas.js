@@ -117,7 +117,10 @@ export async function calcularAlertas() {
   // Gastos fijos que aparecen en meses anteriores pero no en el mes en curso.
   {
     const mesIdx = hoy.getMonth();
-    const limpio = (c) => c.replace(/[\d\/\-]+$/, "").trim();
+    // Los gastos recurrentes pueden llevar el número de factura al final
+    // (p. ej. "Google One (fra. 123-4)"). Ese sufijo no identifica un gasto
+    // distinto: solo cambia cada vez que se registra el mismo fijo.
+    const limpio = (c) => c.replace(/\s*\((?:fra\.?|factura)[^)]*\)\s*$/i, "").trim();
     const antes = new Set();
     (gastos || []).filter(g => g.tipo === "fijo" && g.fecha).forEach(g => {
       const f = new Date(g.fecha + "T00:00:00");
