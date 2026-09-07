@@ -618,7 +618,7 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
             <button class="btn btn-dark" id="btn-pdf">Descargar PDF</button>
             ${puedeConvertir ? `<button class="btn btn-ghost" id="btn-convertir" type="button" style="border-color:var(--green-fg); color:var(--green-fg);">Convertir en factura →</button>` : ""}
             ${puedeConvertir ? `<button class="btn btn-ghost" id="btn-convertir-proyecto" type="button" style="border-color:var(--blue); color:var(--blue);">${draft.proyecto_id ? "Ver el proyecto →" : "Convertir en proyecto →"}</button>` : ""}
-            ${(!esNuevo && draft.tipo === "presupuesto") ? `<button class="btn btn-ghost" id="btn-borrar-doc" type="button" style="border-color:var(--red-fg,#B4453A); color:var(--red-fg,#B4453A);">Eliminar</button>` : ""}
+            ${(!esNuevo && (draft.tipo === "presupuesto" || draft.estado === "borrador")) ? `<button class="btn btn-ghost" id="btn-borrar-doc" type="button" style="border-color:var(--red-fg,#B4453A); color:var(--red-fg,#B4453A);">Eliminar borrador</button>` : ""}
           </div>
         </div>
       </aside>
@@ -1312,10 +1312,21 @@ pintarCondiciones();
   });
 
   container.querySelector("#btn-borrar-doc")?.addEventListener("click", async () => {
-    if (!await confirmarBorrado(`el presupuesto ${draft.numero}`)) return;
+    if (draft.tipo === "factura" && container.querySelector("#f-estado").value !== "borrador") {
+      toastError("Solo se pueden eliminar facturas en borrador.");
+      return;
+    }
+    const nombreDoc = draft.tipo === "presupuesto" ? `el presupuesto ${draft.numero}` : `la factura en borrador ${draft.numero}`;
+    if (!await confirmarBorrado(nombreDoc)) return;
+    // Se eliminan primero los vínculos para no dejar filas huérfanas si la
+    // instalación de Supabase no tiene configurado ON DELETE CASCADE.
+    if (draft.tipo === "factura") {
+      const { error: errorVinculos } = await db.from("factura_proyectos").delete().eq("factura_id", facturaId).exec();
+      if (errorVinculos) { toastError("No se puede eliminar la factura: " + errorVinculos); return; }
+    }
     const { error } = await db.from("facturas").delete().eq("id", facturaId).exec();
     if (error) { toastError("Error eliminando: " + error); return; }
-    toastOk(`Presupuesto ${draft.numero} eliminado.`);
+    toastOk(`${draft.tipo === "presupuesto" ? "Presupuesto" : "Factura en borrador"} ${draft.numero} eliminado.`);
     location.hash = volver;
   });
 
