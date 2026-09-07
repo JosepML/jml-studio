@@ -120,7 +120,7 @@ body{
 .grid-5{grid-template-columns:repeat(5,1fr);}
 .grid-2{grid-template-columns:1fr 1fr;}
 .grid-3{grid-template-columns:repeat(3,1fr);}
-.grid-side{grid-template-columns:1.35fr 1fr; align-items:stretch;}
+.grid-side{grid-template-columns:1.1fr 1.25fr; align-items:stretch;}
 @media(max-width:1180px){.grid-4, .grid-5{grid-template-columns:repeat(2,1fr);}}
 @media(max-width:900px){.grid-2{grid-template-columns:1fr;} .grid-3{grid-template-columns:1fr;}}
 @media(max-width:860px){.grid-side{grid-template-columns:1fr;}}
