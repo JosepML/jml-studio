@@ -586,6 +586,10 @@ export function crearPresupuestoPdf(doc, cfg, numero, fechaStr, proyecto, lineas
 
 // Carga assets/logo.png (relativo a la raíz de la app) y devuelve
 // { dataUrl, w, h } listo para pasar a crearPresupuestoPdf, o null si falla.
+// El logo original puede tener miles de píxeles aunque en el documento se
+// dibuje a unos pocos centímetros. Incrustarlo sin reducirlo hacía que algunos
+// PDFs ocuparan varios megabytes. 600 px en el lado mayor son más que
+// suficientes para el tamaño al que se imprime aquí y conservan transparencia.
 export async function cargarLogoDataUrl() {
   try {
     const resp = await fetch("assets/logo.png");
@@ -597,13 +601,23 @@ export async function cargarLogoDataUrl() {
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
-    const { w, h } = await new Promise((resolve, reject) => {
+    const { img, w: originalW, h: originalH } = await new Promise((resolve, reject) => {
       const img = new Image();
-      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onload = () => resolve({ img, w: img.naturalWidth, h: img.naturalHeight });
       img.onerror = reject;
       img.src = dataUrl;
     });
-    return { dataUrl, w, h };
+    const maxLado = 600;
+    const escala = Math.min(1, maxLado / Math.max(originalW, originalH));
+    if (escala === 1) return { dataUrl, w: originalW, h: originalH };
+
+    const w = Math.max(1, Math.round(originalW * escala));
+    const h = Math.max(1, Math.round(originalH * escala));
+    const lienzo = document.createElement("canvas");
+    lienzo.width = w;
+    lienzo.height = h;
+    lienzo.getContext("2d").drawImage(img, 0, 0, w, h);
+    return { dataUrl: lienzo.toDataURL("image/png"), w, h };
   } catch {
     return null;
   }
