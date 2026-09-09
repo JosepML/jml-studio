@@ -1470,7 +1470,7 @@ async function descargarPdfDocumento(doc, cliente) {
   // La maquetación del documento solo hace falta al descargarlo. Mantenerla
   // como import dinámico evita cargarla al entrar en Facturas o Presupuestos.
   let pdfDocumentos;
-  try { pdfDocumentos = await import("../utils/pdf-documentos.js"); } catch (e) {
+  try { pdfDocumentos = await import("../utils/pdf-documentos.js?v=816e8a9"); } catch (e) {
     toastError("No se ha podido cargar el diseño del PDF: " + e.message);
     return;
   }

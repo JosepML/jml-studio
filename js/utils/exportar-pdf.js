@@ -17,7 +17,7 @@ import {
 } from "./resumen.js";
 import { CATEGORIAS_GASTO, eur } from "./format.js";
 import { filasFacturacion, filasGastos, imputacionGastos, porCliente, sello } from "./exportar-excel.js";
-import { cargarLogoDataUrl } from "./pdf-documentos.js";
+import { cargarLogoDataUrl } from "./pdf-documentos.js?v=816e8a9";
 import { CONFIG_NEGOCIO } from "./config-negocio.js";
 
 const CDN_JSPDF = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
