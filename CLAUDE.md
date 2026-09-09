@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-07 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit de código verificado: `6606cf1` · documentación/caché: `99f6ec2`.
+> · Último commit de código verificado: `6753a8d`.
 
 ## Situación actual y reglas operativas
 
@@ -25,6 +25,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - Diseño: gráficos financieros directos; círculo de estados de proyectos conservado; tarjetas y ranking equilibrados; paginación del directorio fijada al fondo.
 - Accesibilidad y rendimiento: foco visible, filas de clientes operables con teclado, etiquetas de gráficos, módulos PDF/Excel/Chart.js bajo demanda, historial de conversaciones y origen de datos de IA.
 - Google Calendar: renovación del token verificada en producción desde el cambio de mes; tras renovar, los eventos se cargan correctamente.
+- PDFs: el logo se reduce antes de incrustarlo, evitando que los documentos arrastren la resolución original y ocupen varios megabytes.
 
 ### Pendiente de verificación o decisión
 
@@ -68,6 +69,8 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - `6606cf1` — renovación de Google Calendar integrada en cambiar de mes, recargar y guardar/editar eventos; caché del service worker actualizada a `v54`.
 - `565f13e` — invalidación de `app → dashboard → calendario` para que GitHub Pages no reutilice módulos antiguos del navegador.
 - Verificación real 2026-09-07: con el token de Calendar caducado, cambiar de mes inició la renovación y cargó los eventos de octubre correctamente.
+- `816e8a9` — reducción del logo incrustado en los PDFs para disminuir su tamaño.
+- `6753a8d` — invalidación de caché de los módulos PDF y actualización del service worker a `v55`.
 
 Cuando se complete o cambie un punto, actualiza esta sección y añade una línea al
 registro antes de hacer commit. Si una decisión del usuario contradice el histórico
