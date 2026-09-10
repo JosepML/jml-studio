@@ -2,8 +2,8 @@
 
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
-> Última revisión: 2026-09-07 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit de código verificado: `4186aa7`.
+> Última revisión: 2026-09-10 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
+> · Último commit de código verificado: `d608289`.
 
 ## Situación actual y reglas operativas
 
