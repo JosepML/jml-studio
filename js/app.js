@@ -1,6 +1,6 @@
 import { auth } from "./supabase.js";
 import { renderDashboard } from "./views/dashboard.js?v=6606cf1";
-import { renderClientes } from "./views/clientes.js";
+import { renderClientes } from "./views/clientes.js?v=025159f";
 import { renderProyectos } from "./views/proyectos.js";
 import { renderFacturacion, renderPresupuestos } from "./views/facturacion.js";
 import { renderFinanciero } from "./views/financiero.js";
