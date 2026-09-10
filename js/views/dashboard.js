@@ -13,15 +13,9 @@ let chartMensualDash = null;
 let chartEstados = null;
 let chartBeneficioDash = null;
 
-function inicialesCliente(nombre) {
-  return String(nombre || "?").trim().split(/\s+/).filter(Boolean).slice(0, 2)
-    .map(parte => parte[0]).join("").toUpperCase();
-}
-
 function filaProyectoDashboard(fila, clientesMap, importe, estado, claseEstado) {
   const nombreCliente = clientesMap[fila.proyecto.cliente_id] || "Sin cliente";
   return `<div class="cliente-fila dashboard-proyecto-fila clickable" data-proyecto-id="${fila.proyecto.id}" role="button" tabindex="0" aria-label="Abrir proyecto ${escapeHtml(fila.proyecto.nombre)}">
-    <div class="cliente-avatar" aria-hidden="true">${escapeHtml(inicialesCliente(nombreCliente))}</div>
     <div class="cliente-identidad">
       <strong>${escapeHtml(fila.proyecto.nombre)}</strong>
       <span>${escapeHtml(nombreCliente)}</span>
