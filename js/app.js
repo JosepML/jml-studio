@@ -1,7 +1,7 @@
 import { auth } from "./supabase.js";
 import { renderDashboard } from "./views/dashboard.js?v=dashboard-projects-pagination-20260910";
 import { renderClientes } from "./views/clientes.js?v=025159f";
-import { renderProyectos } from "./views/proyectos.js?v=proyecto-wizard-20260910-3";
+import { renderProyectos } from "./views/proyectos.js?v=proyecto-wizard-20260910-4";
 import { renderFacturacion, renderPresupuestos } from "./views/facturacion.js";
 import { renderFinanciero } from "./views/financiero.js";
 import { renderGastos } from "./views/gastos.js";

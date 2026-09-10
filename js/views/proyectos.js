@@ -259,7 +259,9 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
     { id: "confirmacion", label: "Confirmación" },
   ];
   const $backdrop = document.createElement("div");
-  $backdrop.className = "modal-backdrop";
+  // Facturación mensual puede tener muchas filas montadas detrás. El modal
+  // conserva la capa de contraste, pero su CSS evita el desenfoque costoso.
+  $backdrop.className = "modal-backdrop proyecto-wizard-backdrop";
   $backdrop.innerHTML = `
     <div class="modal ancho proyecto-wizard-modal" role="dialog" aria-modal="true" aria-labelledby="npw-titulo">
       <div class="wizard-head card">

@@ -1062,6 +1062,7 @@ tr.soltar-aqui td{border-top:2px solid var(--blue);}
      transición, igual que en el editor de facturas. */
   align-self:flex-start; margin-top:20px;
 }
+.proyecto-wizard-backdrop{backdrop-filter:none; background:rgba(15,20,35,.58);}
 .proyecto-wizard-modal .wizard-head{margin:0 0 16px;}
 .proyecto-wizard-modal .wizard-footer{margin-top:16px;}
 /* Campo rellenado por el analizador de texto: se marca para que se revise. */
