@@ -382,10 +382,6 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
     $anterior.hidden = pasoActual === 0;
     $siguiente.textContent = pasoActual === pasos.length - 1 ? "Crear proyecto" : "Continuar →";
     if (pasoActual === pasos.length - 1) pintarRepaso();
-    // Igual que el wizard de facturas: el cambio de paso no anima cada campo
-    // con un transform independiente, sino que recoloca suavemente el modal.
-    // Así no hay saltos ni tirones cuando los pasos tienen alturas distintas.
-    requestAnimationFrame(() => $backdrop.querySelector(".proyecto-wizard-modal")?.scrollTo({ top: 0, behavior: "smooth" }));
   }
   function irAPaso(indice) {
     pasoActual = Math.max(0, Math.min(pasos.length - 1, indice));
