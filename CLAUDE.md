@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-10 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit de código verificado: `e1a6a25` (ajuste de rendimiento pendiente de publicar).
+> · Último commit de código verificado: `154a00f` (limpieza visual pendiente de publicar).
 
 ## Situación actual y reglas operativas
 
@@ -52,6 +52,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 
 ## Registro de cambios recientes
 
+- Ajuste pendiente: eliminar del wizard de proyectos los textos auxiliares “Proceso guiado” y “Organiza el trabajo…”.
 - Ajuste pendiente: el backdrop del wizard de proyectos evita `backdrop-filter` para no recomponer toda Facturación mensual durante la animación.
 - Ajuste pendiente: el wizard de proyectos se fija al inicio del modal para evitar que su centrado vertical mueva la barra durante la transición.
 - `b3e2872` — eliminar el `scrollTo` del cambio de paso, que provocaba tirones al cambiar entre contenidos de distinta altura.

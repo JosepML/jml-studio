@@ -267,10 +267,8 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
       <div class="wizard-head card">
         <div class="wizard-head-top">
           <div>
-            <p class="wizard-kicker">Proceso guiado</p>
             <h2 class="wizard-titulo" id="npw-titulo">Nuevo proyecto</h2>
           </div>
-          <p class="wizard-ayuda">Organiza el trabajo paso a paso. Puedes saltar directamente a cualquier sección.</p>
         </div>
         <div class="wizard-progreso"><span id="npw-barra"></span></div>
         <div class="wizard-pasos" id="npw-pasos"></div>
