@@ -248,14 +248,211 @@ export async function renderProyectos(container, param) {
 // diálogo encima de la página, igual que la ficha de cliente o el gasto, para
 // no perder de vista dónde estabas ni tener que navegar a otra sección.
 // `clientes` puede venir vacío: si falta, se cargan aquí.
-export async function abrirFichaProyecto(proyecto, clientes, onGuardado) {
+function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
+  const fechaInicial = opciones.fechaInicial || todayIso();
+  const fechaMin = opciones.fechaMin || "";
+  const fechaMax = opciones.fechaMax || "";
+  const pasos = [
+    { id: "proyecto", label: "Proyecto" },
+    { id: "fechas", label: "Fechas" },
+    { id: "importes", label: "Importes" },
+    { id: "detalles", label: "Detalles" },
+    { id: "confirmacion", label: "Confirmación" },
+  ];
+  const $backdrop = document.createElement("div");
+  $backdrop.className = "modal-backdrop";
+  $backdrop.innerHTML = `
+    <div class="modal ancho proyecto-wizard-modal" role="dialog" aria-modal="true" aria-labelledby="npw-titulo">
+      <div class="wizard-head card">
+        <div class="wizard-head-top">
+          <div>
+            <p class="wizard-kicker">Proceso guiado</p>
+            <h2 class="wizard-titulo" id="npw-titulo">Nuevo proyecto</h2>
+          </div>
+          <p class="wizard-ayuda">Organiza el trabajo paso a paso. Puedes saltar directamente a cualquier sección.</p>
+        </div>
+        <div class="wizard-progreso"><span id="npw-barra"></span></div>
+        <div class="wizard-pasos" id="npw-pasos"></div>
+      </div>
+
+      <div class="proyecto-wizard-cuerpo">
+        <section class="paso" data-paso="proyecto">
+          <div class="card">
+            <div class="card-head"><h3>Proyecto</h3></div>
+            <div class="field"><label for="npw-nombre">Nombre del proyecto</label><input id="npw-nombre" placeholder="Ej. Vídeo evento…" autofocus></div>
+            <div class="row">
+              <div class="field" style="flex:2;"><label for="npw-cliente">Cliente</label>
+                <select id="npw-cliente"><option value="">— Sin cliente —</option>${clientes.map(c => `<option value="${escapeAttr(c.id)}">${escapeHtml(c.nombre)}</option>`).join("")}</select>
+              </div>
+              <div class="field"><label for="npw-categoria">Tipo de servicio</label>
+                <select id="npw-categoria">${Object.entries(CATEGORIAS_SERVICIO).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("")}</select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="paso" data-paso="fechas" hidden>
+          <div class="card">
+            <div class="card-head"><h3>Planificación</h3></div>
+            <p class="muted">Indica cuándo empieza el trabajo y, si lo sabes, cuándo termina.</p>
+            <div class="row">
+              <div class="field"><label for="npw-inicio">Fecha de inicio</label><input type="date" id="npw-inicio" value="${fechaInicial}" min="${fechaMin}" max="${fechaMax}"></div>
+              <div class="field"><label for="npw-entrega">Fecha de entrega</label><input type="date" id="npw-entrega" min="${fechaMin}" max="${fechaMax}"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="paso" data-paso="importes" hidden>
+          <div class="card">
+            <div class="card-head"><h3>Importes y cobro</h3></div>
+            <div class="row">
+              <div class="field" style="flex:2;"><label for="npw-precio">Precio acordado (€, sin IVA)</label><input id="npw-precio" type="number" step="0.01" min="0" value="0"></div>
+              <div class="field"><label for="npw-forma">Forma de pago</label><select id="npw-forma">${Object.entries(FORMAS_PAGO).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("")}</select></div>
+            </div>
+            <div class="row">
+              <div class="field"><label for="npw-coste">Coste asociado (€)</label><input id="npw-coste" type="number" step="0.01" min="0" value="0"></div>
+              <div class="field"><label for="npw-horas">Horas invertidas</label><input id="npw-horas" type="number" step="0.5" min="0" value="0"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="paso" data-paso="detalles" hidden>
+          <div class="card">
+            <div class="card-head"><h3>Detalles del trabajo</h3></div>
+            <div class="field"><label for="npw-entregables">Entregables</label><textarea id="npw-entregables" rows="5" placeholder="Un entregable por línea"></textarea></div>
+            <div class="field"><label for="npw-notas">Notas</label><textarea id="npw-notas" rows="4" placeholder="Información útil para este proyecto…"></textarea></div>
+          </div>
+        </section>
+
+        <section class="paso" data-paso="confirmacion" hidden>
+          <div class="card">
+            <div class="card-head"><h3>Todo listo</h3></div>
+            <div id="npw-repaso"></div>
+          </div>
+        </section>
+      </div>
+
+      <div class="wizard-footer" id="npw-footer">
+        <span class="wizard-footer-paso" id="npw-etiqueta"></span>
+        <div class="wizard-footer-acciones">
+          <button class="btn btn-ghost" id="npw-anterior" type="button">← Anterior</button>
+          <button class="btn btn-ghost" id="npw-cancelar" type="button">Cancelar</button>
+          <button class="btn btn-primary" id="npw-siguiente" type="button">Continuar →</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild($backdrop);
+
+  let pasoActual = 0;
+  const visitados = new Set([0]);
+  const $pasos = $backdrop.querySelector("#npw-pasos");
+  const $barra = $backdrop.querySelector("#npw-barra");
+  const $anterior = $backdrop.querySelector("#npw-anterior");
+  const $siguiente = $backdrop.querySelector("#npw-siguiente");
+  const $etiqueta = $backdrop.querySelector("#npw-etiqueta");
+
+  const campo = id => $backdrop.querySelector(`#npw-${id}`);
+  const pasoCompleto = id => {
+    if (id === "proyecto") return !!campo("nombre").value.trim();
+    if (id === "fechas") return !!campo("inicio").value;
+    if (id === "importes") return Number(campo("precio").value || 0) >= 0 && Number(campo("coste").value || 0) >= 0;
+    return true;
+  };
+  const pintarPasos = () => {
+    $pasos.innerHTML = pasos.map((p, i) => `<button class="wz-paso" data-npw-paso="${i}" type="button"><span class="wz-paso-num"><span class="wz-num-cifra">${i + 1}</span><span class="wz-num-check">✓</span><span class="wz-num-aviso">!</span></span><span class="wz-paso-txt"><strong>${p.label}</strong><small></small></span></button>`).join("");
+    $pasos.querySelectorAll("[data-npw-paso]").forEach(btn => btn.addEventListener("click", () => irAPaso(Number(btn.dataset.npwPaso))));
+  };
+  const actualizarPasos = () => $pasos.querySelectorAll("[data-npw-paso]").forEach(btn => {
+    const i = Number(btn.dataset.npwPaso);
+    const completo = pasoCompleto(pasos[i].id);
+    const visitado = visitados.has(i) && i !== pasoActual;
+    btn.classList.toggle("activo", i === pasoActual);
+    btn.classList.toggle("hecho", visitado && completo);
+    btn.classList.toggle("incompleto", visitado && !completo);
+    btn.querySelector("small").textContent = i === pasoActual ? (completo ? "En curso" : "En curso · falta algo") : visitado && completo ? "Completado" : visitado ? "Incompleto" : "Pendiente";
+  });
+  const pintarRepaso = () => {
+    const cliente = clientes.find(c => c.id === campo("cliente").value);
+    const inicio = campo("inicio").value;
+    const entrega = campo("entrega").value || inicio;
+    $backdrop.querySelector("#npw-repaso").innerHTML = `<div class="repaso-grid">
+      <div><span>Proyecto</span><strong>${escapeHtml(campo("nombre").value || "—")}</strong></div>
+      <div><span>Cliente</span><strong>${escapeHtml(cliente?.nombre || "Sin cliente")}</strong></div>
+      <div><span>Fechas</span><strong>${inicio ? dateEs(inicio) : "—"} → ${entrega ? dateEs(entrega) : "—"}</strong></div>
+      <div><span>Precio acordado</span><strong>${eur(Number(campo("precio").value || 0))}</strong></div>
+      <div><span>Forma de pago</span><strong>${escapeHtml(FORMAS_PAGO[campo("forma").value]?.label || "—")}</strong></div>
+      <div><span>Entregables</span><strong>${campo("entregables").value.split("\n").map(s => s.trim()).filter(Boolean).length}</strong></div>
+    </div>`;
+  };
+  function mostrarPaso() {
+    $backdrop.querySelectorAll(".paso").forEach(section => { section.hidden = section.dataset.paso !== pasos[pasoActual].id; });
+    actualizarPasos();
+    $barra.style.width = `${((pasoActual + 1) / pasos.length) * 100}%`;
+    $etiqueta.textContent = `Paso ${pasoActual + 1} de ${pasos.length} · ${pasos[pasoActual].label}`;
+    $anterior.hidden = pasoActual === 0;
+    $siguiente.textContent = pasoActual === pasos.length - 1 ? "Crear proyecto" : "Continuar →";
+    if (pasoActual === pasos.length - 1) pintarRepaso();
+  }
+  function irAPaso(indice) {
+    pasoActual = Math.max(0, Math.min(pasos.length - 1, indice));
+    visitados.add(pasoActual);
+    mostrarPaso();
+  }
+  const cerrar = () => { $backdrop.remove(); document.removeEventListener("keydown", alPulsarEsc); };
+  const alPulsarEsc = e => { if (e.key === "Escape") cerrar(); };
+  document.addEventListener("keydown", alPulsarEsc);
+  $backdrop.addEventListener("mousedown", e => { if (e.target === $backdrop) cerrar(); });
+  $backdrop.querySelector("#npw-cancelar").addEventListener("click", cerrar);
+  $anterior.addEventListener("click", () => irAPaso(pasoActual - 1));
+  $siguiente.addEventListener("click", async () => {
+    if (pasoActual < pasos.length - 1) { irAPaso(pasoActual + 1); return; }
+    const nombre = campo("nombre").value.trim();
+    const fechaInicio = campo("inicio").value || fechaInicial;
+    const fechaEntrega = campo("entrega").value || fechaInicio;
+    if (!nombre) { irAPaso(0); toastError("Ponle un nombre al proyecto."); campo("nombre").focus(); return; }
+    if (!fechaInicio) { irAPaso(1); toastError("Indica la fecha de inicio."); campo("inicio").focus(); return; }
+    if (fechaEntrega < fechaInicio) { irAPaso(1); toastError("La fecha de entrega no puede ser anterior al inicio."); campo("entrega").focus(); return; }
+    if ((fechaMin && fechaInicio < fechaMin) || (fechaMax && fechaInicio > fechaMax) || (fechaMin && fechaEntrega < fechaMin) || (fechaMax && fechaEntrega > fechaMax)) {
+      irAPaso(1); toastError(`Las fechas deben estar dentro de ${opciones.mesNombre || "el periodo seleccionado"}.`); return;
+    }
+    const payload = {
+      cliente_id: campo("cliente").value || null,
+      nombre,
+      estado: "en_curso",
+      fecha_inicio: fechaInicio,
+      fecha_entrega: fechaEntrega,
+      horas_invertidas: Number(campo("horas").value || 0),
+      coste_asociado: Number(campo("coste").value || 0),
+      precio_acordado: Number(campo("precio").value || 0),
+      forma_pago: campo("forma").value,
+      estado_facturacion: "pendiente",
+      categoria_servicio: campo("categoria").value,
+      entregables: campo("entregables").value.split("\n").map(s => s.trim()).filter(Boolean),
+      notas: campo("notas").value.trim(),
+    };
+    $siguiente.disabled = true;
+    const { error } = await db.from("proyectos").insert(payload).exec();
+    $siguiente.disabled = false;
+    if (error) { toastError("No se ha podido crear el proyecto: " + error); return; }
+    cerrar();
+    toastOk(opciones.mesNombre ? `"${nombre}" añadido a ${opciones.mesNombre}.` : `Proyecto "${nombre}" creado.`);
+    if (onGuardado) await onGuardado(payload);
+  });
+  $backdrop.querySelectorAll("input, select, textarea").forEach(input => input.addEventListener("input", actualizarPasos));
+  pintarPasos();
+  mostrarPaso();
+  campo("nombre").focus();
+}
+
+export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opciones = {}) {
   const esNuevo = !proyecto;
   if (!clientes || !clientes.length) {
     const { data } = await db.from("clientes").select("id,nombre").order("nombre").exec();
     clientes = data || [];
   }
-  // Al crear un proyecto no se debe asignar silenciosamente el primer cliente
-  // de la lista: es fácil guardar un trabajo con datos de otra persona.
+  if (esNuevo) return abrirNuevoProyectoWizard(clientes, onGuardado, opciones);
+  // En edición se trabaja siempre sobre el proyecto recibido; el alta nueva
+  // ya ha salido por el wizard anterior y no selecciona ningún cliente solo.
   proyecto = proyecto || { nombre: "", cliente_id: "", estado: "en_curso", fecha_inicio: todayIso(), fecha_entrega: "", horas_invertidas: 0, coste_asociado: 0, precio_acordado: 0, entregables: [], forma_pago: "transferencia", estado_facturacion: "pendiente", categoria_servicio: "otros", notas: "" };
 
   const $detalle = document.createElement("div");

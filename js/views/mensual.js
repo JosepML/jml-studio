@@ -1,5 +1,5 @@
 import { db } from "../supabase.js";
-import { abrirFichaProyecto } from "./proyectos.js";
+import { abrirFichaProyecto } from "./proyectos.js?v=proyecto-wizard-20260910";
 import { eur, FORMAS_PAGO, todayIso } from "../utils/format.js";
 import { round2 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
@@ -453,80 +453,15 @@ export async function renderMensual(container) {
       });
     });
 
-    // --- Botón "+ Añadir proyecto" por mes: abre un mini-formulario inline ---
+    // --- Botón "+ Añadir proyecto" por mes: abre el alta guiada en modal ---
     $body.querySelectorAll(".btn-add-mes").forEach(btn => {
       btn.addEventListener("click", () => {
         const mes = Number(btn.dataset.mes);
-        // El botón vive dentro del <summary> del <details> del mes. Un <details>
-        // cerrado oculta con CSS nativo todo lo que no sea el <summary> (incluido
-        // este formulario), así que si el mes está colapsado hay que abrirlo a
-        // mano — el toggle nativo del navegador no siempre se dispara cuando el
-        // clic viene de un elemento interactivo anidado (este botón) dentro del
-        // summary, sobre todo tras el stopPropagation() del onclick inline.
-        const $details = $body.querySelector(`details[data-mes="${mes}"]`);
-        // Se fuerza en un tick posterior (setTimeout 0): el navegador procesa el
-        // toggle nativo del <summary> justo después de que termine de repartir
-        // este evento de clic, así que si lo hacemos aquí mismo (síncrono) el
-        // toggle nativo lo pisa a continuación y el mes se queda cerrado.
-        setTimeout(() => { if ($details && !$details.open) { $details.open = true; mesesAbiertos.add(mes); } }, 0);
-        const $slot = $body.querySelector(`.add-proyecto-mes[data-mes="${mes}"]`);
-        if ($slot.innerHTML) { $slot.innerHTML = ""; return; }
-        // Se limita el selector de fecha al propio mes (min/max) para que no
-        // se pueda elegir por error un día de otro mes — p. ej. si el
-        // calendario nativo abre mostrando el mes en curso en vez del mes
-        // elegido. Así "añadir proyecto" desde un mes concreto siempre
-        // respeta ese mes, tanto en el desplegable como al guardar.
         const { desde: minFecha, hasta: maxFecha } = rangoMes(anio, mes);
-        $slot.innerHTML = `
-          <div class="card" style="background:var(--light); margin:10px 0; padding:14px;">
-            <div class="row">
-              <div class="field" style="flex:2"><label>Nombre del proyecto</label><input id="np-nombre" placeholder="Ej. Vídeo evento..."></div>
-              <div class="field"><label>Cliente</label>
-                <select id="np-cliente">
-                  <option value="">— Sin cliente —</option>
-                  ${(clientes||[]).map(c => `<option value="${c.id}">${escapeHtml(c.nombre)}</option>`).join("")}
-                </select>
-              </div>
-            </div>
-            <div class="row">
-              <div class="field"><label>Importe (€, sin IVA)</label><input id="np-importe" type="number" step="0.01" value="0"></div>
-              <div class="field"><label>Forma de pago</label>
-                <select id="np-forma"><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option></select>
-              </div>
-              <div class="field"><label>Fecha (${nombreMesDe(mes)})</label><input id="np-fecha" type="date" value="${rangoDelMes(anio, mes)}" min="${minFecha}" max="${maxFecha}"></div>
-            </div>
-            <div style="display:flex; gap:8px;">
-              <button class="btn btn-primary" id="np-guardar">Guardar proyecto</button>
-              <button class="btn btn-ghost" id="np-cancelar">Cancelar</button>
-            </div>
-          </div>`;
-        $slot.querySelector("#np-cancelar").addEventListener("click", () => { $slot.innerHTML = ""; });
-        $slot.querySelector("#np-guardar").addEventListener("click", async () => {
-          const nombre = $slot.querySelector("#np-nombre").value.trim();
-          if (!nombre) { toastError("Ponle un nombre al proyecto."); $slot.querySelector("#np-nombre").focus(); return; }
-          let fecha = $slot.querySelector("#np-fecha").value || rangoDelMes(anio, mes);
-          // Red de seguridad: si por lo que sea la fecha se sale del mes
-          // elegido (pegado manual, autocompletado del navegador...), se
-          // fuerza de vuelta al mes correcto en vez de dejar que el proyecto
-          // "salte" a otro mes silenciosamente.
-          if (fecha < minFecha || fecha > maxFecha) fecha = rangoDelMes(anio, mes);
-          const payload = {
-            cliente_id: $slot.querySelector("#np-cliente").value || null,
-            nombre,
-            estado: "en_curso",
-            fecha_inicio: fecha,
-            fecha_entrega: fecha,
-            precio_acordado: Number($slot.querySelector("#np-importe").value || 0),
-            forma_pago: $slot.querySelector("#np-forma").value,
-            estado_facturacion: "pendiente",
-            entregables: [],
-          };
-          const { error } = await db.from("proyectos").insert(payload).exec();
-          if (error) { toastError("No se ha podido crear el proyecto: " + error); return; }
-          toastOk(`"${nombre}" añadido a ${nombreMesDe(mes)}.`);
+        abrirFichaProyecto(null, clientes || [], async () => {
           await recargarDatos();
           pintar(anio);
-        });
+        }, { fechaInicial: rangoDelMes(anio, mes), fechaMin: minFecha, fechaMax: maxFecha, mesNombre: nombreMesDe(mes) });
       });
     });
 
