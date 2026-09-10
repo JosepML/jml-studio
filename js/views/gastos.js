@@ -12,8 +12,12 @@ let chartCategorias = null;
 export async function renderGastos(container, param) {
   container.innerHTML = skeletonPagina({ kpis: 4, filas: 8 });
 
-  const { data: gastos, error } = await db.from("gastos").select("*").order("fecha", { ascending: false }).exec();
+  const [{ data: gastos, error }, { data: proyectos }] = await Promise.all([
+    db.from("gastos").select("*").order("fecha", { ascending: false }).exec(),
+    db.from("proyectos").select("id,nombre").order("created_at", { ascending: false }).exec(),
+  ]);
   if (error) { container.innerHTML = estadoError(error); container.querySelector("[data-reintentar]")?.addEventListener("click", () => renderGastos(container, param)); return; }
+  const proyectosMap = Object.fromEntries((proyectos || []).map(p => [p.id, p.nombre]));
 
   const anioActual = new Date().getFullYear();
   const anios = Array.from(new Set([...(gastos || []).map(g => new Date(g.fecha).getFullYear()), anioActual])).sort((a,b)=>b-a);
@@ -51,13 +55,13 @@ export async function renderGastos(container, param) {
     <div id="gastos-meses"></div>
   `;
 
-  container.querySelector("#btn-nuevo-gasto").addEventListener("click", () => abrirFormulario(container, null, () => renderGastos(container)));
+  container.querySelector("#btn-nuevo-gasto").addEventListener("click", () => abrirFormulario(container, null, () => renderGastos(container), proyectos || []));
 
   // Igual que en Proyectos y Clientes: "+ Crear → Nuevo gasto" entra por
   // #/gastos/nuevo y el formulario aparece solo.
   // Ojo: el arranque pinta la vista dos veces (la segunda al llegar los datos
   // del emisor), así que sin esta guarda el diálogo se abría por duplicado.
-  if (param === "nuevo" && !document.querySelector(".modal-backdrop")) abrirFormulario(container, null, () => renderGastos(container));
+  if (param === "nuevo" && !document.querySelector(".modal-backdrop")) abrirFormulario(container, null, () => renderGastos(container), proyectos || []);
   let gastosVisibles = gastos;
   const exportar = async (e) => {
     const $btn = e.currentTarget;
@@ -241,7 +245,7 @@ export async function renderGastos(container, param) {
           ${esFuturo ? `<span class="mes-accion"><span class="badge badge-proyectado">Previsto</span></span>` : ""}
         </summary>
         <table style="margin-top:10px;">
-          <thead><tr><th>Fecha</th><th>Concepto</th><th>Categoría</th><th>Pago</th><th class="money">Importe</th><th>Deducible</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Concepto</th><th>Proyecto</th><th>Categoría</th><th>Pago</th><th class="money">Importe</th><th>Deducible</th></tr></thead>
           <tbody>
             ${delMes.map(g => {
               const cat = CATEGORIAS_GASTO[g.categoria] || CATEGORIAS_GASTO.otros;
@@ -251,6 +255,7 @@ export async function renderGastos(container, param) {
               return `<tr class="clickable" data-id="${g.id}">
                 <td>${dateEs(g.fecha)}</td>
                 <td>${escapeHtml(g.concepto)}${amortNota}</td>
+                <td>${escapeHtml(proyectosMap[g.proyecto_id] || "Sin proyecto")}</td>
                 <td><span class="badge" style="background:${cat.bg};color:${cat.fg}">${cat.label}</span></td>
                 <td><span class="badge" style="background:${conFactura?"var(--purple-bg)":"var(--grey-bg)"};color:${conFactura?"var(--purple-fg)":"var(--grey-fg)"}">${conFactura?"Factura":"Efectivo"}</span></td>
                 <td class="money">${eur(g.importe)}</td>
@@ -262,12 +267,12 @@ export async function renderGastos(container, param) {
       </details>`;
     }).join("") || `<div class="empty-state">Sin gastos en este filtro.<br><button class="btn btn-primary" id="btn-nuevo-gasto-vacio">+ Añadir gasto</button></div>`;
 
-    $meses.querySelector("#btn-nuevo-gasto-vacio")?.addEventListener("click", () => abrirFormulario(container, null, () => renderGastos(container)));
+    $meses.querySelector("#btn-nuevo-gasto-vacio")?.addEventListener("click", () => abrirFormulario(container, null, () => renderGastos(container), proyectos || []));
 
     $meses.querySelectorAll("tr[data-id]").forEach(tr => {
       tr.addEventListener("click", () => {
         const gasto = gastos.find(g => g.id === tr.dataset.id);
-        abrirFormulario(container, gasto, () => renderGastos(container));
+        abrirFormulario(container, gasto, () => renderGastos(container), proyectos || []);
       });
     });
 
@@ -275,11 +280,11 @@ export async function renderGastos(container, param) {
   }
 }
 
-function abrirFormulario(container, gasto, onGuardado) {
+function abrirFormulario(container, gasto, onGuardado, proyectos = []) {
   const esNuevo = !gasto;
   gasto = gasto || {
     concepto: "", importe: 0, tipo: "variable", fecha: todayIso(), recurrente: false,
-    categoria: "otros", deducible: true, con_factura: true, iva_soportado: 0, iva_deducible_pct: 100,
+    categoria: "otros", proyecto_id: null, deducible: true, con_factura: true, iva_soportado: 0, iva_deducible_pct: 100,
     es_amortizable: false, tipo_bien: null, meses_amortizacion: null, fecha_inicio_amortizacion: todayIso(),
   };
   // El formulario va en un diálogo, no empotrado en la página: antes se
@@ -304,6 +309,9 @@ function abrirFormulario(container, gasto, onGuardado) {
         <div class="field"><label>Fecha</label><input id="g-fecha" type="date" value="${gasto.fecha}"></div>
       </div>
       <div class="row">
+        <div class="field" style="flex:2"><label>Proyecto asociado <span class="muted">(opcional)</span></label>
+          <select id="g-proyecto"><option value="">— Sin proyecto —</option>${proyectos.map(p => `<option value="${escapeAttr(p.id)}" ${p.id === gasto.proyecto_id ? "selected" : ""}>${escapeHtml(p.nombre)}</option>`).join("")}</select>
+        </div>
         <div class="field"><label>Categoría fiscal</label>
           <select id="g-categoria">
             ${Object.entries(CATEGORIAS_GASTO).map(([k,v]) => `<option value="${k}" ${k===gasto.categoria?"selected":""}>${v.label}</option>`).join("")}
@@ -466,6 +474,7 @@ function abrirFormulario(container, gasto, onGuardado) {
       importe,
       tipo: $wrap.querySelector("#g-tipo").value,
       fecha: $wrap.querySelector("#g-fecha").value || todayIso(),
+      proyecto_id: $wrap.querySelector("#g-proyecto").value || null,
       categoria,
       deducible: esDeducible,
       con_factura: conFactura,

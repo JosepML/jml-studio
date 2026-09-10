@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-10 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit de código verificado: `154a00f` (limpieza visual pendiente de publicar).
+> · Último commit de código verificado: `600715f` (reorganización de la ficha de proyectos y asociación de gastos).
 
 ## Situación actual y reglas operativas
 
@@ -52,9 +52,11 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 
 ## Registro de cambios recientes
 
-- Ajuste pendiente: eliminar del wizard de proyectos los textos auxiliares “Proceso guiado” y “Organiza el trabajo…”.
-- Ajuste pendiente: el backdrop del wizard de proyectos evita `backdrop-filter` para no recomponer toda Facturación mensual durante la animación.
-- Ajuste pendiente: el wizard de proyectos se fija al inicio del modal para evitar que su centrado vertical mueva la barra durante la transición.
+- `pendiente` — el wizard de proyectos ya no muestra subtítulos auxiliares innecesarios.
+- `pendiente` — el backdrop del wizard de proyectos evita `backdrop-filter` para no recomponer toda Facturación mensual durante la animación; el modal se mantiene centrado con altura estable.
+- `pendiente` — la ficha de proyecto se ha aligerado: horas y coste manual dejan de ocupar espacio en Datos; se conservan en la base de datos y los gastos asociados pasan a calcular el coste y margen.
+- `pendiente` — Gastos permite asociar un proyecto; la relación existente en Supabase alimenta automáticamente la pestaña Gastos de la ficha.
+- `pendiente` — entregables, notas y tipo de servicio pasan a “Detalles adicionales”; Cerrar, Guardar, Generar factura y Eliminar quedan en el pie.
 - `b3e2872` — eliminar el `scrollTo` del cambio de paso, que provocaba tirones al cambiar entre contenidos de distinta altura.
 - `bf35eed` — suavizar la navegación del wizard de proyectos y eliminar el paso “Detalles”, que no se utiliza en el alta.
 - `a7a9782` — forzar la carga pública del wizard modal de proyectos mediante invalidación de caché.

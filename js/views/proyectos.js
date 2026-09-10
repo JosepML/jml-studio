@@ -462,7 +462,12 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opcione
     gastos = g.data || [];
     facturasVinculadas = fp.data || [];
   }
-  const margen = Number(proyecto.precio_acordado || 0) - Number(proyecto.coste_asociado || 0);
+  const gastosTotal = round2(gastos.reduce((total, gasto) => total + Number(gasto.importe || 0), 0));
+  // `coste_asociado` se conserva para no perder datos antiguos, pero los
+  // gastos nuevos se imputan desde la pantalla Gastos y también forman parte
+  // del coste y del margen del proyecto.
+  const costeTotal = round2(Number(proyecto.coste_asociado || 0) + gastosTotal);
+  const margen = round2(Number(proyecto.precio_acordado || 0) - costeTotal);
 
   $detalle.innerHTML = `
     <div class="modal ancho" role="dialog" aria-modal="true">
@@ -471,16 +476,12 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opcione
           <h3 style="margin:0;">${esNuevo ? "Nuevo proyecto" : escapeHtml(proyecto.nombre)}</h3>
           ${esNuevo ? "" : `<p class="muted" style="margin:4px 0 0; font-size:12.5px;">${escapeHtml(CATEGORIAS_SERVICIO[proyecto.categoria_servicio || "otros"]?.label || "")}</p>`}
         </div>
-        <div style="display:flex; gap:8px;">
-          ${esNuevo ? "" : `<button class="btn btn-dark" id="btn-generar-factura">Generar factura</button>`}
-          <button class="btn btn-ghost" id="btn-cerrar-ficha" type="button">Cerrar</button>
-        </div>
       </div>
 
       ${esNuevo ? "" : `
       <div class="cli-resumen" style="margin-top:14px;">
         <div><span class="cli-resumen-label">Precio acordado</span><strong>${eur(Number(proyecto.precio_acordado || 0))}</strong></div>
-        <div><span class="cli-resumen-label">Coste</span><strong>${eur(Number(proyecto.coste_asociado || 0))}</strong></div>
+        <div><span class="cli-resumen-label">Costes</span><strong>${eur(costeTotal)}</strong></div>
         <div><span class="cli-resumen-label">Margen</span><strong style="color:${margen >= 0 ? "var(--green-fg)" : "var(--red-fg,#B4453A)"}">${eur(margen)}</strong></div>
         <div><span class="cli-resumen-label">Gastos</span><strong>${gastos.length}</strong></div>
         <div><span class="cli-resumen-label">Documentos</span><strong>${facturasVinculadas.length}</strong></div>
@@ -488,6 +489,7 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opcione
 
       <div class="tabs" id="pro-tabs" style="margin-top:18px;">
         <button data-tab="datos" class="active" type="button">Datos</button>
+        <button data-tab="detalles" type="button">Detalles adicionales</button>
         <button data-tab="gastos" type="button">Gastos (${gastos.length})</button>
         <button data-tab="facturas" type="button">Facturas (${facturasVinculadas.length})</button>
       </div>`}
@@ -506,19 +508,12 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opcione
               ${Object.entries(ESTADOS_COBRO).map(([k, v]) => `<option value="${k}" ${k === (proyecto.estado_facturacion||"pendiente") ? "selected" : ""}>${v.label}</option>`).join("")}
             </select>
           </div>
-          <div class="field"><label>Tipo de servicio</label>
-            <select id="f-categoria-servicio">
-              ${Object.entries(CATEGORIAS_SERVICIO).map(([k, v]) => `<option value="${k}" ${k === (proyecto.categoria_servicio||"otros") ? "selected" : ""}>${v.label}</option>`).join("")}
-            </select>
-          </div>
         </div>
         <div class="row">
           <div class="field"><label>Fecha inicio</label><input type="date" id="f-inicio" value="${proyecto.fecha_inicio || ""}"></div>
           <div class="field"><label>Fecha entrega</label><input type="date" id="f-entrega" value="${proyecto.fecha_entrega || ""}"></div>
         </div>
         <div class="row">
-          <div class="field"><label>Horas invertidas</label><input type="number" step="0.5" id="f-horas" value="${proyecto.horas_invertidas || 0}"></div>
-          <div class="field"><label>Coste asociado (€)</label><input type="number" step="0.01" id="f-coste" value="${proyecto.coste_asociado || 0}"></div>
           <div class="field"><label>Precio acordado (€, sin IVA)</label><input type="number" step="0.01" id="f-precio" value="${proyecto.precio_acordado || 0}"></div>
           <div class="field"><label>Forma de pago</label>
             <select id="f-forma-pago">
@@ -526,14 +521,22 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opcione
             </select>
           </div>
         </div>
-        <div class="field"><label>Entregables (uno por línea)</label><textarea id="f-entregables" rows="3">${(Array.isArray(proyecto.entregables) ? proyecto.entregables : []).join("\n")}</textarea></div>
-        <div class="field"><label>Notas</label><textarea id="f-notas" rows="2">${escapeHtml(proyecto.notas || "")}</textarea></div>
-
-        <div class="form-actions">
-          <button class="btn btn-primary" id="btn-guardar-proyecto">Guardar</button>
-          ${esNuevo ? "" : `<button class="btn btn-danger" id="btn-borrar-proyecto" style="margin-left:auto;">Eliminar</button>`}
-        </div>
       </div>
+
+      ${esNuevo ? "" : `
+      <div data-panel="detalles" hidden>
+        <div class="proyecto-panel-intro">
+          <h4>Detalles adicionales</h4>
+          <p class="muted">Información opcional para tener el proyecto bien documentado.</p>
+        </div>
+        <div class="field"><label>Tipo de servicio</label>
+          <select id="f-categoria-servicio">
+            ${Object.entries(CATEGORIAS_SERVICIO).map(([k, v]) => `<option value="${k}" ${k === (proyecto.categoria_servicio || "otros") ? "selected" : ""}>${v.label}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field"><label>Entregables (uno por línea)</label><textarea id="f-entregables" rows="5">${(Array.isArray(proyecto.entregables) ? proyecto.entregables : []).join("\n")}</textarea></div>
+        <div class="field"><label>Notas</label><textarea id="f-notas" rows="4">${escapeHtml(proyecto.notas || "")}</textarea></div>
+      </div>`}
 
       ${esNuevo ? "" : `
       <div data-panel="gastos" hidden>
@@ -551,6 +554,15 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opcione
         <table><thead><tr><th>Nº</th><th>Tipo</th><th class="money">Importe de este proyecto</th><th class="money">Total factura</th><th>Estado</th></tr></thead>
         <tbody>${facturasVinculadas.map(fp => { const f = fp.facturas; if (!f) return ""; return `<tr class="clickable" data-factura-id="${fp.factura_id}"><td><strong>${escapeHtml(f.numero)}</strong></td><td>${f.tipo}</td><td class="money">${eur(fp.importe)}</td><td class="money">${eur(f.total)}</td><td><span class="badge" style="background:${ESTADOS_FACTURA[f.estado].bg}; color:${ESTADOS_FACTURA[f.estado].fg}">${ESTADOS_FACTURA[f.estado].label}</span></td></tr>`; }).join("") || `<tr><td colspan="5" class="muted">Sin facturas todavía</td></tr>`}</tbody></table>
       </div>`}
+
+      <div class="form-actions proyecto-ficha-footer">
+        <button class="btn btn-ghost" id="btn-cerrar-ficha" type="button">Cerrar</button>
+        <div class="proyecto-ficha-acciones">
+          ${esNuevo ? "" : `<button class="btn btn-dark" id="btn-generar-factura" type="button">Generar factura</button>`}
+          <button class="btn btn-primary" id="btn-guardar-proyecto" type="button">Guardar</button>
+          ${esNuevo ? "" : `<button class="btn btn-danger" id="btn-borrar-proyecto" type="button">Eliminar</button>`}
+        </div>
+      </div>
     </div>`;
 
   const $proTabs = $detalle.querySelector("#pro-tabs");
@@ -571,8 +583,6 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opcione
       cliente_id: $detalle.querySelector("#f-cliente").value || null,
       fecha_inicio: $detalle.querySelector("#f-inicio").value || null,
       fecha_entrega: $detalle.querySelector("#f-entrega").value || null,
-      horas_invertidas: Number($detalle.querySelector("#f-horas").value || 0),
-      coste_asociado: Number($detalle.querySelector("#f-coste").value || 0),
       precio_acordado: Number($detalle.querySelector("#f-precio").value || 0),
       forma_pago: $detalle.querySelector("#f-forma-pago").value,
       estado_facturacion: $detalle.querySelector("#f-estado-cobro").value,
