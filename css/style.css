@@ -159,6 +159,7 @@ body{
 .dashboard-proyectos-card{display:flex; flex-direction:column;}
 .dashboard-proyectos-lista{display:flex; flex:1 1 auto; flex-direction:column; gap:6px;}
 .dashboard-proyecto-fila{grid-template-columns:minmax(0,1fr) auto 112px 18px; padding-left:0; padding-right:0;}
+.cliente-fila.dashboard-proyecto-fila:hover{background:#FBFCFF; border-color:transparent; transform:none;}
 .dashboard-vacio{display:flex; flex:1 1 auto; align-items:center; justify-content:center; min-height:180px; color:var(--grey); font-size:13px; text-align:center;}
 .dashboard-vacio a{margin-left:4px;}
 .dashboard-proyectos-link{margin:12px 0 0;}

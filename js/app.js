@@ -1,5 +1,5 @@
 import { auth } from "./supabase.js";
-import { renderDashboard } from "./views/dashboard.js?v=dashboard-projects-clean-20260910";
+import { renderDashboard } from "./views/dashboard.js?v=dashboard-projects-hover-20260910";
 import { renderClientes } from "./views/clientes.js?v=025159f";
 import { renderProyectos } from "./views/proyectos.js";
 import { renderFacturacion, renderPresupuestos } from "./views/facturacion.js";
