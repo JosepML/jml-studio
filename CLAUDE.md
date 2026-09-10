@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-10 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit de código verificado: `d608289`.
+> · Último commit de código verificado: `a7a9782`.
 
 ## Situación actual y reglas operativas
 
@@ -24,6 +24,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - Clientes: ficha por pestañas, alta en modal, búsqueda, paginación, orden reciente, altas nuevas visibles aunque aún estén a 0 €, ranking con `Otros (N)` sin excluir importes, etiquetas exactas y tooltips corregidos.
 - Diseño: gráficos financieros directos; círculo de estados de proyectos conservado; tarjetas y ranking equilibrados; paginación del directorio fijada al fondo.
 - Dashboard: paneles de Proyectos en curso y Pendiente de cobro unificados visualmente con el directorio de Clientes, manteniendo sus filtros financieros.
+- Facturación mensual: “Añadir proyecto” abre ahora un modal independiente con asistente de cinco pasos, animación entre pasos, validación final y actualización automática del mes.
 - Accesibilidad y rendimiento: foco visible, filas de clientes operables con teclado, etiquetas de gráficos, módulos PDF/Excel/Chart.js bajo demanda, historial de conversaciones y origen de datos de IA.
 - Google Calendar: renovación del token verificada en producción desde el cambio de mes; tras renovar, los eventos se cargan correctamente.
 - PDFs: el logo se reduce antes de incrustarlo, evitando que los documentos arrastren la resolución original y ocupen varios megabytes.
@@ -50,6 +51,9 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - Decidir si se quieren exportaciones de presupuestos y si se aborda Verifactu.
 
 ## Registro de cambios recientes
+
+- `a7a9782` — forzar la carga pública del wizard modal de proyectos mediante invalidación de caché.
+- `4cecfbc` — sustituir el formulario incrustado de “Añadir proyecto” por el wizard modal Proyecto · Fechas · Importes · Detalles · Confirmación; verificado en GitHub Pages.
 
 - `8b93b7a` — filas del directorio de clientes accesibles con teclado.
 - `225f10e` — barras apiladas con tramas por serie para no depender solo del color.
