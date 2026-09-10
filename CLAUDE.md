@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-10 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit de código verificado: `bf35eed` (ajuste pendiente de publicar).
+> · Último commit de código verificado: `b3e2872`.
 
 ## Situación actual y reglas operativas
 
@@ -52,6 +52,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 
 ## Registro de cambios recientes
 
+- `b3e2872` — eliminar el `scrollTo` del cambio de paso, que provocaba tirones al cambiar entre contenidos de distinta altura.
 - `bf35eed` — suavizar la navegación del wizard de proyectos y eliminar el paso “Detalles”, que no se utiliza en el alta.
 - `a7a9782` — forzar la carga pública del wizard modal de proyectos mediante invalidación de caché.
 - `4cecfbc` — sustituir el formulario incrustado de “Añadir proyecto” por el wizard modal Proyecto · Fechas · Importes · Detalles · Confirmación; verificado en GitHub Pages.
