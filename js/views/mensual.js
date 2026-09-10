@@ -1,5 +1,5 @@
 import { db } from "../supabase.js";
-import { abrirFichaProyecto } from "./proyectos.js?v=proyecto-wizard-20260910";
+import { abrirFichaProyecto } from "./proyectos.js?v=proyecto-wizard-4cecfbc";
 import { eur, FORMAS_PAGO, todayIso } from "../utils/format.js";
 import { round2 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
