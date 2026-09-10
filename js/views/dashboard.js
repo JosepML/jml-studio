@@ -87,7 +87,10 @@ export async function renderDashboard(container) {
   const pendienteTotal = ledger
     .filter(f => estadoEfectivo(f) === "pendiente" && (!f.fecha || f.fecha <= hoyIso))
     .reduce((s,f)=>s+conIvaSegunPago(f.importeBase, f.proyecto.forma_pago),0);
-  const enCurso = ledger.filter(f => estadoEfectivo(f) === "pendiente").slice(0, 8);
+  const enCurso = ledger.filter(f => estadoEfectivo(f) === "pendiente");
+  const porPaginaEnCurso = 8;
+  let paginaEnCurso = 1;
+  const totalPaginasEnCurso = Math.max(1, Math.ceil(enCurso.length / porPaginaEnCurso));
 
   const porEstado = Object.keys(ESTADOS_COBRO).map(k => ({ key: k, label: ESTADOS_COBRO[k].label, fg: ESTADOS_COBRO[k].fg, count: ledger.filter(f=>estadoEfectivo(f)===k).length }));
 
@@ -131,19 +134,20 @@ export async function renderDashboard(container) {
       <div class="card dashboard-proyectos-card">
         <div class="card-head"><h3>Proyectos en curso</h3><span class="help-tip" title="Proyectos creados y todavía sin facturar. En cuanto se emiten pasan a Pendiente de cobro.">i</span></div>
         <div class="dashboard-proyectos-lista">
-          ${enCurso.map(f => filaProyectoDashboard(f, clientesMap, f.importeBase, "Sin facturar", "en-curso")).join("") || `<div class="dashboard-vacio">No hay proyectos sin facturar. <a href="#/proyectos">Crea uno</a>.</div>`}
+          <div id="dashboard-en-curso-lista"></div>
         </div>
+        <div id="dashboard-en-curso-pie"></div>
       </div>
       <div class="card dashboard-proyectos-card">
         <div class="card-head"><h3>Pendiente de cobro</h3><span class="help-tip" title="Proyectos ya emitidos que todavía no se han cobrado.">i</span></div>
-        <div class="dashboard-proyectos-lista">
+        <div class="dashboard-proyectos-lista" id="dashboard-pendiente-lista">
           ${pendientes.slice(0,8).map(f => filaProyectoDashboard(f, clientesMap, conIvaSegunPago(f.importeBase, f.proyecto.forma_pago), "Pendiente de cobro", "pendiente-cobro")).join("") || `<div class="dashboard-vacio">Nada pendiente 🎉</div>`}
         </div>
         ${pendientes.length ? `<p class="dashboard-proyectos-link"><a href="#/mensual">Ver y marcar como pagadas →</a></p>` : ""}
       </div>
     </div>`;
 
-  container.querySelectorAll("[data-proyecto-id]").forEach(el => {
+  const enlazarFilasProyecto = (root = container) => root.querySelectorAll("[data-proyecto-id]").forEach(el => {
     el.style.cursor = "pointer";
     const abrirProyecto = () => { location.hash = `#/proyectos/${el.dataset.proyectoId}`; };
     el.addEventListener("click", abrirProyecto);
@@ -154,6 +158,21 @@ export async function renderDashboard(container) {
       }
     });
   });
+
+  const $enCursoLista = container.querySelector("#dashboard-en-curso-lista");
+  const $enCursoPie = container.querySelector("#dashboard-en-curso-pie");
+  const pintarEnCurso = () => {
+    const visibles = enCurso.slice((paginaEnCurso - 1) * porPaginaEnCurso, paginaEnCurso * porPaginaEnCurso);
+    $enCursoLista.innerHTML = visibles.map(f => filaProyectoDashboard(f, clientesMap, f.importeBase, "Sin facturar", "en-curso")).join("") || `<div class="dashboard-vacio">No hay proyectos sin facturar. <a href="#/proyectos">Crea uno</a>.</div>`;
+    $enCursoPie.innerHTML = totalPaginasEnCurso > 1 ? `<div class="clientes-pie dashboard-proyectos-pie"><span>${enCurso.length} proyectos</span><div class="clientes-paginacion"><button class="icon-btn" data-dashboard-pagina="anterior" type="button" ${paginaEnCurso === 1 ? "disabled" : ""} aria-label="Página anterior">←</button><strong>${paginaEnCurso} / ${totalPaginasEnCurso}</strong><button class="icon-btn" data-dashboard-pagina="siguiente" type="button" ${paginaEnCurso === totalPaginasEnCurso ? "disabled" : ""} aria-label="Página siguiente">→</button></div></div>` : "";
+    $enCursoPie.querySelectorAll("[data-dashboard-pagina]").forEach(btn => btn.addEventListener("click", () => {
+      paginaEnCurso += btn.dataset.dashboardPagina === "siguiente" ? 1 : -1;
+      pintarEnCurso();
+    }));
+    enlazarFilasProyecto($enCursoLista);
+  };
+  pintarEnCurso();
+  enlazarFilasProyecto(container.querySelector("#dashboard-pendiente-lista"));
 
   const ctxMes = container.querySelector("#chart-dash-mensual");
   if (ctxMes && window.Chart) {
