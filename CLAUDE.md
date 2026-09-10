@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-10 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit de código verificado: `600715f` (reorganización de la ficha de proyectos y asociación de gastos).
+> · Último commit de código verificado: `0e7a674` (ajuste visual de la ficha de proyectos).
 
 ## Situación actual y reglas operativas
 
@@ -52,6 +52,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 
 ## Registro de cambios recientes
 
+- `pendiente` — ficha de proyecto ligeramente más ancha; Generar factura vuelve a la cabecera y los botones quedan como Eliminar a la izquierda, Cerrar a la derecha y Guardar al extremo derecho.
 - `pendiente` — el wizard de proyectos ya no muestra subtítulos auxiliares innecesarios.
 - `pendiente` — el backdrop del wizard de proyectos evita `backdrop-filter` para no recomponer toda Facturación mensual durante la animación; el modal se mantiene centrado con altura estable.
 - `pendiente` — la ficha de proyecto se ha aligerado: horas y coste manual dejan de ocupar espacio en Datos; se conservan en la base de datos y los gastos asociados pasan a calcular el coste y margen.

@@ -470,12 +470,13 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opcione
   const margen = round2(Number(proyecto.precio_acordado || 0) - costeTotal);
 
   $detalle.innerHTML = `
-    <div class="modal ancho" role="dialog" aria-modal="true">
+    <div class="modal ancho proyecto-ficha-modal" role="dialog" aria-modal="true">
       <div class="ficha-cabecera">
         <div>
           <h3 style="margin:0;">${esNuevo ? "Nuevo proyecto" : escapeHtml(proyecto.nombre)}</h3>
           ${esNuevo ? "" : `<p class="muted" style="margin:4px 0 0; font-size:12.5px;">${escapeHtml(CATEGORIAS_SERVICIO[proyecto.categoria_servicio || "otros"]?.label || "")}</p>`}
         </div>
+        ${esNuevo ? "" : `<button class="btn btn-dark" id="btn-generar-factura" type="button">Generar factura</button>`}
       </div>
 
       ${esNuevo ? "" : `
@@ -556,11 +557,10 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opcione
       </div>`}
 
       <div class="form-actions proyecto-ficha-footer">
-        <button class="btn btn-ghost" id="btn-cerrar-ficha" type="button">Cerrar</button>
+        ${esNuevo ? "" : `<button class="btn btn-danger" id="btn-borrar-proyecto" type="button">Eliminar</button>`}
         <div class="proyecto-ficha-acciones">
-          ${esNuevo ? "" : `<button class="btn btn-dark" id="btn-generar-factura" type="button">Generar factura</button>`}
+          <button class="btn btn-ghost" id="btn-cerrar-ficha" type="button">Cerrar</button>
           <button class="btn btn-primary" id="btn-guardar-proyecto" type="button">Guardar</button>
-          ${esNuevo ? "" : `<button class="btn btn-danger" id="btn-borrar-proyecto" type="button">Eliminar</button>`}
         </div>
       </div>
     </div>`;
