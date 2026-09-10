@@ -126,15 +126,17 @@ export async function renderClientes(container, param) {
   }
 
   const totalPorRankingId = Object.fromEntries(ranking.map(r => [r.cliente.id, r.total]));
-  // El directorio operativo solo muestra clientes con actividad económica.
-  // No se borran de Supabase: siguen disponibles mediante un enlace directo
-  // o si vuelven a tener un proyecto facturado.
-  const clientesConFacturacion = data.filter(c => Number(totalPorRankingId[c.id] || 0) > 0);
+  // El directorio debe reflejar la tabla de clientes completa, también las
+  // altas nuevas que todavía no tienen proyectos ni facturación. El filtro de
+  // actividad se aplica solo al ranking económico, no a la agenda operativa:
+  // ocultar aquí un cliente recién creado hacía que pareciera que el alta había
+  // fallado aunque sí estuviera disponible en Facturación mensual.
+  const clientesVisibles = data;
   let pagina = 1;
   const porPagina = 8;
   function pintarListaClientes() {
     const q = (container.querySelector("#buscar-clientes")?.value || "").trim().toLowerCase();
-    const filtrados = clientesConFacturacion.filter(c => `${c.nombre} ${c.email || ""} ${c.telefono || ""}`.toLowerCase().includes(q));
+    const filtrados = clientesVisibles.filter(c => `${c.nombre} ${c.email || ""} ${c.telefono || ""}`.toLowerCase().includes(q));
     const totalPaginas = Math.max(1, Math.ceil(filtrados.length / porPagina));
     pagina = Math.min(pagina, totalPaginas);
     const visibles = filtrados.slice((pagina - 1) * porPagina, pagina * porPagina);

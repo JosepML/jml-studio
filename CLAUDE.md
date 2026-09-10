@@ -21,7 +21,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - Fiabilidad: carga con esqueletos, estados de error/vacío unificados con reintento, smoke test de navegación y fuente única para cifras financieras.
 - Flujo diario: cliente vacío por defecto, validaciones de factura, wizard de documentos, duplicado de facturas/presupuestos, borrado de borradores y alertas agrupadas.
 - Dashboard: lógica separada de pendiente de facturar y pendiente de cobro; se excluyen futuros; IVA e IRPF solo cuentan documentos emitidos del trimestre vigente; tarjetas separadas y sin texto accesorio innecesario.
-- Clientes: ficha por pestañas, alta en modal, búsqueda, paginación, orden reciente, ocultación de clientes a 0 €, ranking con `Otros (N)` sin excluir importes, etiquetas exactas y tooltips corregidos.
+- Clientes: ficha por pestañas, alta en modal, búsqueda, paginación, orden reciente, altas nuevas visibles aunque aún estén a 0 €, ranking con `Otros (N)` sin excluir importes, etiquetas exactas y tooltips corregidos.
 - Diseño: gráficos financieros directos; círculo de estados de proyectos conservado; tarjetas y ranking equilibrados; paginación del directorio fijada al fondo.
 - Accesibilidad y rendimiento: foco visible, filas de clientes operables con teclado, etiquetas de gráficos, módulos PDF/Excel/Chart.js bajo demanda, historial de conversaciones y origen de datos de IA.
 - Google Calendar: renovación del token verificada en producción desde el cambio de mes; tras renovar, los eventos se cargan correctamente.
@@ -71,6 +71,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - Verificación real 2026-09-07: con el token de Calendar caducado, cambiar de mes inició la renovación y cargó los eventos de octubre correctamente.
 - `816e8a9` — reducción del logo incrustado en los PDFs para disminuir su tamaño.
 - `6753a8d` — invalidación de caché de los módulos PDF y actualización del service worker a `v55`.
+- Corrección: el directorio de Clientes ya no oculta las altas nuevas sin facturación; el filtro de actividad queda reservado al ranking económico.
 
 Cuando se complete o cambie un punto, actualiza esta sección y añade una línea al
 registro antes de hacer commit. Si una decisión del usuario contradice el histórico
