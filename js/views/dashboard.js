@@ -13,6 +13,25 @@ let chartMensualDash = null;
 let chartEstados = null;
 let chartBeneficioDash = null;
 
+function inicialesCliente(nombre) {
+  return String(nombre || "?").trim().split(/\s+/).filter(Boolean).slice(0, 2)
+    .map(parte => parte[0]).join("").toUpperCase();
+}
+
+function filaProyectoDashboard(fila, clientesMap, importe, estado, claseEstado) {
+  const nombreCliente = clientesMap[fila.proyecto.cliente_id] || "Sin cliente";
+  return `<div class="cliente-fila dashboard-proyecto-fila clickable" data-proyecto-id="${fila.proyecto.id}" role="button" tabindex="0" aria-label="Abrir proyecto ${escapeHtml(fila.proyecto.nombre)}">
+    <div class="cliente-avatar" aria-hidden="true">${escapeHtml(inicialesCliente(nombreCliente))}</div>
+    <div class="cliente-identidad">
+      <strong>${escapeHtml(fila.proyecto.nombre)}</strong>
+      <span>${escapeHtml(nombreCliente)}</span>
+    </div>
+    <div class="cliente-estado ${claseEstado}">${estado}</div>
+    <div class="cliente-facturado"><span>Importe</span><strong>${eur(importe)}</strong></div>
+    <span class="cliente-flecha" aria-hidden="true">→</span>
+  </div>`;
+}
+
 export async function renderDashboard(container) {
   container.innerHTML = skeletonPagina({ kpis: 4, filas: 6 });
 
@@ -115,25 +134,18 @@ export async function renderDashboard(container) {
       <!-- Orden a propósito: primero "en curso" y después "pendiente de cobro",
            siguiendo el ciclo real de un trabajo (se hace → se factura → se
            cobra) en vez de al contrario. -->
-      <div class="card">
+      <div class="card dashboard-proyectos-card">
         <div class="card-head"><h3>Proyectos en curso</h3><span class="help-tip" title="Proyectos creados y todavía sin facturar. En cuanto se emiten pasan a Pendiente de cobro.">i</span></div>
-        <!-- Antes esto era una lista de <div> con float, así que no se parecía
-             en nada a la tabla de al lado y no se resaltaba la fila al pasar el
-             ratón. Ahora es una tabla con las mismas columnas y clases, de modo
-             que hereda el mismo encabezado, la misma alineación de importes y
-             el mismo realce de fila (tr.clickable:hover) que Pendiente de cobro. -->
-        <table>
-          <thead><tr><th>Proyecto</th><th>Cliente</th><th class="money">Importe</th></tr></thead>
-          <tbody>${enCurso.map(f => `<tr class="clickable" data-proyecto-id="${f.proyecto.id}" role="button" tabindex="0" aria-label="Abrir proyecto ${escapeHtml(f.proyecto.nombre)}"><td><strong>${escapeHtml(f.proyecto.nombre)}</strong></td><td>${escapeHtml(clientesMap[f.proyecto.cliente_id]||"—")}</td><td class="money">${eur(f.importeBase)}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">No hay proyectos sin facturar. <a href="#/proyectos">Crea uno</a>.</td></tr>`}</tbody>
-        </table>
+        <div class="dashboard-proyectos-lista">
+          ${enCurso.map(f => filaProyectoDashboard(f, clientesMap, f.importeBase, "Sin facturar", "en-curso")).join("") || `<div class="dashboard-vacio">No hay proyectos sin facturar. <a href="#/proyectos">Crea uno</a>.</div>`}
+        </div>
       </div>
-      <div class="card">
+      <div class="card dashboard-proyectos-card">
         <div class="card-head"><h3>Pendiente de cobro</h3><span class="help-tip" title="Proyectos ya emitidos que todavía no se han cobrado.">i</span></div>
-        <table>
-          <thead><tr><th>Proyecto</th><th>Cliente</th><th class="money">Importe c/IVA</th></tr></thead>
-          <tbody>${pendientes.slice(0,8).map(f => `<tr class="clickable" data-proyecto-id="${f.proyecto.id}" role="button" tabindex="0" aria-label="Abrir proyecto ${escapeHtml(f.proyecto.nombre)}"><td><strong>${escapeHtml(f.proyecto.nombre)}</strong></td><td>${escapeHtml(clientesMap[f.proyecto.cliente_id]||"—")}</td><td class="money">${eur(conIvaSegunPago(f.importeBase, f.proyecto.forma_pago))}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">Nada pendiente 🎉</td></tr>`}</tbody>
-        </table>
-        ${pendientes.length ? `<p style="margin-top:10px;"><a href="#/mensual">Ver y marcar como pagadas →</a></p>` : ""}
+        <div class="dashboard-proyectos-lista">
+          ${pendientes.slice(0,8).map(f => filaProyectoDashboard(f, clientesMap, conIvaSegunPago(f.importeBase, f.proyecto.forma_pago), "Pendiente de cobro", "pendiente-cobro")).join("") || `<div class="dashboard-vacio">Nada pendiente 🎉</div>`}
+        </div>
+        ${pendientes.length ? `<p class="dashboard-proyectos-link"><a href="#/mensual">Ver y marcar como pagadas →</a></p>` : ""}
       </div>
     </div>`;
 

@@ -145,6 +145,8 @@ body{
 .cliente-estado{font-size:10px; font-weight:700; white-space:nowrap; padding:5px 8px; border-radius:99px;}
 .cliente-estado.completo{background:var(--green-bg); color:var(--green-fg);}
 .cliente-estado.incompleto{background:var(--orange-bg); color:var(--orange-fg);}
+.cliente-estado.en-curso{background:var(--blue-bg,#EAF0FF); color:var(--blue);}
+.cliente-estado.pendiente-cobro{background:var(--orange-bg); color:var(--orange-fg);}
 .cliente-facturado{display:flex; flex-direction:column; align-items:flex-end; gap:2px;}
 .cliente-facturado span{font-size:10px; color:var(--grey);}
 .cliente-facturado strong{font-size:13px; font-variant-numeric:tabular-nums;}
@@ -154,6 +156,12 @@ body{
 .clientes-paginacion{display:flex; align-items:center; gap:8px; color:var(--text);}
 .clientes-paginacion .icon-btn{width:28px; height:28px;}
 .clientes-sin-resultados{padding:24px 8px; color:var(--grey); text-align:center; font-size:13px;}
+.dashboard-proyectos-card{display:flex; flex-direction:column;}
+.dashboard-proyectos-lista{display:flex; flex:1 1 auto; flex-direction:column; gap:6px;}
+.dashboard-proyecto-fila{padding-left:0; padding-right:0;}
+.dashboard-vacio{display:flex; flex:1 1 auto; align-items:center; justify-content:center; min-height:180px; color:var(--grey); font-size:13px; text-align:center;}
+.dashboard-vacio a{margin-left:4px;}
+.dashboard-proyectos-link{margin:12px 0 0;}
 .gastos-chart-wrap{position:relative; height:250px;}
 @media(max-width:640px){.clientes-list-head{align-items:flex-start; flex-direction:column;}.clientes-list-actions{width:100%;}.clientes-list-actions input{flex:1; width:auto;}.clientes-list-actions .btn{white-space:nowrap;}}
 @media(max-width:860px){.grid-side > .card:last-child{display:block;}.clientes-chart-wrap{height:340px; min-height:340px; flex:none;}}

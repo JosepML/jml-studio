@@ -23,6 +23,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - Dashboard: lógica separada de pendiente de facturar y pendiente de cobro; se excluyen futuros; IVA e IRPF solo cuentan documentos emitidos del trimestre vigente; tarjetas separadas y sin texto accesorio innecesario.
 - Clientes: ficha por pestañas, alta en modal, búsqueda, paginación, orden reciente, altas nuevas visibles aunque aún estén a 0 €, ranking con `Otros (N)` sin excluir importes, etiquetas exactas y tooltips corregidos.
 - Diseño: gráficos financieros directos; círculo de estados de proyectos conservado; tarjetas y ranking equilibrados; paginación del directorio fijada al fondo.
+- Dashboard: paneles de Proyectos en curso y Pendiente de cobro unificados visualmente con el directorio de Clientes, manteniendo sus filtros financieros.
 - Accesibilidad y rendimiento: foco visible, filas de clientes operables con teclado, etiquetas de gráficos, módulos PDF/Excel/Chart.js bajo demanda, historial de conversaciones y origen de datos de IA.
 - Google Calendar: renovación del token verificada en producción desde el cambio de mes; tras renovar, los eventos se cargan correctamente.
 - PDFs: el logo se reduce antes de incrustarlo, evitando que los documentos arrastren la resolución original y ocupen varios megabytes.
@@ -72,6 +73,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - `816e8a9` — reducción del logo incrustado en los PDFs para disminuir su tamaño.
 - `6753a8d` — invalidación de caché de los módulos PDF y actualización del service worker a `v55`.
 - Corrección: el directorio de Clientes ya no oculta las altas nuevas sin facturación; el filtro de actividad queda reservado al ranking económico.
+- Corrección visual: las listas de proyectos del Dashboard reutilizan filas tipo cliente con iniciales, estado, importe y acceso directo.
 
 Cuando se complete o cambie un punto, actualiza esta sección y añade una línea al
 registro antes de hacer commit. Si una decisión del usuario contradice el histórico
