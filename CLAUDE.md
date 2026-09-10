@@ -3,7 +3,7 @@
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
 > Última revisión: 2026-09-10 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
-> · Último commit de código verificado: `b3e2872`.
+> · Último commit de código verificado: `b3e2872` (ajuste visual pendiente de publicar).
 
 ## Situación actual y reglas operativas
 
@@ -52,6 +52,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 
 ## Registro de cambios recientes
 
+- Ajuste pendiente: el wizard de proyectos se fija al inicio del modal para evitar que su centrado vertical mueva la barra durante la transición.
 - `b3e2872` — eliminar el `scrollTo` del cambio de paso, que provocaba tirones al cambiar entre contenidos de distinta altura.
 - `bf35eed` — suavizar la navegación del wizard de proyectos y eliminar el paso “Detalles”, que no se utiliza en el alta.
 - `a7a9782` — forzar la carga pública del wizard modal de proyectos mediante invalidación de caché.
