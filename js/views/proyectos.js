@@ -256,7 +256,6 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
     { id: "proyecto", label: "Proyecto" },
     { id: "fechas", label: "Fechas" },
     { id: "importes", label: "Importes" },
-    { id: "detalles", label: "Detalles" },
     { id: "confirmacion", label: "Confirmación" },
   ];
   const $backdrop = document.createElement("div");
@@ -313,14 +312,6 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
               <div class="field"><label for="npw-coste">Coste asociado (€)</label><input id="npw-coste" type="number" step="0.01" min="0" value="0"></div>
               <div class="field"><label for="npw-horas">Horas invertidas</label><input id="npw-horas" type="number" step="0.5" min="0" value="0"></div>
             </div>
-          </div>
-        </section>
-
-        <section class="paso" data-paso="detalles" hidden>
-          <div class="card">
-            <div class="card-head"><h3>Detalles del trabajo</h3></div>
-            <div class="field"><label for="npw-entregables">Entregables</label><textarea id="npw-entregables" rows="5" placeholder="Un entregable por línea"></textarea></div>
-            <div class="field"><label for="npw-notas">Notas</label><textarea id="npw-notas" rows="4" placeholder="Información útil para este proyecto…"></textarea></div>
           </div>
         </section>
 
@@ -381,7 +372,6 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
       <div><span>Fechas</span><strong>${inicio ? dateEs(inicio) : "—"} → ${entrega ? dateEs(entrega) : "—"}</strong></div>
       <div><span>Precio acordado</span><strong>${eur(Number(campo("precio").value || 0))}</strong></div>
       <div><span>Forma de pago</span><strong>${escapeHtml(FORMAS_PAGO[campo("forma").value]?.label || "—")}</strong></div>
-      <div><span>Entregables</span><strong>${campo("entregables").value.split("\n").map(s => s.trim()).filter(Boolean).length}</strong></div>
     </div>`;
   };
   function mostrarPaso() {
@@ -392,6 +382,10 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
     $anterior.hidden = pasoActual === 0;
     $siguiente.textContent = pasoActual === pasos.length - 1 ? "Crear proyecto" : "Continuar →";
     if (pasoActual === pasos.length - 1) pintarRepaso();
+    // Igual que el wizard de facturas: el cambio de paso no anima cada campo
+    // con un transform independiente, sino que recoloca suavemente el modal.
+    // Así no hay saltos ni tirones cuando los pasos tienen alturas distintas.
+    requestAnimationFrame(() => $backdrop.querySelector(".proyecto-wizard-modal")?.scrollTo({ top: 0, behavior: "smooth" }));
   }
   function irAPaso(indice) {
     pasoActual = Math.max(0, Math.min(pasos.length - 1, indice));
@@ -427,8 +421,8 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
       forma_pago: campo("forma").value,
       estado_facturacion: "pendiente",
       categoria_servicio: campo("categoria").value,
-      entregables: campo("entregables").value.split("\n").map(s => s.trim()).filter(Boolean),
-      notas: campo("notas").value.trim(),
+      entregables: [],
+      notas: "",
     };
     $siguiente.disabled = true;
     const { error } = await db.from("proyectos").insert(payload).exec();
