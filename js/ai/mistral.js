@@ -50,10 +50,11 @@ export function tieneClaveIA() {
   return !!getConfig().ia_api_key;
 }
 
-async function chat(mensajes, { temperature = 0.4, maxTokens = 600, responseFormat = null, model = MODELO } = {}) {
+async function chat(mensajes, { temperature = 0.4, maxTokens = 600, responseFormat = null, model = MODELO, reasoning = null } = {}) {
   const { ia_api_key } = getConfig();
   if (!ia_api_key) throw new Error("Falta la clave de IA — añádela en Configuración → IA.");
   let formatoActual = responseFormat;
+  let razonamientoActual = reasoning;
 
   for (let intento = 0; intento <= REINTENTOS_MAXIMOS; intento++) {
     const controlador = new AbortController();
@@ -72,6 +73,7 @@ async function chat(mensajes, { temperature = 0.4, maxTokens = 600, responseForm
         // compatible y seguimos leyendo únicamente el contenido final.
       };
       if (formatoActual) cuerpo.response_format = formatoActual;
+      if (razonamientoActual) cuerpo.reasoning = razonamientoActual;
       res = await fetch(URL_API, {
         method: "POST",
         headers: {
@@ -105,8 +107,9 @@ async function chat(mensajes, { temperature = 0.4, maxTokens = 600, responseForm
     // router los anuncie como compatibles. Repetimos una sola vez sin esa
     // opción para conservar la compatibilidad y luego seguimos con los
     // reintentos normales del límite gratuito.
-    if (res.status === 400 && formatoActual) {
-      formatoActual = null;
+    if (res.status === 400 && (formatoActual || razonamientoActual)) {
+      if (formatoActual) formatoActual = null;
+      else razonamientoActual = null;
       continue;
     }
 
@@ -194,7 +197,11 @@ export async function extraerGastoDesdeJustificante({ imagenes = [], texto = "",
   imagenes.slice(0, 6).forEach(url => contenido.push({ type: "image_url", image_url: { url } }));
   const parametros = {
     temperature: 0,
-    maxTokens: 1200,
+    maxTokens: 2200,
+    // El razonamiento queda limitado y no se devuelve: necesitamos reservar
+    // tokens para el JSON final, especialmente en documentos con una sola
+    // foto y muchos números pequeños.
+    reasoning: { effort: "low", exclude: true },
     responseFormat: {
       type: "json_schema",
       json_schema: {

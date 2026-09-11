@@ -37,7 +37,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 3. **Consistencia de estados:** resuelto en código: carga con esqueletos, vacío con estados propios, errores homogéneos con reintento y foco visible.
 4. **Verificación funcional parcial:** en navegador real ya se han comprobado navegación, exportaciones Excel/PDF, búsqueda y paginación de Clientes, apertura del editor de facturas sin guardar y renovación/carga de Google Calendar; queda probar de punta a punta reordenación y asignación de facturas.
 5. **Mantenimiento:** la numeración usa el máximo secuencial y el listado avisa de duplicados/huecos; no se modifican automáticamente los borradores `020/021/022-2026`.
-6. **Importador de gastos:** falta probar con tickets reales en móvil y escritorio, validar varios formatos de PDF y confirmar los límites prácticos de la clave gratuita de OpenRouter. La versión actual no conserva el archivo original; solo usa sus datos para rellenar el formulario.
+6. **Importador de gastos:** falta probar con tickets reales en móvil y escritorio, validar varios formatos de PDF y confirmar los límites prácticos de la clave gratuita de OpenRouter. La lectura limita el razonamiento y reserva tokens para el JSON final. La versión actual no conserva el archivo original; solo usa sus datos para rellenar el formulario.
 
 ### Mejoras opcionales futuras
 

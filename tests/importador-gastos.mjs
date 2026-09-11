@@ -13,6 +13,7 @@ assert.match(ia, /extraerGastoDesdeJustificante/, "La IA debe exponer el lector 
 assert.match(ia, /openrouter\/free/, "El lector debe usar exclusivamente el router gratuito");
 assert.match(ia, /qwen\/qwen2\.5-vl-32b-instruct:free/, "La lectura debe priorizar un modelo gratuito de visión estable");
 assert.match(ia, /json_schema/, "La extracción debe solicitar una respuesta estructurada");
+assert.match(ia, /reasoning: \{ effort: "low", exclude: true \}/, "La lectura debe reservar tokens para la respuesta final");
 assert.match(documentos, /application\/pdf/, "Debe existir la ruta de lectura de PDF");
 assert.match(documentos, /getTextContent/, "Los PDF con texto deben procesarse localmente");
 assert.match(documentos, /renderizarPagina/, "Los PDF escaneados deben poder convertirse a imagen");
