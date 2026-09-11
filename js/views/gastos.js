@@ -508,7 +508,12 @@ function abrirFormulario(container, gasto, onGuardado, proyectos = []) {
       const datos = await extraerGastoDesdeJustificante({ ...preparado, nombre: file.name });
       aplicarExtraccion(datos);
     } catch (error) {
-      mostrarEstadoJustificante(error.message || "No se ha podido leer el justificante. Puedes introducirlo manualmente.", "error");
+      const detalle = String(error?.message || "");
+      const respuestaInvalida = /reasoning is mandatory|response format|invalid json|formato válido/i.test(detalle);
+      const mensaje = respuestaInvalida
+        ? "La IA no ha devuelto los datos en un formato válido. Puedes rellenar el gasto manualmente."
+        : (detalle || "No se ha podido leer el justificante. Puedes introducirlo manualmente.");
+      mostrarEstadoJustificante(mensaje, "error");
     } finally {
       if (boton) { boton.disabled = false; boton.textContent = "📷 Leer ticket o factura"; }
       const input = $wrap.querySelector("#g-justificante-file");
