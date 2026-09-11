@@ -62,10 +62,10 @@ async function chat(mensajes, { temperature = 0.4, maxTokens = 600, responseForm
         messages: mensajes,
         temperature,
         max_tokens: maxTokens,
-        // Algunos modelos gratuitos del router gastan todo el límite en
-        // razonamiento y dejan `message.content` vacío. Para esta app
-        // necesitamos texto final directamente, no el razonamiento interno.
-        reasoning: { effort: "none", exclude: true },
+        // No forzamos `reasoning: exclude`. Algunos modelos gratuitos
+        // seleccionados por el router lo exigen y devuelven 400 si se
+        // intenta desactivar; dejamos que cada modelo use su configuración
+        // compatible y seguimos leyendo únicamente el contenido final.
       };
       if (formatoActual) cuerpo.response_format = formatoActual;
       res = await fetch(URL_API, {
