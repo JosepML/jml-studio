@@ -499,6 +499,11 @@ function abrirFormulario(container, gasto, onGuardado, proyectos = []) {
       const $importe = $wrap.querySelector("#g-importe");
       if ($importe) { $importe.value = total; $importe.dispatchEvent(new Event("input", { bubbles: true })); }
     }
+    // Blindaje final: recalcular el tipo de IVA no debe poder cambiar el
+    // porcentaje de IVA deducible. Para material amortizable la regla inicial
+    // es 100%, aunque la factura tenga un IVA del 21%.
+    $wrap.querySelector("#g-iva-pct").value = ivaDeduciblePorDefecto;
+    actualizarTotales();
     const aviso = datos.advertencias?.length ? ` Revisa: ${datos.advertencias.join(" ")}` : "";
     const confianza = datos.confianza < 0.75 ? " Revisa especialmente los campos destacados." : "";
     mostrarEstadoJustificante(`Datos extraídos. Comprueba el formulario antes de guardar.${confianza}${aviso}`, datos.confianza < 0.75 ? "aviso" : "ok");

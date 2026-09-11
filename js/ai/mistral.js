@@ -259,7 +259,9 @@ export async function extraerGastoDesdeJustificante({ imagenes = [], texto = "",
     total: numero(datos.total),
     categoria: datos.categoria || "otros",
     confianza: Math.max(0, Math.min(1, Number(datos.confianza) || 0)),
-    advertencias: Array.isArray(datos.advertencias) ? datos.advertencias : (datos.advertencias ? [String(datos.advertencias)] : []),
+    advertencias: (Array.isArray(datos.advertencias) ? datos.advertencias : (datos.advertencias ? [datos.advertencias] : []))
+      .map(aviso => String(aviso || "").trim())
+      .filter(aviso => aviso && aviso.toLowerCase() !== "null"),
   };
 }
 
