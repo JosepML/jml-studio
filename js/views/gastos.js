@@ -468,7 +468,14 @@ function abrirFormulario(container, gasto, onGuardado, proyectos = []) {
 
     const categoria = CATEGORIAS_GASTO[datos.categoria] ? datos.categoria : "otros";
     $wrap.querySelector("#g-categoria").value = categoria;
-    $wrap.querySelector("#g-iva-pct").value = Number.isFinite(Number(datos.iva_porcentaje)) ? Number(datos.iva_porcentaje) : 21;
+    // La IA devuelve `iva_porcentaje` como tipo impositivo (por ejemplo, 21),
+    // pero el formulario tiene otro campo distinto: `% IVA deducible`.
+    // Antes escribíamos el 21 en este segundo campo y un ordenador acababa
+    // marcado como si solo pudiera recuperar el 21% de su IVA. El porcentaje
+    // deducible parte de la regla de la categoría (100% para material
+    // amortizable) y el tipo de IVA se aplica únicamente al campo interno.
+    const ivaDeduciblePorDefecto = CATEGORIAS_GASTO[categoria]?.ivaDeduciblePctDefecto ?? 100;
+    $wrap.querySelector("#g-iva-pct").value = ivaDeduciblePorDefecto;
 
     const total = datos.total ?? null;
     const base = datos.base_imponible ?? null;
