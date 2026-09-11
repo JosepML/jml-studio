@@ -10,6 +10,10 @@ import { getConfig } from "../utils/config-usuario.js";
 
 const URL_API = "https://openrouter.ai/api/v1/chat/completions";
 const MODELO = "openrouter/free";
+// Para OCR de tickets usamos un modelo gratuito concreto y compatible con
+// visión + salidas estructuradas. El router aleatorio puede cambiar de modelo
+// entre llamadas y algunos son bastante peores leyendo justificantes.
+const MODELO_LECTURA_GASTOS = "qwen/qwen2.5-vl-32b-instruct:free";
 const REINTENTOS_MAXIMOS = 2;
 
 function pausa(ms) {
@@ -46,7 +50,7 @@ export function tieneClaveIA() {
   return !!getConfig().ia_api_key;
 }
 
-async function chat(mensajes, { temperature = 0.4, maxTokens = 600, responseFormat = null } = {}) {
+async function chat(mensajes, { temperature = 0.4, maxTokens = 600, responseFormat = null, model = MODELO } = {}) {
   const { ia_api_key } = getConfig();
   if (!ia_api_key) throw new Error("Falta la clave de IA — añádela en Configuración → IA.");
   let formatoActual = responseFormat;
@@ -58,7 +62,7 @@ async function chat(mensajes, { temperature = 0.4, maxTokens = 600, responseForm
 
     try {
       const cuerpo = {
-        model: MODELO,
+        model,
         messages: mensajes,
         temperature,
         max_tokens: maxTokens,
@@ -188,11 +192,45 @@ export async function extraerGastoDesdeJustificante({ imagenes = [], texto = "",
     text: `Analiza este justificante de gasto (${nombre}). Devuelve SOLO un JSON válido, sin markdown ni comentarios, con exactamente estas claves: proveedor, nif, numero_documento, fecha (YYYY-MM-DD o null), concepto, base_imponible, iva_porcentaje, iva_soportado, total, categoria, confianza, advertencias. Los importes deben ser números sin símbolo de moneda o null si no aparecen. categoria debe ser una de: software, material_amortizable, combustible, transporte, dietas, suministros, servicios_profesionales, seguros, formacion, otros. confianza debe ser un número entre 0 y 1. No inventes valores: usa null cuando no se vean. Si es un ticket sin número de factura, deja numero_documento en null. Comprueba visualmente los datos, pero no inventes ni corrijas importes que no figuren en el documento.${texto.trim() ? `\n\nTEXTO EXTRAÍDO DEL PDF:\n${texto.trim().slice(0, 12000)}` : ""}`,
   }];
   imagenes.slice(0, 6).forEach(url => contenido.push({ type: "image_url", image_url: { url } }));
-  const respuesta = await chat([{ role: "user", content: contenido }], {
-    temperature: 0.1,
-    maxTokens: 900,
-    responseFormat: { type: "json_object" },
-  });
+  const parametros = {
+    temperature: 0,
+    maxTokens: 1200,
+    responseFormat: {
+      type: "json_schema",
+      json_schema: {
+        name: "gasto_extraido",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            proveedor: { type: ["string", "null"] },
+            nif: { type: ["string", "null"] },
+            numero_documento: { type: ["string", "null"] },
+            fecha: { type: ["string", "null"] },
+            concepto: { type: ["string", "null"] },
+            base_imponible: { type: ["number", "null"] },
+            iva_porcentaje: { type: ["number", "null"] },
+            iva_soportado: { type: ["number", "null"] },
+            total: { type: ["number", "null"] },
+            categoria: { type: "string", enum: ["software", "material_amortizable", "combustible", "transporte", "dietas", "suministros", "servicios_profesionales", "seguros", "formacion", "otros"] },
+            confianza: { type: "number", minimum: 0, maximum: 1 },
+            advertencias: { type: "array", items: { type: "string" } },
+          },
+          required: ["proveedor", "nif", "numero_documento", "fecha", "concepto", "base_imponible", "iva_porcentaje", "iva_soportado", "total", "categoria", "confianza", "advertencias"],
+        },
+      },
+    },
+  };
+  let respuesta;
+  try {
+    respuesta = await chat([{ role: "user", content: contenido }], { ...parametros, model: MODELO_LECTURA_GASTOS });
+  } catch (error) {
+    // El modelo sigue siendo gratuito, pero sus endpoints pueden estar
+    // temporalmente llenos. En ese caso conservamos una segunda vía gratuita.
+    if (!/disponible|límite gratuito|Error 404|Error 429|temporal/i.test(String(error?.message || ""))) throw error;
+    respuesta = await chat([{ role: "user", content: contenido }], { ...parametros, model: MODELO });
+  }
   const datos = extraerJson(respuesta);
   const numero = valor => {
     if (valor === null || valor === undefined || valor === "") return null;

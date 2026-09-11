@@ -28,7 +28,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - Accesibilidad y rendimiento: foco visible, filas de clientes operables con teclado, etiquetas de gráficos, módulos PDF/Excel/Chart.js bajo demanda, historial de conversaciones y origen de datos de IA.
 - Google Calendar: renovación del token verificada en producción desde el cambio de mes; tras renovar, los eventos se cargan correctamente.
 - PDFs: el logo se reduce antes de incrustarlo, evitando que los documentos arrastren la resolución original y ocupen varios megabytes.
-- Gastos: primera versión del importador de justificantes. El formulario de nuevo gasto permite seleccionar una foto, un ticket o un PDF; los PDF con texto se leen localmente con PDF.js y los escaneados se convierten en imágenes para el router gratuito de OpenRouter. La IA rellena una propuesta, pero nunca guarda automáticamente: el usuario debe revisarla y asociarla al proyecto antes de guardar.
+- Gastos: primera versión del importador de justificantes. El formulario de nuevo gasto permite seleccionar una foto, un ticket o un PDF; los PDF con texto se leen localmente con PDF.js y los escaneados se convierten en imágenes para un modelo gratuito de visión de OpenRouter, con `openrouter/free` como respaldo. La extracción solicita JSON estructurado y la IA rellena una propuesta, pero nunca guarda automáticamente: el usuario debe revisarla y asociarla al proyecto antes de guardar.
 
 ### Pendiente de verificación o decisión
 
