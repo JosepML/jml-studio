@@ -509,7 +509,7 @@ function abrirFormulario(container, gasto, onGuardado, proyectos = []) {
       aplicarExtraccion(datos);
     } catch (error) {
       const detalle = String(error?.message || "");
-      const respuestaInvalida = /reasoning is mandatory|response format|invalid json|formato válido/i.test(detalle);
+      const respuestaInvalida = /reasoning is mandatory|response format|invalid json|formato válido|ninguna respuesta/i.test(detalle);
       const mensaje = respuestaInvalida
         ? "La IA no ha devuelto los datos en un formato válido. Puedes rellenar el gasto manualmente."
         : (detalle || "No se ha podido leer el justificante. Puedes introducirlo manualmente.");

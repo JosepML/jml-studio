@@ -235,7 +235,7 @@ export async function extraerGastoDesdeJustificante({ imagenes = [], texto = "",
   } catch (error) {
     // El modelo sigue siendo gratuito, pero sus endpoints pueden estar
     // temporalmente llenos. En ese caso conservamos una segunda vía gratuita.
-    if (!/disponible|límite gratuito|Error 404|Error 429|temporal/i.test(String(error?.message || ""))) throw error;
+    if (!/disponible|límite gratuito|Error 404|Error 429|temporal|ninguna respuesta/i.test(String(error?.message || ""))) throw error;
     respuesta = await chat([{ role: "user", content: contenido }], { ...parametros, model: MODELO });
   }
   const datos = extraerJson(respuesta);
