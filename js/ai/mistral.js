@@ -46,9 +46,10 @@ export function tieneClaveIA() {
   return !!getConfig().ia_api_key;
 }
 
-async function chat(mensajes, { temperature = 0.4, maxTokens = 600 } = {}) {
+async function chat(mensajes, { temperature = 0.4, maxTokens = 600, responseFormat = null } = {}) {
   const { ia_api_key } = getConfig();
   if (!ia_api_key) throw new Error("Falta la clave de IA — añádela en Configuración → IA.");
+  let formatoActual = responseFormat;
 
   for (let intento = 0; intento <= REINTENTOS_MAXIMOS; intento++) {
     const controlador = new AbortController();
@@ -56,6 +57,17 @@ async function chat(mensajes, { temperature = 0.4, maxTokens = 600 } = {}) {
     let res;
 
     try {
+      const cuerpo = {
+        model: MODELO,
+        messages: mensajes,
+        temperature,
+        max_tokens: maxTokens,
+        // Algunos modelos gratuitos del router gastan todo el límite en
+        // razonamiento y dejan `message.content` vacío. Para esta app
+        // necesitamos texto final directamente, no el razonamiento interno.
+        reasoning: { effort: "none", exclude: true },
+      };
+      if (formatoActual) cuerpo.response_format = formatoActual;
       res = await fetch(URL_API, {
         method: "POST",
         headers: {
@@ -65,16 +77,7 @@ async function chat(mensajes, { temperature = 0.4, maxTokens = 600 } = {}) {
           "HTTP-Referer": window.location.origin,
           "X-Title": "JML Studio",
         },
-        body: JSON.stringify({
-          model: MODELO,
-          messages: mensajes,
-          temperature,
-          max_tokens: maxTokens,
-          // Algunos modelos gratuitos del router gastan todo el límite en
-          // razonamiento y dejan `message.content` vacío. Para esta app
-          // necesitamos texto final directamente, no el razonamiento interno.
-          reasoning: { effort: "none", exclude: true },
-        }),
+        body: JSON.stringify(cuerpo),
         signal: controlador.signal,
       });
     } catch (e) {
@@ -92,6 +95,15 @@ async function chat(mensajes, { temperature = 0.4, maxTokens = 600 } = {}) {
         : contenido || "").trim();
       if (!texto) throw new Error("La IA no ha devuelto ninguna respuesta.");
       return texto;
+    }
+
+    // Algunos modelos gratuitos no implementan response_format aunque el
+    // router los anuncie como compatibles. Repetimos una sola vez sin esa
+    // opción para conservar la compatibilidad y luego seguimos con los
+    // reintentos normales del límite gratuito.
+    if (res.status === 400 && formatoActual) {
+      formatoActual = null;
+      continue;
     }
 
     // El modo gratuito limita las ráfagas. Reintentamos dos veces de forma
@@ -137,10 +149,31 @@ export async function mejorarDescripcionConIA(concepto, notaBreve) {
 function extraerJson(texto) {
   const limpio = String(texto || "").replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
   try { return JSON.parse(limpio); } catch { /* el modelo puede añadir una frase */ }
-  const inicio = limpio.indexOf("{");
-  const fin = limpio.lastIndexOf("}");
-  if (inicio !== -1 && fin > inicio) {
-    try { return JSON.parse(limpio.slice(inicio, fin + 1)); } catch { /* se informa abajo */ }
+
+  // Busca objetos equilibrando llaves y respetando las llaves que aparezcan
+  // dentro de una cadena. lastIndexOf("}") fallaba si el modelo añadía una
+  // explicación después del JSON o si había más de un bloque en la respuesta.
+  for (let inicio = limpio.indexOf("{"); inicio !== -1; inicio = limpio.indexOf("{", inicio + 1)) {
+    let profundidad = 0;
+    let enCadena = false;
+    let escapado = false;
+    for (let i = inicio; i < limpio.length; i++) {
+      const caracter = limpio[i];
+      if (enCadena) {
+        if (escapado) escapado = false;
+        else if (caracter === "\\") escapado = true;
+        else if (caracter === '"') enCadena = false;
+        continue;
+      }
+      if (caracter === '"') { enCadena = true; continue; }
+      if (caracter === "{") profundidad++;
+      if (caracter === "}") {
+        profundidad--;
+        if (profundidad === 0) {
+          try { return JSON.parse(limpio.slice(inicio, i + 1)); } catch { break; }
+        }
+      }
+    }
   }
   throw new Error("La IA no ha devuelto los datos en un formato válido. Puedes rellenar el gasto manualmente.");
 }
@@ -155,7 +188,11 @@ export async function extraerGastoDesdeJustificante({ imagenes = [], texto = "",
     text: `Analiza este justificante de gasto (${nombre}). Devuelve SOLO un JSON válido, sin markdown ni comentarios, con exactamente estas claves: proveedor, nif, numero_documento, fecha (YYYY-MM-DD o null), concepto, base_imponible, iva_porcentaje, iva_soportado, total, categoria, confianza, advertencias. Los importes deben ser números sin símbolo de moneda o null si no aparecen. categoria debe ser una de: software, material_amortizable, combustible, transporte, dietas, suministros, servicios_profesionales, seguros, formacion, otros. confianza debe ser un número entre 0 y 1. No inventes valores: usa null cuando no se vean. Si es un ticket sin número de factura, deja numero_documento en null. Comprueba visualmente los datos, pero no inventes ni corrijas importes que no figuren en el documento.${texto.trim() ? `\n\nTEXTO EXTRAÍDO DEL PDF:\n${texto.trim().slice(0, 12000)}` : ""}`,
   }];
   imagenes.slice(0, 6).forEach(url => contenido.push({ type: "image_url", image_url: { url } }));
-  const respuesta = await chat([{ role: "user", content: contenido }], { temperature: 0.1, maxTokens: 900 });
+  const respuesta = await chat([{ role: "user", content: contenido }], {
+    temperature: 0.1,
+    maxTokens: 900,
+    responseFormat: { type: "json_object" },
+  });
   const datos = extraerJson(respuesta);
   const numero = valor => {
     if (valor === null || valor === undefined || valor === "") return null;
