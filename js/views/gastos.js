@@ -5,6 +5,8 @@ import { TABLA_AMORTIZACION, mesesPorTipoBien, UMBRAL_AMORTIZACION } from "../ut
 import { escapeHtml, escapeAttr } from "./clientes.js";
 import { toastOk, toastError, confirmarBorrado, skeletonPagina, animarVista, estadoError } from "../utils/ui.js";
 import { opcionesBase, barra, eurEje } from "../utils/charts.js";
+import { prepararJustificante } from "../utils/justificantes.js";
+import { extraerGastoDesdeJustificante } from "../ai/mistral.js";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 let chartCategorias = null;
@@ -303,7 +305,12 @@ function abrirFormulario(container, gasto, onGuardado, proyectos = []) {
 
   $wrap.innerHTML = `
     <div class="modal ancho" role="dialog" aria-modal="true">
-      <div class="card-head"><h3>${esNuevo ? "Nuevo gasto" : "Editar gasto"}</h3></div>
+      <div class="card-head">
+        <h3>${esNuevo ? "Nuevo gasto" : "Editar gasto"}</h3>
+        ${esNuevo ? `<button class="btn btn-ghost btn-importar-justificante" type="button" id="btn-importar-justificante">📷 Leer ticket o factura</button>` : ""}
+      </div>
+      ${esNuevo ? `<input id="g-justificante-file" type="file" accept="image/*,application/pdf" capture="environment" hidden>
+        <div id="g-justificante-estado" class="justificante-estado" role="status" aria-live="polite" hidden></div>` : ""}
       <div class="row">
         <div class="field" style="flex:2"><label>Concepto</label><input id="g-concepto" value="${escapeAttr(gasto.concepto)}"></div>
         <div class="field"><label>Fecha</label><input id="g-fecha" type="date" value="${gasto.fecha}"></div>
@@ -441,6 +448,74 @@ function abrirFormulario(container, gasto, onGuardado, proyectos = []) {
     }
   }
 
+  function mostrarEstadoJustificante(texto, tipo = "cargando") {
+    const estado = $wrap.querySelector("#g-justificante-estado");
+    if (!estado) return;
+    estado.hidden = !texto;
+    estado.className = `justificante-estado ${tipo}`;
+    estado.textContent = texto || "";
+  }
+
+  function fechaValida(fecha) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(fecha || "")) ? fecha : null;
+  }
+
+  function aplicarExtraccion(datos) {
+    const proveedor = String(datos.proveedor || "").trim();
+    const concepto = String(datos.concepto || "").trim();
+    $wrap.querySelector("#g-concepto").value = concepto || (proveedor ? `Gasto — ${proveedor}` : "");
+    if (fechaValida(datos.fecha)) $wrap.querySelector("#g-fecha").value = datos.fecha;
+
+    const categoria = CATEGORIAS_GASTO[datos.categoria] ? datos.categoria : "otros";
+    $wrap.querySelector("#g-categoria").value = categoria;
+    $wrap.querySelector("#g-iva-pct").value = Number.isFinite(Number(datos.iva_porcentaje)) ? Number(datos.iva_porcentaje) : 21;
+
+    const total = datos.total ?? null;
+    const base = datos.base_imponible ?? null;
+    const iva = datos.iva_soportado ?? null;
+    // Si el documento no separa IVA, lo dejamos como importe simple para no
+    // inventar una base. El usuario puede activar "Con factura" y completar el
+    // desglose después de revisarlo.
+    const tieneDesglose = base !== null || iva !== null;
+    $wrap.querySelector("#g-con-factura").checked = tieneDesglose;
+    $wrap.querySelector("#g-deducible").checked = true;
+    pintarImporte();
+
+    if (tieneDesglose) {
+      const baseCalculada = base !== null ? base : (total !== null && iva !== null ? round2(total - iva) : 0);
+      const $base = $wrap.querySelector("#g-base");
+      const $tipo = $wrap.querySelector("#g-iva-tipo");
+      if ($base) $base.value = baseCalculada || "";
+      if ($tipo && datos.iva_porcentaje !== null) $tipo.value = datos.iva_porcentaje;
+      $base?.dispatchEvent(new Event("input", { bubbles: true }));
+    } else if (total !== null) {
+      const $importe = $wrap.querySelector("#g-importe");
+      if ($importe) { $importe.value = total; $importe.dispatchEvent(new Event("input", { bubbles: true })); }
+    }
+    const aviso = datos.advertencias?.length ? ` Revisa: ${datos.advertencias.join(" ")}` : "";
+    const confianza = datos.confianza < 0.75 ? " Revisa especialmente los campos destacados." : "";
+    mostrarEstadoJustificante(`Datos extraídos. Comprueba el formulario antes de guardar.${confianza}${aviso}`, datos.confianza < 0.75 ? "aviso" : "ok");
+    $wrap.querySelector("#g-concepto")?.focus();
+  }
+
+  async function importarJustificante(file) {
+    const boton = $wrap.querySelector("#btn-importar-justificante");
+    if (boton) { boton.disabled = true; boton.textContent = "Leyendo…"; }
+    mostrarEstadoJustificante("Preparando el justificante…");
+    try {
+      const preparado = await prepararJustificante(file, estado => mostrarEstadoJustificante(estado));
+      mostrarEstadoJustificante("Interpretando los datos…");
+      const datos = await extraerGastoDesdeJustificante({ ...preparado, nombre: file.name });
+      aplicarExtraccion(datos);
+    } catch (error) {
+      mostrarEstadoJustificante(error.message || "No se ha podido leer el justificante. Puedes introducirlo manualmente.", "error");
+    } finally {
+      if (boton) { boton.disabled = false; boton.textContent = "📷 Leer ticket o factura"; }
+      const input = $wrap.querySelector("#g-justificante-file");
+      if (input) input.value = "";
+    }
+  }
+
   $wrap.querySelector("#g-deducible").addEventListener("change", pintarImporte);
   $wrap.querySelector("#g-con-factura").addEventListener("change", () => {
     const conFactura = $wrap.querySelector("#g-con-factura").checked;
@@ -459,6 +534,12 @@ function abrirFormulario(container, gasto, onGuardado, proyectos = []) {
   $wrap.querySelector("#g-hint-combustible").style.display = gasto.categoria === "combustible" ? "flex" : "none";
   $wrap.querySelector("#g-hint-efectivo").style.display = gasto.con_factura !== false ? "none" : "flex";
   pintarImporte();
+
+  $wrap.querySelector("#btn-importar-justificante")?.addEventListener("click", () => $wrap.querySelector("#g-justificante-file")?.click());
+  $wrap.querySelector("#g-justificante-file")?.addEventListener("change", e => {
+    const file = e.target.files?.[0];
+    if (file) importarJustificante(file);
+  });
 
   $wrap.querySelector("#btn-cancelar-gasto").addEventListener("click", cerrarFormulario);
 

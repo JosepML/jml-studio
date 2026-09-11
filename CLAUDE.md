@@ -2,7 +2,7 @@
 
 > **Estado vivo del proyecto — actualizar esta sección en cada cambio relevante.**
 >
-> Última revisión: 2026-09-10 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
+> Última revisión: 2026-09-11 · Rama: `main` · Producción: [GitHub Pages](https://josepml.github.io/jml-studio/)
 > · Último commit de código verificado: `0e7a674` (ajuste visual de la ficha de proyectos).
 
 ## Situación actual y reglas operativas
@@ -28,6 +28,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - Accesibilidad y rendimiento: foco visible, filas de clientes operables con teclado, etiquetas de gráficos, módulos PDF/Excel/Chart.js bajo demanda, historial de conversaciones y origen de datos de IA.
 - Google Calendar: renovación del token verificada en producción desde el cambio de mes; tras renovar, los eventos se cargan correctamente.
 - PDFs: el logo se reduce antes de incrustarlo, evitando que los documentos arrastren la resolución original y ocupen varios megabytes.
+- Gastos: primera versión del importador de justificantes. El formulario de nuevo gasto permite seleccionar una foto, un ticket o un PDF; los PDF con texto se leen localmente con PDF.js y los escaneados se convierten en imágenes para el router gratuito de OpenRouter. La IA rellena una propuesta, pero nunca guarda automáticamente: el usuario debe revisarla y asociarla al proyecto antes de guardar.
 
 ### Pendiente de verificación o decisión
 
@@ -36,6 +37,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 3. **Consistencia de estados:** resuelto en código: carga con esqueletos, vacío con estados propios, errores homogéneos con reintento y foco visible.
 4. **Verificación funcional parcial:** en navegador real ya se han comprobado navegación, exportaciones Excel/PDF, búsqueda y paginación de Clientes, apertura del editor de facturas sin guardar y renovación/carga de Google Calendar; queda probar de punta a punta reordenación y asignación de facturas.
 5. **Mantenimiento:** la numeración usa el máximo secuencial y el listado avisa de duplicados/huecos; no se modifican automáticamente los borradores `020/021/022-2026`.
+6. **Importador de gastos:** falta probar con tickets reales en móvil y escritorio, validar varios formatos de PDF y confirmar los límites prácticos de la clave gratuita de OpenRouter. La versión actual no conserva el archivo original; solo usa sus datos para rellenar el formulario.
 
 ### Mejoras opcionales futuras
 

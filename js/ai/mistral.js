@@ -132,6 +132,55 @@ export async function mejorarDescripcionConIA(concepto, notaBreve) {
   return texto.replace(/^["“]|["”]$/g, "").trim();
 }
 
+/* ---------------------------------------------- lectura de justificantes */
+
+function extraerJson(texto) {
+  const limpio = String(texto || "").replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
+  try { return JSON.parse(limpio); } catch { /* el modelo puede añadir una frase */ }
+  const inicio = limpio.indexOf("{");
+  const fin = limpio.lastIndexOf("}");
+  if (inicio !== -1 && fin > inicio) {
+    try { return JSON.parse(limpio.slice(inicio, fin + 1)); } catch { /* se informa abajo */ }
+  }
+  throw new Error("La IA no ha devuelto los datos en un formato válido. Puedes rellenar el gasto manualmente.");
+}
+
+// Lee una imagen de ticket/factura o el texto extraído localmente de un PDF.
+// No guarda el archivo ni confía en la IA para hacer cálculos fiscales: solo
+// devuelve una propuesta que el formulario de Gastos debe revisar.
+export async function extraerGastoDesdeJustificante({ imagenes = [], texto = "", nombre = "justificante" } = {}) {
+  if (!imagenes.length && !texto.trim()) throw new Error("No se ha encontrado contenido legible en el justificante.");
+  const contenido = [{
+    type: "text",
+    text: `Analiza este justificante de gasto (${nombre}). Devuelve SOLO un JSON válido, sin markdown ni comentarios, con exactamente estas claves: proveedor, nif, numero_documento, fecha (YYYY-MM-DD o null), concepto, base_imponible, iva_porcentaje, iva_soportado, total, categoria, confianza, advertencias. Los importes deben ser números sin símbolo de moneda o null si no aparecen. categoria debe ser una de: software, material_amortizable, combustible, transporte, dietas, suministros, servicios_profesionales, seguros, formacion, otros. confianza debe ser un número entre 0 y 1. No inventes valores: usa null cuando no se vean. Si es un ticket sin número de factura, deja numero_documento en null. Comprueba visualmente los datos, pero no inventes ni corrijas importes que no figuren en el documento.${texto.trim() ? `\n\nTEXTO EXTRAÍDO DEL PDF:\n${texto.trim().slice(0, 12000)}` : ""}`,
+  }];
+  imagenes.slice(0, 6).forEach(url => contenido.push({ type: "image_url", image_url: { url } }));
+  const respuesta = await chat([{ role: "user", content: contenido }], { temperature: 0.1, maxTokens: 900 });
+  const datos = extraerJson(respuesta);
+  const numero = valor => {
+    if (valor === null || valor === undefined || valor === "") return null;
+    if (typeof valor === "number") return Number.isFinite(valor) ? valor : null;
+    const limpio = String(valor).replace(/[^\d,.-]/g, "");
+    const normalizado = limpio.includes(",") ? limpio.replace(/\./g, "").replace(",", ".") : limpio;
+    const resultado = Number(normalizado);
+    return Number.isFinite(resultado) ? resultado : null;
+  };
+  return {
+    proveedor: datos.proveedor ?? null,
+    nif: datos.nif ?? null,
+    numero_documento: datos.numero_documento ?? null,
+    fecha: datos.fecha ?? null,
+    concepto: datos.concepto ?? null,
+    base_imponible: numero(datos.base_imponible),
+    iva_porcentaje: numero(datos.iva_porcentaje),
+    iva_soportado: numero(datos.iva_soportado),
+    total: numero(datos.total),
+    categoria: datos.categoria || "otros",
+    confianza: Math.max(0, Math.min(1, Number(datos.confianza) || 0)),
+    advertencias: Array.isArray(datos.advertencias) ? datos.advertencias : (datos.advertencias ? [String(datos.advertencias)] : []),
+  };
+}
+
 /* ------------------------------------------------------ chat financiero */
 
 const INSTRUCCION_ASISTENTE = `Eres el asistente financiero personal de Josep, autónomo de producción audiovisual en España (estimación directa simplificada, régimen general de IVA). Te paso un resumen JSON con sus cifras reales: facturación, gastos, Modelo 130, clientes, etc. Responde SIEMPRE en español, de forma breve, concreta y práctica, apoyándote en esos datos. Si te pregunta algo que no puedas calcular con la información dada, dilo claramente en vez de inventar cifras. No des nunca asesoramiento fiscal o legal como si fuera definitivo — cuando sea relevante, recuérdale que lo confirme con su gestoría antes de actuar.`;

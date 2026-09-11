@@ -510,6 +510,13 @@ details.card table input[type="checkbox"]{width:auto; padding:0;}
 .modal h3{margin:0 0 8px; font-size:17px; letter-spacing:-.02em;}
 .modal p{margin:0 0 20px; color:var(--grey-fg); font-size:13.5px; line-height:1.6;}
 .modal .form-actions{justify-content:flex-end; margin:0;}
+.modal .card-head .btn-importar-justificante{margin-left:auto; font-size:12px; padding:8px 11px; white-space:nowrap;}
+.justificante-estado{display:flex; align-items:flex-start; gap:8px; margin:-2px 0 14px; padding:10px 12px; border-radius:10px; background:var(--blue-bg,#EAF0FF); color:var(--blue-fg,var(--blue,#3F6FE5)); font-size:12px; line-height:1.45;}
+.justificante-estado::before{content:""; width:7px; height:7px; margin-top:4px; flex:none; border-radius:50%; background:currentColor;}
+.justificante-estado.ok{background:var(--green-bg); color:var(--green-fg);}
+.justificante-estado.aviso{background:var(--orange-bg); color:var(--orange-fg);}
+.justificante-estado.error{background:var(--red-bg); color:var(--red-fg);}
+@media (max-width:600px){.modal .card-head .btn-importar-justificante{width:100%; margin-left:0;}.modal .card-head{align-items:stretch;}}
 @keyframes fade-in{from{opacity:0;} to{opacity:1;}}
 @keyframes modal-in{from{opacity:0; transform:translateY(16px) scale(.96);} to{opacity:1; transform:none;}}
 
