@@ -99,6 +99,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # JML Studio
 
+> Última revisión: 2026-09-17. El workflow `.github/workflows/supabase-keepalive.yml`
+> mantiene actividad de solo lectura en Supabase cada seis horas para evitar la
+> pausa automática del proyecto gratuito.
+
 PWA privada de gestión de negocio para **Josep Mira Lozano**, autónomo español
 de producción audiovisual B2B. Una sola persona la usa: no hay registro
 público, ni multi-tenant, ni roles.
