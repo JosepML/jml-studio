@@ -528,7 +528,8 @@ export async function renderMensual(container) {
                 numero,
                 cliente_id: p?.cliente_id || null,
                 tipo: "factura",
-                fecha: p?.fecha_entrega || p?.fecha_inicio || todayIso(),
+                // Una factura agrupada nace hoy; no debe heredar la fecha de un proyecto.
+                fecha: todayIso(),
               }).exec();
               if (error) { toastError("No se ha podido crear la factura: " + error); pintar(anio); return; }
               facturaId = Array.isArray(data) ? data[0]?.id : data?.id;
