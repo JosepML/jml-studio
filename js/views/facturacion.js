@@ -1559,5 +1559,6 @@ async function descargarPdfDocumento(doc, cliente) {
   }
 
   const sufijo = doc.marcaAgua ? "-BORRADOR" : "";
-  pdf.save(`${esPresupuesto ? "presupuesto" : "factura"}-${numero}${sufijo}.pdf`);
+  const prefijoArchivo = esPresupuesto ? "PRESUPUESTO" : "FACTURA";
+  pdf.save(`${prefijoArchivo}-${numero}${sufijo}.pdf`);
 }
