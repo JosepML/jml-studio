@@ -2,8 +2,42 @@ import { db } from "../supabase.js";
 import { ESTADOS_FACTURA, ESTADOS_COBRO, FORMAS_PAGO, CATEGORIAS_SERVICIO, eur, dateEs, todayIso } from "../utils/format.js";
 import { construirLedger, conIva, estadoEfectivo, rangoAnio, resumenPeriodo, conIvaSegunPago } from "../utils/resumen.js";
 import { round2 } from "../utils/invoice-calc.js";
+import { dividirImporteEnDos, nombresFraccionados, estaFraccionado } from "../utils/fraccionamiento.js";
 import { escapeHtml, escapeAttr } from "./clientes.js";
-import { toastOk, toastError, confirmarBorrado, skeletonPagina, estadoError } from "../utils/ui.js";
+import { toastOk, toastError, confirmar, confirmarBorrado, skeletonPagina, estadoError } from "../utils/ui.js";
+
+async function crearProyectosFraccionados(payload) {
+  const [importePrimera, importeSegunda] = dividirImporteEnDos(payload.precio_acordado);
+  const [nombrePrimera, nombreSegunda] = nombresFraccionados(payload.nombre);
+  const grupo = crypto.randomUUID();
+  const primera = {
+    ...payload,
+    nombre: nombrePrimera,
+    precio_acordado: importePrimera,
+    fraccion_grupo_id: grupo,
+    fraccion_numero: 1,
+    fraccion_total: 2,
+  };
+  const segunda = {
+    ...payload,
+    nombre: nombreSegunda,
+    precio_acordado: importeSegunda,
+    horas_invertidas: 0,
+    coste_asociado: 0,
+    fraccion_grupo_id: grupo,
+    fraccion_numero: 2,
+    fraccion_total: 2,
+  };
+  const creada = await db.from("proyectos").insert(primera).exec();
+  if (creada.error) return creada;
+  const segundaCreada = await db.from("proyectos").insert(segunda).exec();
+  if (segundaCreada.error) {
+    const primeraId = Array.isArray(creada.data) ? creada.data[0]?.id : creada.data?.id;
+    if (primeraId) await db.from("proyectos").delete().eq("id", primeraId).exec();
+    return segundaCreada;
+  }
+  return { data: [creada.data, segundaCreada.data], error: null };
+}
 
 export async function renderProyectos(container, param) {
   container.innerHTML = skeletonPagina({ kpis: 4, filas: 10 });
@@ -308,6 +342,10 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
               <div class="field" style="flex:2;"><label for="npw-precio">Precio acordado (€, sin IVA)</label><input id="npw-precio" type="number" step="0.01" min="0" value="0"></div>
               <div class="field"><label for="npw-forma">Forma de pago</label><select id="npw-forma">${Object.entries(FORMAS_PAGO).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("")}</select></div>
             </div>
+            <div class="toggle-box" style="margin-top:12px;">
+              <label><input type="checkbox" id="npw-fraccionar"> Fraccionar pago en 2 partes iguales</label>
+              <div class="hint-box" style="display:flex;">Creará automáticamente 50% 1/2 y 50% 2/2, cada uno con su propio estado de cobro.</div>
+            </div>
             <div class="row">
               <div class="field"><label for="npw-coste">Coste asociado (€)</label><input id="npw-coste" type="number" step="0.01" min="0" value="0"></div>
               <div class="field"><label for="npw-horas">Horas invertidas</label><input id="npw-horas" type="number" step="0.5" min="0" value="0"></div>
@@ -372,6 +410,7 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
       <div><span>Fechas</span><strong>${inicio ? dateEs(inicio) : "—"} → ${entrega ? dateEs(entrega) : "—"}</strong></div>
       <div><span>Precio acordado</span><strong>${eur(Number(campo("precio").value || 0))}</strong></div>
       <div><span>Forma de pago</span><strong>${escapeHtml(FORMAS_PAGO[campo("forma").value]?.label || "—")}</strong></div>
+      <div><span>Fraccionamiento</span><strong>${campo("fraccionar").checked ? "50% 1/2 + 50% 2/2" : "Pago único"}</strong></div>
     </div>`;
   };
   function mostrarPaso() {
@@ -420,12 +459,17 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
       entregables: [],
       notas: "",
     };
+    const fraccionar = campo("fraccionar").checked;
     $siguiente.disabled = true;
-    const { error } = await db.from("proyectos").insert(payload).exec();
+    const { error } = fraccionar
+      ? await crearProyectosFraccionados(payload)
+      : await db.from("proyectos").insert(payload).exec();
     $siguiente.disabled = false;
     if (error) { toastError("No se ha podido crear el proyecto: " + error); return; }
     cerrar();
-    toastOk(opciones.mesNombre ? `"${nombre}" añadido a ${opciones.mesNombre}.` : `Proyecto "${nombre}" creado.`);
+    toastOk(fraccionar
+      ? `"${nombre}" creado en dos partes (50% 1/2 y 50% 2/2).`
+      : (opciones.mesNombre ? `"${nombre}" añadido a ${opciones.mesNombre}.` : `Proyecto "${nombre}" creado.`));
     if (onGuardado) await onGuardado(payload);
   });
   $backdrop.querySelectorAll("input, select, textarea").forEach(input => input.addEventListener("input", actualizarPasos));
@@ -476,7 +520,12 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opcione
           <h3 style="margin:0;">${esNuevo ? "Nuevo proyecto" : escapeHtml(proyecto.nombre)}</h3>
           ${esNuevo ? "" : `<p class="muted" style="margin:4px 0 0; font-size:12.5px;">${escapeHtml(CATEGORIAS_SERVICIO[proyecto.categoria_servicio || "otros"]?.label || "")}</p>`}
         </div>
-        ${esNuevo ? "" : `<button class="btn btn-dark" id="btn-generar-factura" type="button">Generar factura</button>`}
+        ${esNuevo ? "" : `<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+          ${estaFraccionado(proyecto)
+            ? `<span class="badge" style="background:var(--blue-bg,#E7ECFB); color:var(--blue-fg,#3D6FE3);">Pago fraccionado · ${proyecto.fraccion_numero}/${proyecto.fraccion_total}</span>`
+            : `<button class="btn btn-ghost" id="btn-fraccionar-proyecto" type="button">Fraccionar pago</button>`}
+          <button class="btn btn-dark" id="btn-generar-factura" type="button">Generar factura</button>
+        </div>`}
       </div>
 
       ${esNuevo ? "" : `
@@ -612,6 +661,62 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opcione
 
     $detalle.querySelector("#btn-generar-factura").addEventListener("click", () => {
       location.hash = `#/facturacion/nuevo-desde-proyecto:${proyecto.id}`;
+    });
+
+    $detalle.querySelector("#btn-fraccionar-proyecto")?.addEventListener("click", async () => {
+      if (facturasVinculadas.length) {
+        toastError("No se puede fraccionar un proyecto que ya tiene una factura vinculada.");
+        return;
+      }
+      const ok = await confirmar({
+        titulo: "Fraccionar pago",
+        mensaje: `Se crearán dos proyectos: «${nombresFraccionados(proyecto.nombre)[0]}» y «${nombresFraccionados(proyecto.nombre)[1]}». El importe se repartirá en dos partes y el proyecto actual conservará sus gastos.`,
+        confirmar: "Fraccionar pago",
+      });
+      if (!ok) return;
+      const grupo = crypto.randomUUID();
+      const [importePrimera, importeSegunda] = dividirImporteEnDos(proyecto.precio_acordado);
+      const [nombrePrimera, nombreSegunda] = nombresFraccionados(proyecto.nombre);
+      const actualizacion = await db.from("proyectos").update({
+        nombre: nombrePrimera,
+        precio_acordado: importePrimera,
+        fraccion_grupo_id: grupo,
+        fraccion_numero: 1,
+        fraccion_total: 2,
+      }).eq("id", proyecto.id).exec();
+      if (actualizacion.error) { toastError("No se ha podido fraccionar: " + actualizacion.error); return; }
+      const segunda = await db.from("proyectos").insert({
+        cliente_id: proyecto.cliente_id,
+        nombre: nombreSegunda,
+        estado: proyecto.estado,
+        fecha_inicio: proyecto.fecha_inicio,
+        fecha_entrega: proyecto.fecha_entrega,
+        horas_invertidas: 0,
+        coste_asociado: 0,
+        precio_acordado: importeSegunda,
+        entregables: [],
+        forma_pago: proyecto.forma_pago || "transferencia",
+        estado_facturacion: "pendiente",
+        categoria_servicio: proyecto.categoria_servicio || "otros",
+        notas: proyecto.notas || "",
+        fraccion_grupo_id: grupo,
+        fraccion_numero: 2,
+        fraccion_total: 2,
+      }).exec();
+      if (segunda.error) {
+        await db.from("proyectos").update({
+          nombre: proyecto.nombre,
+          precio_acordado: proyecto.precio_acordado,
+          fraccion_grupo_id: null,
+          fraccion_numero: null,
+          fraccion_total: null,
+        }).eq("id", proyecto.id).exec();
+        toastError("No se ha podido crear la segunda parte; el proyecto original se ha restaurado.");
+        return;
+      }
+      toastOk("Pago fraccionado en 50% 1/2 y 50% 2/2.");
+      cerrarFicha();
+      if (onGuardado) await onGuardado();
     });
 
     $detalle.querySelectorAll("tr[data-factura-id]").forEach(tr => {

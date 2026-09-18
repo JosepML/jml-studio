@@ -35,8 +35,23 @@ create table if not exists proyectos (
     check (forma_pago in ('transferencia','efectivo','mixto')),
   estado_facturacion text not null default 'pendiente'
     check (estado_facturacion in ('pendiente','emitida','pagada')),
+  fraccion_grupo_id uuid,
+  fraccion_numero smallint,
+  fraccion_total smallint,
   notas text,
   created_at timestamptz not null default now()
+);
+
+alter table proyectos drop constraint if exists proyectos_fraccion_valida;
+alter table proyectos add constraint proyectos_fraccion_valida check (
+  (fraccion_grupo_id is null and fraccion_numero is null and fraccion_total is null)
+  or (
+    fraccion_grupo_id is not null
+    and fraccion_numero is not null
+    and fraccion_total is not null
+    and fraccion_total > 1
+    and fraccion_numero between 1 and fraccion_total
+  )
 );
 
 -- ============ FACTURAS Y PRESUPUESTOS ============
@@ -98,6 +113,7 @@ create table if not exists factura_proyectos (
 
 -- ============ ÍNDICES ============
 create index if not exists idx_proyectos_cliente on proyectos(cliente_id);
+create index if not exists idx_proyectos_fraccion_grupo on proyectos(fraccion_grupo_id);
 create index if not exists idx_facturas_proyecto on facturas(proyecto_id);
 create index if not exists idx_facturas_cliente on facturas(cliente_id);
 create index if not exists idx_gastos_proyecto on gastos(proyecto_id);

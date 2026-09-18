@@ -99,9 +99,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # JML Studio
 
-> Última revisión: 2026-09-17. El workflow `.github/workflows/supabase-keepalive.yml`
+> Última revisión: 2026-09-18. El workflow `.github/workflows/supabase-keepalive.yml`
 > mantiene actividad de solo lectura en Supabase cada seis horas para evitar la
 > pausa automática del proyecto gratuito.
+
+- Proyectos: fraccionamiento de pagos en dos proyectos vinculados (`50% 1/2` y
+  `50% 2/2`), disponible tanto al crear desde Facturación mensual como al abrir
+  un proyecto sin facturas vinculadas. La migración es `sql/migration_005_fraccionamiento_pagos.sql`.
 
 PWA privada de gestión de negocio para **Josep Mira Lozano**, autónomo español
 de producción audiovisual B2B. Una sola persona la usa: no hay registro
