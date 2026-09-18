@@ -1,5 +1,5 @@
 import { db } from "../supabase.js";
-import { abrirFichaProyecto } from "./proyectos.js?v=fraccionamiento-20260918-1";
+import { abrirFichaProyecto } from "./proyectos.js?v=fraccionamiento-flexible-20260918-1";
 import { eur, FORMAS_PAGO, todayIso } from "../utils/format.js";
 import { round2 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
