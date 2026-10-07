@@ -29,7 +29,9 @@ export async function renderMensual(container) {
   const vinculoPorProyecto = {};
   (facturaProyectos || []).forEach(fp => { if (fp.facturas && fp.facturas.tipo === "factura") vinculoPorProyecto[fp.proyecto_id] = fp.factura_id; });
 
-  const anios = Array.from(new Set([...ledger.map(f => f.fecha ? new Date(f.fecha).getFullYear() : anioActual), anioActual])).sort((a,b)=>b-a);
+  // Incluye también el siguiente año para poder planificar proyectos futuros
+  // aunque todavía no exista ninguno en ese periodo.
+  const anios = Array.from(new Set([...ledger.map(f => f.fecha ? new Date(f.fecha).getFullYear() : anioActual), anioActual, anioActual + 1])).sort((a,b)=>b-a);
 
   // Sin <h2> propio: la barra superior de la app ya muestra "Facturación
   // mensual" y repetirlo aquí era un título duplicado en la misma pantalla.
