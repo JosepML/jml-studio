@@ -95,6 +95,11 @@ async function renderLista(container, cfg) {
   const documentos = (todos || []).filter(f => f.tipo === cfg.tipo).sort((a, b) => {
     const na = secuencialDe(a.numero), nb = secuencialDe(b.numero);
     if (na != null && nb != null && na !== nb) return nb - na;
+    if (na != null && nb != null) {
+      // Mismo secuencial: el sufijo ("27B") va por encima del número base ("27").
+      const sa = sufijoDe(a.numero), sb = sufijoDe(b.numero);
+      if (sa !== sb) return sb.localeCompare(sa);
+    }
     if (na != null && nb == null) return -1;
     if (na == null && nb != null) return 1;
     return String(b.fecha || "").localeCompare(String(a.fecha || ""));
@@ -293,9 +298,17 @@ async function sincronizarFacturaProyectos(facturaId, lineas) {
 
 // Saca el secuencial de un número de documento: "PRE-16-2026" → 16,
 // "01-2026" → 1. Devuelve null si no encaja con el formato.
+// Admite sufijo de letras ("PRE-27B-2026" → 27): antes no encajaba, devolvía
+// null y el documento caía al final del listado en vez de junto al 27.
 export function secuencialDe(numero) {
-  const m = String(numero || "").trim().match(/^(?:PRE-)?0*(\d+)-(\d{4})$/i);
+  const m = String(numero || "").trim().match(/^(?:PRE-)?0*(\d+)[A-Za-z]*-(\d{4})$/i);
   return m ? parseInt(m[1], 10) : null;
+}
+
+// Sufijo en mayúsculas ("27B" → "B"; "27" → ""), para desempatar el orden.
+export function sufijoDe(numero) {
+  const m = String(numero || "").trim().match(/^(?:PRE-)?0*\d+([A-Za-z]*)-\d{4}$/i);
+  return m ? m[1].toUpperCase() : "";
 }
 
 // El siguiente número es el MÁXIMO usado + 1, no "cuántos hay" + 1. Contar
