@@ -1658,3 +1658,17 @@ table.tabla-estados tr.fila-cobrada > td:first-child { color: var(--grey); }
 .vp-miniatura-etiqueta{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); display:inline-flex; align-items:center; gap:6px;
   padding:7px 12px; border-radius:99px; background:#fff; color:var(--navy); font-size:13px; font-weight:700; box-shadow:var(--shadow-sm); white-space:nowrap;}
 .vp-miniatura-etiqueta svg{width:15px; height:15px;}
+
+/* Scroll de la vista previa más fino (2026-10-20). Josep notaba tirones al
+   desplazarse por el PDF. Tres causas, de más a menos cara:
+   1. El desenfoque del fondo (backdrop-filter) se recalcula en cada fotograma
+      del scroll del diálogo: aquí se cambia por un velo opaco, como en el
+      asistente de proyectos.
+   2. Cada página es un canvas grande con sombra: la sombra obliga a repintar
+      alrededor del lienzo. Se deja solo el borde, y el contenedor se aísla
+      (contain) para que el scroll no repinte nada de fuera.
+   3. Al llegar al final, la rueda seguía moviendo la página de detrás
+      (overscroll-behavior). */
+.modal-backdrop:has(.vp-modal){backdrop-filter:none; -webkit-backdrop-filter:none; background:rgba(15,20,35,.62);}
+.vp-modal .vp-paginas{overscroll-behavior:contain; contain:layout paint; -webkit-overflow-scrolling:touch;}
+.vp-modal .vp-pagina{box-shadow:none; transform:translateZ(0);}
