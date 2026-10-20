@@ -1723,6 +1723,9 @@ async function generarPdfDocumento(doc, cliente) {
   }
 
   const sufijo = doc.marcaAgua ? "-BORRADOR" : "";
-  const prefijoArchivo = esPresupuesto ? "PRESUPUESTO" : "FACTURA";
-  return { pdf, nombreArchivo: `${prefijoArchivo}-${numero}${sufijo}.pdf` };
+  // El número del presupuesto ya empieza por "PRE-", así que anteponer
+  // "PRESUPUESTO-" salía redundante ("PRESUPUESTO-PRE-27"). Las facturas
+  // conservan su prefijo porque su número es solo secuencial.
+  const prefijoArchivo = esPresupuesto ? "" : "FACTURA-";
+  return { pdf, nombreArchivo: `${prefijoArchivo}${numero}${sufijo}.pdf` };
 }
