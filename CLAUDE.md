@@ -30,7 +30,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 - PDFs: el logo se reduce antes de incrustarlo, evitando que los documentos arrastren la resolución original y ocupen varios megabytes.
 - Gastos: primera versión del importador de justificantes. El formulario de nuevo gasto permite seleccionar una foto, un ticket o un PDF; los PDF con texto se leen localmente con PDF.js y los escaneados se convierten en imágenes para un modelo gratuito de visión de OpenRouter, con `openrouter/free` como respaldo. La extracción solicita JSON estructurado y la IA rellena una propuesta, pero nunca guarda automáticamente: el usuario debe revisarla y asociarla al proyecto antes de guardar.
 
-- Facturas y presupuestos: vista previa integrada del PDF. Ojo en cada fila del listado, botón "Vista previa" en el editor y vista automática en el paso Confirmación. Usa el mismo generador que la descarga (`generarPdfDocumento`) y se dibuja con PDF.js en `<canvas>` para que funcione también en el móvil, donde un iframe con PDF no se ve. Descargar desde la vista previa guarda ese mismo PDF.
+- Facturas y presupuestos: vista previa integrada del PDF. Ojo en cada fila del listado y, en el editor, una miniatura desenfocada de la primera página junto a los botones que abre la vista previa al hacer clic (nunca desplegada por defecto: Josep pidió que no estorbe). Usa el mismo generador que la descarga (`generarPdfDocumento`) y se dibuja con PDF.js en `<canvas>` para que funcione también en el móvil, donde un iframe con PDF no se ve. Descargar desde la vista previa guarda ese mismo PDF.
 
 ### Pendiente de verificación o decisión
 
@@ -56,7 +56,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 
 ## Registro de cambios recientes
 
-- `pendiente` — vista previa del PDF de facturas y presupuestos dentro de la página (listado, editor y paso Confirmación); probada con datos simulados en navegador de escritorio y a ancho de móvil, falta probarla en el móvil físico.
+- `pendiente` — vista previa del PDF de facturas y presupuestos dentro de la página (ojo en el listado y miniatura desplegable en el editor); probada con datos simulados en navegador de escritorio y a ancho de móvil, falta probarla en el móvil físico.
 - `pendiente` — ficha de proyecto ligeramente más ancha; Generar factura vuelve a la cabecera y los botones quedan como Eliminar a la izquierda, Cerrar a la derecha y Guardar al extremo derecho.
 - `pendiente` — el wizard de proyectos ya no muestra subtítulos auxiliares innecesarios.
 - `pendiente` — el backdrop del wizard de proyectos evita `backdrop-filter` para no recomponer toda Facturación mensual durante la animación; el modal se mantiene centrado con altura estable.
