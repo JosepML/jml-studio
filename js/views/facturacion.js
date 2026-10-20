@@ -45,6 +45,7 @@ export function faltanDatosParaPdf(doc, cliente) {
 const MARCA_BORRADOR = "BORRADOR — SIN VALIDEZ FISCAL";
 
 const ICONO_DESCARGA = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7.2 10.2 12 15l4.8-4.8"/><path d="M4.5 19.5h15"/></svg>`;
+const ICONO_VISTA_PREVIA = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const ICONO_DUPLICAR = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
 
 // --- Facturas (documentos tipo="factura") ---
@@ -205,6 +206,7 @@ async function renderLista(container, cfg) {
           <td><span class="badge" style="background:${cfg.estados[f.estado]?.bg};color:${cfg.estados[f.estado]?.fg}">${cfg.estados[f.estado]?.label || f.estado}</span></td>
           <td class="row-actions">
             <button class="icon-btn btn-duplicar" data-id="${f.id}" type="button" title="Duplicar">${ICONO_DUPLICAR}</button>
+            <button class="icon-btn btn-vista-previa" data-id="${f.id}" type="button" title="Vista previa" aria-label="Vista previa de ${escapeAttr(f.numero)}">${ICONO_VISTA_PREVIA}</button>
             <button class="icon-btn btn-descarga-rapida" data-id="${f.id}" type="button" title="Descargar PDF">${ICONO_DESCARGA}</button>
           </td>
         </tr>`).join("")}</tbody></table>`;
@@ -228,6 +230,17 @@ async function renderLista(container, cfg) {
           proyecto_id: null,
         }));
         location.hash = `${cfg.volverA}/nuevo`;
+      });
+    });
+    $list.querySelectorAll(".btn-vista-previa").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const doc = documentos.find(d => d.id === btn.dataset.id);
+        if (!doc) return;
+        // Se puede mirar aunque falten datos: precisamente sirve para ver qué
+        // sale mal antes de descargar. La descarga sigue las mismas reglas.
+        const cliente = clientesMap[doc.cliente_id];
+        abrirVistaPreviaDocumento(doc, cliente, { faltan: faltanDatosParaPdf(doc, cliente) });
       });
     });
     $list.querySelectorAll(".btn-descarga-rapida").forEach(btn => {
@@ -602,6 +615,12 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
           <div class="card-head"><h3>Todo listo</h3></div>
           <div id="repaso-contenido"></div>
         </div>
+
+        <div class="card" id="vista-previa-final">
+          <div class="card-head"><h3>Vista previa</h3></div>
+          <p class="muted vp-intro">Así saldrá el PDF. Se vuelve a generar cada vez que llegas a este paso.</p>
+          <div class="vp-paginas vp-en-linea" id="vista-previa-paginas"></div>
+        </div>
         </section>
       </div>
 
@@ -614,6 +633,7 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
           <div id="aviso-pdf" class="hint-sm" style="margin-top:8px;" aria-live="polite"></div>
           <div class="resumen-acciones">
             <button class="btn btn-primary" id="btn-guardar">Guardar</button>
+            <button class="btn btn-ghost" id="btn-vista-previa" type="button">Vista previa</button>
             <button class="btn btn-dark" id="btn-pdf">Descargar PDF</button>
             ${puedeConvertir ? `<button class="btn btn-ghost" id="btn-convertir" type="button" style="border-color:var(--green-fg); color:var(--green-fg);">Convertir en factura →</button>` : ""}
             ${puedeConvertir ? `<button class="btn btn-ghost" id="btn-convertir-proyecto" type="button" style="border-color:var(--blue); color:var(--blue);">${draft.proyecto_id ? "Ver el proyecto →" : "Convertir en proyecto →"}</button>` : ""}
@@ -753,7 +773,7 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
     $wzAnterior.hidden = pasoActual === 0;
     const ultimo = pasoActual === PASOS.length - 1;
     $wzSiguiente.textContent = ultimo ? "Guardar y terminar" : "Continuar →";
-    if (ultimo) pintarRepaso();
+    if (ultimo) { pintarRepaso(); pintarVistaPreviaEnLinea(); }
     container.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
@@ -773,6 +793,19 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
         <div><span>Total</span><strong>${eur(Number(calc?.total || 0))}</strong></div>
       </div>
       ${faltan.length ? `<div class="ai-banner" style="margin-top:14px;">Al cliente le falta ${faltan.join(", ")}. Puedes guardar igual, pero el PDF saldrá con la marca de borrador.</div>` : ""}`;
+  }
+
+  // Vista previa automática del paso de confirmación. Cada llegada al paso
+  // invalida la anterior con un contador: si el usuario va y viene rápido, solo
+  // se pinta la última y nunca aparece un PDF con datos ya cambiados.
+  let vistaPreviaVigente = 0;
+  function pintarVistaPreviaEnLinea() {
+    const $destino = container.querySelector("#vista-previa-paginas");
+    if (!$destino) return;
+    const turno = ++vistaPreviaVigente;
+    const { doc, cliente } = documentoDelEditor();
+    pintarVistaPrevia(doc, cliente, $destino,
+      () => turno === vistaPreviaVigente && container.isConnected && !$destino.closest("[hidden]"));
   }
 
   // Alta de cliente sin salir del documento: el modal se abre encima y, al
@@ -1412,8 +1445,12 @@ pintarCondiciones();
   container.querySelector("#f-cliente")?.addEventListener("change", pintarAvisoCliente);
   pintarAvisoCliente();
 
-  container.querySelector("#btn-pdf").addEventListener("click", () => {
-    const calc = actualizar();
+  // Lo que se manda al generador del PDF, leído del formulario tal como está.
+  // Lo comparten el botón de descarga y las dos vistas previas: si cada uno
+  // armara su propio objeto, la vista previa podría enseñar algo distinto de
+  // lo que luego se descarga.
+  function documentoDelEditor() {
+    actualizar();
     const cliente = (clientes || []).find(c => c.id === container.querySelector("#f-cliente").value);
     const faltan = faltanDatosParaPdf({
       tipo: draft.tipo,
@@ -1422,10 +1459,6 @@ pintarCondiciones();
       proyecto_nombre: container.querySelector("#f-proyecto-nombre")?.value || draft.proyecto_nombre,
       lineas: draft.lineas,
     }, cliente);
-    if (faltan.length) {
-      toastError(`No se puede descargar el PDF: faltan ${faltan.join(", ")}.`);
-      return;
-    }
     // Nombre del proyecto REAL: antes el PDF ponía en "Proyecto" el primer
     // concepto de la lista, que casi nunca coincide con el proyecto elegido.
     const idsProyecto = [...new Set(draft.lineas.map(l => l.proyecto_id).filter(Boolean))];
@@ -1433,7 +1466,7 @@ pintarCondiciones();
       || (idsProyecto.length === 1
             ? (proyectosDisponibles || []).find(p => p.id === idsProyecto[0])?.nombre
             : null);
-    const docParaPdf = {
+    const doc = {
       numero: container.querySelector("#f-numero").value.trim(),
       tipo: draft.tipo,
       fecha: container.querySelector("#f-fecha").value,
@@ -1445,7 +1478,21 @@ pintarCondiciones();
       // El generador estampa la marca de agua si recibe este campo.
       marcaAgua: faltan.length ? MARCA_BORRADOR : null,
     };
-    descargarPdfDocumento(docParaPdf, cliente);
+    return { doc, cliente, faltan };
+  }
+
+  container.querySelector("#btn-vista-previa").addEventListener("click", () => {
+    const { doc, cliente, faltan } = documentoDelEditor();
+    abrirVistaPreviaDocumento(doc, cliente, { faltan });
+  });
+
+  container.querySelector("#btn-pdf").addEventListener("click", () => {
+    const { doc, cliente, faltan } = documentoDelEditor();
+    if (faltan.length) {
+      toastError(`No se puede descargar el PDF: faltan ${faltan.join(", ")}.`);
+      return;
+    }
+    descargarPdfDocumento(doc, cliente);
   });
 }
 
@@ -1465,14 +1512,107 @@ function cargarJsPdf() {
 // las listas como por el botón "Descargar PDF" del editor, para no duplicar
 // la lógica de maquetación en dos sitios.
 async function descargarPdfDocumento(doc, cliente) {
-  let jspdfNs;
-  try { jspdfNs = await cargarJsPdf(); } catch (e) { toastError(e.message); return; }
+  try {
+    const { pdf, nombreArchivo } = await generarPdfDocumento(doc, cliente);
+    pdf.save(nombreArchivo);
+  } catch (e) {
+    toastError(e.message);
+  }
+}
+
+// Genera el PDF y lo dibuja en $destino. Devuelve el resultado de
+// generarPdfDocumento (para poder descargar ESE mismo PDF después) o null si
+// falló o dejó de ser vigente. Los errores se enseñan dentro del propio hueco:
+// un toast que no se cierra solo sería demasiado ruido para una vista previa.
+async function pintarVistaPrevia(doc, cliente, $destino, esVigente = () => true) {
+  $destino.setAttribute("aria-busy", "true");
+  if (!$destino.querySelector("canvas")) $destino.innerHTML = `<p class="vp-estado">Generando la vista previa…</p>`;
+  try {
+    const resultado = await generarPdfDocumento(doc, cliente);
+    if (!esVigente()) return null;
+    const pintado = await pintarPaginasPdfDiferido(resultado.pdf.output("arraybuffer"), $destino, esVigente);
+    return pintado ? resultado : null;
+  } catch (e) {
+    if (esVigente()) {
+      $destino.innerHTML = `<p class="vp-estado vp-error"></p>`;
+      $destino.querySelector("p").textContent = `No se ha podido generar la vista previa. ${e.message || ""}`;
+    }
+    return null;
+  } finally {
+    if (esVigente()) $destino.removeAttribute("aria-busy");
+  }
+}
+
+// El dibujo con PDF.js solo hace falta al abrir una vista previa: import
+// dinámico, como pdf-documentos.js, para no cargarlo al entrar en la sección.
+async function pintarPaginasPdfDiferido(datos, $destino, esVigente) {
+  const { pintarPaginasPdf } = await import("../utils/vista-previa-pdf.js");
+  return pintarPaginasPdf(datos, $destino, { esVigente });
+}
+
+// Vista previa en un diálogo, con su propio botón de descarga. Se usa desde
+// el listado (el ojo de cada fila) y desde el botón "Vista previa" del editor.
+// `faltan` son los datos que impiden descargar: se puede mirar igualmente,
+// pero la descarga sigue bloqueada con las mismas reglas que el botón normal.
+function abrirVistaPreviaDocumento(doc, cliente, { faltan = [] } = {}) {
+  const titulo = `${doc.tipo === "presupuesto" ? "Presupuesto" : "Factura"} ${doc.numero || "sin número"}`;
+  const $backdrop = document.createElement("div");
+  $backdrop.className = "modal-backdrop";
+  $backdrop.innerHTML = `
+    <div class="modal vp-modal" role="dialog" aria-modal="true" aria-labelledby="vp-titulo">
+      <div class="vp-cabecera">
+        <h3 id="vp-titulo"></h3>
+        <button class="btn btn-ghost" data-accion="cerrar" type="button">Cerrar</button>
+      </div>
+      <div class="vp-paginas" tabindex="0" aria-label="Vista previa del PDF"></div>
+      <div class="vp-pie">
+        <p class="vp-aviso hint-sm" aria-live="polite"></p>
+        <button class="btn btn-dark" data-accion="descargar" type="button" disabled>Descargar PDF</button>
+      </div>
+    </div>`;
+  $backdrop.querySelector("#vp-titulo").textContent = `Vista previa · ${titulo}`;
+  const $paginas = $backdrop.querySelector(".vp-paginas");
+  const $descargar = $backdrop.querySelector('[data-accion="descargar"]');
+  const $aviso = $backdrop.querySelector(".vp-aviso");
+  if (faltan.length) $aviso.textContent = `Para descargar falta: ${faltan.join(", ")}.`;
+
+  let abierto = true;
+  let resultado = null;
+  const focoPrevio = document.activeElement;
+  const cerrar = () => {
+    abierto = false;
+    document.removeEventListener("keydown", onKey);
+    $backdrop.remove();
+    if (focoPrevio?.focus) focoPrevio.focus();
+  };
+  function onKey(e) { if (e.key === "Escape") { e.preventDefault(); cerrar(); } }
+
+  $backdrop.querySelector('[data-accion="cerrar"]').addEventListener("click", cerrar);
+  $backdrop.addEventListener("mousedown", e => { if (e.target === $backdrop) cerrar(); });
+  document.addEventListener("keydown", onKey);
+  // Se descarga el MISMO objeto que se está viendo, sin volver a generarlo.
+  $descargar.addEventListener("click", () => { if (resultado) resultado.pdf.save(resultado.nombreArchivo); });
+
+  document.body.appendChild($backdrop);
+  $backdrop.querySelector('[data-accion="cerrar"]').focus();
+
+  pintarVistaPrevia(doc, cliente, $paginas, () => abierto).then(r => {
+    resultado = r;
+    $descargar.disabled = !r || faltan.length > 0;
+  });
+}
+
+// Construye el PDF sin guardarlo. La descarga y la vista previa pasan las dos
+// por aquí: así lo que se ve en pantalla es exactamente lo que se descarga, y
+// no hay una segunda maquetación "aproximada" que pueda desviarse con el tiempo.
+// Lanza un Error con un mensaje ya listo para enseñar al usuario.
+async function generarPdfDocumento(doc, cliente) {
+  const jspdfNs = await cargarJsPdf();
   // La maquetación del documento solo hace falta al descargarlo. Mantenerla
   // como import dinámico evita cargarla al entrar en Facturas o Presupuestos.
   let pdfDocumentos;
   try { pdfDocumentos = await import("../utils/pdf-documentos.js?v=816e8a9"); } catch (e) {
-    toastError("No se ha podido cargar el diseño del PDF: " + e.message);
-    return;
+    throw new Error("No se ha podido cargar el diseño del PDF: " + e.message);
   }
   const { crearFacturaPdf, crearPresupuestoPdf, cargarLogoDataUrl } = pdfDocumentos;
   const { jsPDF } = jspdfNs;
@@ -1536,8 +1676,7 @@ async function descargarPdfDocumento(doc, cliente) {
       crearFacturaPdf(pdf, CONFIG_NEGOCIO, numero, fechaStr, clienteFactura, lineasFactura, "");
     }
   } catch (e) {
-    toastError("Error generando el PDF: " + e.message);
-    return;
+    throw new Error("Error generando el PDF: " + e.message);
   }
 
   // Marca de agua en diagonal cuando el documento no es fiscalmente válido
@@ -1560,5 +1699,5 @@ async function descargarPdfDocumento(doc, cliente) {
 
   const sufijo = doc.marcaAgua ? "-BORRADOR" : "";
   const prefijoArchivo = esPresupuesto ? "PRESUPUESTO" : "FACTURA";
-  pdf.save(`${prefijoArchivo}-${numero}${sufijo}.pdf`);
+  return { pdf, nombreArchivo: `${prefijoArchivo}-${numero}${sufijo}.pdf` };
 }

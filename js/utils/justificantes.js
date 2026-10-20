@@ -29,7 +29,9 @@ function cargarScript(src) {
   });
 }
 
-async function obtenerPdfJs() {
+// Exportada: la vista previa de facturas y presupuestos dibuja sus PDF con este
+// mismo lector, así solo hay una versión de PDF.js cargada en la app.
+export async function obtenerPdfJs() {
   if (window.pdfjsLib) return window.pdfjsLib;
   if (!pdfJsPromesa) pdfJsPromesa = cargarScript(PDF_JS);
   const pdfjs = await pdfJsPromesa;
