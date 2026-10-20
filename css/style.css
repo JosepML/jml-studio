@@ -1622,3 +1622,28 @@ table.tabla-estados tr.fila-emitida     > td:first-child::before { background: v
 table.tabla-estados tr.fila-cobrada     > td:first-child::before { background: var(--estado-cobrada); }
 /* Lo ya cobrado se aparta del primer plano: contraste, no color. */
 table.tabla-estados tr.fila-cobrada > td:first-child { color: var(--grey); }
+
+/* --- Vista previa del PDF (facturas y presupuestos) --- */
+/* Las páginas son <canvas> dibujados con PDF.js: se ven igual en el móvil,
+   donde un iframe con el PDF no se muestra. Cada página lleva sombra y borde
+   para que el corte entre páginas se lea sin depender del color. */
+.vp-paginas{display:flex; flex-direction:column; align-items:center; gap:14px; padding:14px; border-radius:14px; background:var(--grey-bg,#EEF1F6); min-height:180px;}
+.vp-pagina{display:block; width:100%; max-width:760px; height:auto; background:#fff; border:1px solid #D5DBE6; box-shadow:var(--shadow-sm);}
+.vp-paginas[aria-busy="true"] .vp-pagina{opacity:.55; transition:opacity .2s var(--ease);}
+.vp-estado{margin:auto; color:var(--grey-fg); font-size:13px; text-align:center;}
+.vp-estado.vp-error{color:var(--red-fg,#B4453A);}
+.vp-intro{margin:-4px 0 12px; font-size:13px;}
+.modal.vp-modal{max-width:860px; max-height:92vh; display:flex; flex-direction:column; padding:20px;}
+.vp-cabecera{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;}
+.vp-cabecera h3{margin:0;}
+.vp-modal .vp-paginas{flex:1 1 auto; overflow-y:auto; min-height:240px;}
+.vp-pie{display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-top:12px;}
+.vp-pie .vp-aviso{margin:0 auto 0 0;}
+.vp-pie .vp-aviso:empty{display:none;}
+@media (max-width:600px){
+  .modal-backdrop:has(.vp-modal){padding:8px;}
+  .modal.vp-modal{max-height:96vh; padding:14px;}
+  .vp-paginas{padding:8px; gap:10px;}
+  .vp-pie{flex-wrap:wrap;}
+  .vp-pie .btn{width:100%; justify-content:center;}
+}

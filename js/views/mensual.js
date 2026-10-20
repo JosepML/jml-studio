@@ -4,7 +4,7 @@ import { eur, FORMAS_PAGO, todayIso } from "../utils/format.js";
 import { round2 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
 import { escapeHtml } from "./clientes.js";
-import { nextNumero } from "./facturacion.js";
+import { nextNumero } from "./facturacion.js?v=vista-previa-pdf-20261020";
 import { toastOk, toastError, confirmar as confirmarDialogo, skeletonPagina, engancharArrastre, estadoError } from "../utils/ui.js";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
