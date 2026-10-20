@@ -10,8 +10,9 @@ import { obtenerPdfJs } from "./justificantes.js";
 // Pinta todas las páginas de `datos` (ArrayBuffer del PDF) dentro de $destino.
 // `esVigente` permite abandonar un pintado que ya no interesa (el usuario ha
 // cambiado algo y hay otra vista previa en marcha): si devuelve false, no se
-// toca el destino y la función devuelve false.
-export async function pintarPaginasPdf(datos, $destino, { esVigente = () => true } = {}) {
+// toca el destino y la función devuelve false. Con `soloPrimera` solo se
+// dibuja la página 1 (miniatura).
+export async function pintarPaginasPdf(datos, $destino, { esVigente = () => true, soloPrimera = false } = {}) {
   const pdfjs = await obtenerPdfJs();
   const documento = await pdfjs.getDocument({ data: datos }).promise;
   try {
@@ -21,7 +22,7 @@ export async function pintarPaginasPdf(datos, $destino, { esVigente = () => true
     // Se dibuja a la densidad de la pantalla (con tope) para que el texto
     // pequeño del pie y de las condiciones se lea nítido en pantallas retina.
     const densidad = Math.min(window.devicePixelRatio || 1, 2);
-    const total = documento.numPages;
+    const total = soloPrimera ? 1 : documento.numPages;
     const lienzos = [];
     for (let n = 1; n <= total; n++) {
       const pagina = await documento.getPage(n);

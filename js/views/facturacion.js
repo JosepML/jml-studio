@@ -616,11 +616,6 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
           <div id="repaso-contenido"></div>
         </div>
 
-        <div class="card" id="vista-previa-final">
-          <div class="card-head"><h3>Vista previa</h3></div>
-          <p class="muted vp-intro">Así saldrá el PDF. Se vuelve a generar cada vez que llegas a este paso.</p>
-          <div class="vp-paginas vp-en-linea" id="vista-previa-paginas"></div>
-        </div>
         </section>
       </div>
 
@@ -633,7 +628,10 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
           <div id="aviso-pdf" class="hint-sm" style="margin-top:8px;" aria-live="polite"></div>
           <div class="resumen-acciones">
             <button class="btn btn-primary" id="btn-guardar">Guardar</button>
-            <button class="btn btn-ghost" id="btn-vista-previa" type="button">Vista previa</button>
+            <button class="vp-miniatura" id="btn-vista-previa" type="button" aria-label="Abrir la vista previa del PDF">
+              <span class="vp-miniatura-fondo" id="vp-miniatura-fondo" aria-hidden="true"></span>
+              <span class="vp-miniatura-etiqueta">${ICONO_VISTA_PREVIA}Vista previa</span>
+            </button>
             <button class="btn btn-dark" id="btn-pdf">Descargar PDF</button>
             ${puedeConvertir ? `<button class="btn btn-ghost" id="btn-convertir" type="button" style="border-color:var(--green-fg); color:var(--green-fg);">Convertir en factura →</button>` : ""}
             ${puedeConvertir ? `<button class="btn btn-ghost" id="btn-convertir-proyecto" type="button" style="border-color:var(--blue); color:var(--blue);">${draft.proyecto_id ? "Ver el proyecto →" : "Convertir en proyecto →"}</button>` : ""}
@@ -773,7 +771,7 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
     $wzAnterior.hidden = pasoActual === 0;
     const ultimo = pasoActual === PASOS.length - 1;
     $wzSiguiente.textContent = ultimo ? "Guardar y terminar" : "Continuar →";
-    if (ultimo) { pintarRepaso(); pintarVistaPreviaEnLinea(); }
+    if (ultimo) pintarRepaso();
     container.scrollIntoView({ block: "start", behavior: "smooth" });
   }
 
@@ -795,17 +793,28 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
       ${faltan.length ? `<div class="ai-banner" style="margin-top:14px;">Al cliente le falta ${faltan.join(", ")}. Puedes guardar igual, pero el PDF saldrá con la marca de borrador.</div>` : ""}`;
   }
 
-  // Vista previa automática del paso de confirmación. Cada llegada al paso
-  // invalida la anterior con un contador: si el usuario va y viene rápido, solo
-  // se pinta la última y nunca aparece un PDF con datos ya cambiados.
-  let vistaPreviaVigente = 0;
-  function pintarVistaPreviaEnLinea() {
-    const $destino = container.querySelector("#vista-previa-paginas");
-    if (!$destino) return;
-    const turno = ++vistaPreviaVigente;
-    const { doc, cliente } = documentoDelEditor();
-    pintarVistaPrevia(doc, cliente, $destino,
-      () => turno === vistaPreviaVigente && container.isConnected && !$destino.closest("[hidden]"));
+  // Miniatura desenfocada de la primera página, junto a los botones. El PDF
+  // completo solo se abre si el usuario hace clic: dejarlo desplegado en la
+  // propia pantalla estorbaba al editar. La miniatura se regenera con un
+  // retardo tras cada cambio para no maquetar un PDF por cada tecla, y el
+  // contador descarta las que llegan tarde.
+  let miniaturaVigente = 0;
+  let miniaturaTimer = null;
+  function programarMiniatura() {
+    clearTimeout(miniaturaTimer);
+    miniaturaTimer = setTimeout(pintarMiniatura, 1200);
+  }
+  async function pintarMiniatura() {
+    const $fondo = container.querySelector("#vp-miniatura-fondo");
+    if (!$fondo || !container.isConnected) return;
+    const turno = ++miniaturaVigente;
+    const { doc, cliente } = documentoDelEditor({ recalcular: false });
+    try {
+      const { pdf } = await generarPdfDocumento(doc, cliente);
+      if (turno !== miniaturaVigente) return;
+      const { pintarPaginasPdf } = await import("../utils/vista-previa-pdf.js");
+      await pintarPaginasPdf(pdf.output("arraybuffer"), $fondo, { esVigente: () => turno === miniaturaVigente, soloPrimera: true });
+    } catch { /* sin miniatura el botón sigue funcionando: se ve el fondo liso */ }
   }
 
   // Alta de cliente sin salir del documento: el modal se abre encima y, al
@@ -993,6 +1002,7 @@ async function renderEditor(container, { proyectoId, facturaId, tipoDefecto, vol
     ].join("");
 
     actualizarEstadoPdf();
+    programarMiniatura();
 
     return calc;
   }
@@ -1449,8 +1459,10 @@ pintarCondiciones();
   // Lo comparten el botón de descarga y las dos vistas previas: si cada uno
   // armara su propio objeto, la vista previa podría enseñar algo distinto de
   // lo que luego se descarga.
-  function documentoDelEditor() {
-    actualizar();
+  function documentoDelEditor({ recalcular = true } = {}) {
+    // La miniatura lo lee SIN recalcular: actualizar() programa la miniatura
+    // y, si ella llamara a actualizar(), se pasaría la vida regenerándose.
+    if (recalcular) actualizar();
     const cliente = (clientes || []).find(c => c.id === container.querySelector("#f-cliente").value);
     const faltan = faltanDatosParaPdf({
       tipo: draft.tipo,
