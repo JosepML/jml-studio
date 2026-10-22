@@ -1,7 +1,7 @@
 import { auth } from "./supabase.js";
-import { renderDashboard } from "./views/dashboard.js?v=dashboard-projects-pagination-20260910";
+import { renderDashboard } from "./views/dashboard.js?v=margen-facturacion-20261022";
 import { renderClientes } from "./views/clientes.js?v=025159f";
-import { renderProyectos } from "./views/proyectos.js?v=fraccionamiento-flexible-20260918-1";
+import { renderProyectos } from "./views/proyectos.js?v=margen-facturacion-20261022";
 import { renderFacturacion, renderPresupuestos } from "./views/facturacion.js?v=vista-previa-miniatura-20261020";
 import { renderFinanciero } from "./views/financiero.js";
 import { renderGastos } from "./views/gastos.js";

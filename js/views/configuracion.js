@@ -51,6 +51,11 @@ export async function renderConfiguracion(container) {
           <div class="field"><label>Gestoría — importe mensual con IVA (€)</label><input id="c-gestoria" type="number" step="0.01" value="${cfg.gestoria_importe}"></div>
           <div class="field"><label>Gestoría — IVA soportado (€)</label><input id="c-gestoria-iva" type="number" step="0.01" value="${cfg.gestoria_iva_soportado}"></div>
         </div>
+        <div class="row">
+          <div class="field"><label>Margen de facturación del año (€ sin IVA)</label><input id="c-margen-tope" type="number" step="0.01" value="${cfg.margen_tope}"></div>
+          <div class="field"><label>Cuenta atrás desde</label><input id="c-margen-desde" type="date" value="${cfg.margen_desde}"></div>
+        </div>
+        <p class="hint" style="margin:0 0 12px;">Tope pactado con la asesoría. Solo restan los proyectos emitidos desde esa fecha.</p>
         <div class="form-actions">
           <button class="btn btn-primary" id="btn-guardar-fiscal">Guardar</button>
         </div>
@@ -195,6 +200,8 @@ export async function renderConfiguracion(container) {
       cuota_autonomo_importe: Number(container.querySelector("#c-cuota-autonomo").value || DEFAULTS.cuota_autonomo_importe),
       gestoria_importe: Number(container.querySelector("#c-gestoria").value || DEFAULTS.gestoria_importe),
       gestoria_iva_soportado: Number(container.querySelector("#c-gestoria-iva").value || DEFAULTS.gestoria_iva_soportado),
+      margen_tope: Number(container.querySelector("#c-margen-tope").value || DEFAULTS.margen_tope),
+      margen_desde: container.querySelector("#c-margen-desde").value || DEFAULTS.margen_desde,
     });
     toastOk("Datos fiscales guardados.");
   });

@@ -2,6 +2,7 @@ import { db } from "../supabase.js";
 import { eur, CATEGORIAS_SERVICIO, CATEGORIAS_GASTO } from "../utils/format.js";
 import { calcularModelo130Trimestral, gastoDeducibleEnRango, round2, PLAZOS_MODELO_130_2026 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, resumenTrimestre, resumenIvaTrimestre, rangoMes, rangoAnio, estadoEfectivo } from "../utils/resumen.js";
+import { calcularMargen, htmlMargen } from "../utils/margen.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { skeletonPagina, animarVista, toastOk, toastError, estadoError } from "../utils/ui.js";
 import { opcionesBase, barra, barraApilada, leyendaConTotales, eurEje } from "../utils/charts.js";
@@ -78,6 +79,7 @@ export async function renderFinanciero(container) {
         <select id="sel-anio" style="width:auto;">${anios.map(a => `<option value="${a}" ${a===anioActual?"selected":""}>${a}</option>`).join("")}</select>
       </div>
     </div>
+    <div id="financiero-margen"></div>
     <div id="financiero-body"></div>`;
 
   container.querySelector("#sel-anio").addEventListener("change", e => pintar(Number(e.target.value)));
@@ -112,6 +114,9 @@ export async function renderFinanciero(container) {
   pintar(anioActual);
 
   function pintar(anio) {
+    // El margen es del año en curso: al mirar otro año no tiene sentido.
+    container.querySelector("#financiero-margen").innerHTML = anio === anioActual
+      ? htmlMargen(calcularMargen(ledger, { tope: cfg.margen_tope, desde: cfg.margen_desde, anio })) : "";
     const { desde, hasta } = rangoAnio(anio);
     const anual = resumenPeriodo(ledger, gastos, desde, hasta);
 

@@ -1,7 +1,8 @@
 import { db } from "../supabase.js";
-import { abrirFichaProyecto } from "./proyectos.js?v=fraccionamiento-flexible-20260918-1";
+import { abrirFichaProyecto } from "./proyectos.js?v=margen-facturacion-20261022";
 import { eur, FORMAS_PAGO, todayIso } from "../utils/format.js";
 import { round2 } from "../utils/invoice-calc.js";
+import { guardarEstadoFacturacion } from "../utils/margen.js";
 import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
 import { escapeHtml } from "./clientes.js";
 import { nextNumero } from "./facturacion.js?v=vista-previa-miniatura-20261020";
@@ -558,9 +559,8 @@ export async function renderMensual(container) {
 
     // --- Casillas emitida/pagada: se pueden marcar y desmarcar libremente ---
     async function setEstadoProyecto(proyectoId, nuevoEstado) {
-      await db.from("proyectos").update({ estado_facturacion: nuevoEstado }).eq("id", proyectoId).exec();
       const p = proyectos.find(x => x.id === proyectoId);
-      if (p) p.estado_facturacion = nuevoEstado;
+      if (p) await guardarEstadoFacturacion(p, nuevoEstado);
       ledger = construirLedger(proyectos, facturaProyectos);
       pintar(anio);
     }
@@ -613,9 +613,8 @@ export async function renderMensual(container) {
             await db.from("facturas").update({ estado: "pagada" }).eq("id", facturaId).exec();
             (facturaProyectos || []).forEach(fp => { if (fp.factura_id === facturaId && fp.facturas) fp.facturas.estado = "pagada"; });
           } else {
-            await db.from("proyectos").update({ estado_facturacion: "pagada" }).eq("id", f.proyecto.id).exec();
             const p = proyectos.find(x => x.id === f.proyecto.id);
-            if (p) p.estado_facturacion = "pagada";
+            if (p) await guardarEstadoFacturacion(p, "pagada");
           }
         }
         ledger = construirLedger(proyectos, facturaProyectos);

@@ -80,6 +80,7 @@ export function construirLedger(proyectos, facturaProyectos) {
           facturaNumero: v.facturas.numero,
           facturaEstado: v.facturas.estado, // borrador|emitida|pagada|vencida
           facturaId: v.factura_id,
+          fechaEmision: v.facturas.fecha || null,
           tieneFacturaReal: true,
         });
       });
@@ -92,6 +93,7 @@ export function construirLedger(proyectos, facturaProyectos) {
         facturaNumero: null,
         facturaEstado: p.estado_facturacion || "pendiente", // pendiente|emitida|pagada
         facturaId: null,
+        fechaEmision: p.fecha_emision || null, // migración 006
         tieneFacturaReal: false,
       });
     }
