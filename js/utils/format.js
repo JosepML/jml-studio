@@ -56,6 +56,9 @@ export const FORMAS_PAGO = {
   transferencia: { label: "Transferencia", bg: "#E7ECFB", fg: "#33499E" },
   efectivo:      { label: "Efectivo",       bg: "#FFF3D6", fg: "#8A6A10" },
   mixto:         { label: "Mixto",          bg: "#F0E7FB", fg: "#6B3FA0" },
+  // Trabajo que se factura para dar de alta en la Seguridad Social: no es un
+  // cobro por transferencia, así que no cuenta en el margen ni en el 303.
+  alta_ss:       { label: "Alta en S.S.",   bg: "#E3F4F1", fg: "#1D6B5F" },
 };
 // Tipo de servicio del proyecto (qué clase de trabajo es), para poder ver qué
 // es lo que más se repite en el negocio (Proyectos) y desglosar los ingresos

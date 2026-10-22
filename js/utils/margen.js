@@ -1,5 +1,7 @@
 // Margen de facturación que queda en el año.
 //
+// Solo cuentan los proyectos con forma de pago "transferencia".
+//
 // Contexto (acordado con la asesoría): este año no se puede superar el SMI por
 // ser el segundo año de prórroga de la cuota reducida, así que hay un tope de
 // facturación adicional a lo ya emitido. Las cifras van SIN IVA (importeBase).
@@ -20,7 +22,9 @@ import { db } from "../supabase.js";
 
 export function calcularMargen(ledger, { tope, desde, anio }) {
   const { hasta } = rangoAnio(anio);
-  const filas = ledger || [];
+  // Solo cuenta lo marcado EXPLÍCITAMENTE como transferencia: efectivo, mixto
+  // y alta en S.S. quedan fuera de todas las cifras de este margen.
+  const filas = (ledger || []).filter(f => f.formaPago === "transferencia");
 
   const emitidas = filas.filter(f =>
     estadoEfectivo(f) !== "pendiente" && f.fechaEmision && f.fechaEmision >= desde && f.fechaEmision <= hasta);

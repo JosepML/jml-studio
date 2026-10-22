@@ -380,8 +380,7 @@ export async function renderMensual(container) {
                   : `<td class="money muted">${eur(conIva(f.importeBase))}</td>`}
                 <td>
                   <select class="sel-forma cell-select" data-proyecto-id="${f.proyecto.id}">
-                    <option value="transferencia" ${f.proyecto.forma_pago!=="efectivo"?"selected":""}>Transferencia</option>
-                    <option value="efectivo" ${f.proyecto.forma_pago==="efectivo"?"selected":""}>Efectivo</option>
+                    ${Object.entries(FORMAS_PAGO).map(([k, v]) => `<option value="${k}" ${k === (f.proyecto.forma_pago || "transferencia") ? "selected" : ""}>${v.label}</option>`).join("")}
                   </select>
                 </td>
                 <td style="text-align:center;"><input type="checkbox" class="chk-emitida" data-proyecto-id="${f.proyecto.id}" data-factura-id="${f.facturaId||""}" ${emitida?"checked":""}></td>

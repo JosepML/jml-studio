@@ -199,8 +199,7 @@ export async function renderProyectos(container, param) {
         <td class="money">${eur(importeConIva)}</td>
         <td>
           <select class="sel-forma cell-select" data-id="${p.id}" title="Forma de pago">
-            <option value="transferencia" ${p.forma_pago!=="efectivo"?"selected":""}>Transferencia</option>
-            <option value="efectivo" ${p.forma_pago==="efectivo"?"selected":""}>Efectivo</option>
+            ${Object.entries(FORMAS_PAGO).map(([k, v]) => `<option value="${k}" ${k === (p.forma_pago || "transferencia") ? "selected" : ""}>${v.label}</option>`).join("")}
           </select>
         </td>
         <td style="padding-right:18px;">
