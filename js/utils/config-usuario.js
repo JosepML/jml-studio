@@ -24,6 +24,11 @@ export const DEFAULTS = {
   // Gasto fijo mensual: honorarios de la gestoría (con IVA).
   gestoria_importe: 60.71,
   gestoria_iva_soportado: 10.54,
+  // Margen de facturación del año (sin IVA) pactado con la asesoría: lo que se
+  // puede facturar a partir de la fecha de corte sin pasar el SMI (segundo año
+  // de prórroga de la cuota reducida). Solo cuenta lo emitido desde esa fecha.
+  margen_tope: 3600,
+  margen_desde: "2026-10-22",
   // Clave de API gratuita de OpenRouter (openrouter.ai) para el chat del
   // Asistente y el botón "Mejorar con IA" de los presupuestos. Vacía por
   // defecto: sin clave, esas funciones se desactivan y lo explican.

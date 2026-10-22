@@ -32,7 +32,7 @@ create table if not exists proyectos (
   precio_acordado numeric(10,2) not null default 0,
   entregables jsonb not null default '[]',
   forma_pago text not null default 'transferencia'
-    check (forma_pago in ('transferencia','efectivo','mixto')),
+    check (forma_pago in ('transferencia','efectivo','mixto','alta_ss')),
   estado_facturacion text not null default 'pendiente'
     check (estado_facturacion in ('pendiente','emitida','pagada')),
   fraccion_grupo_id uuid,

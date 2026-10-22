@@ -1,5 +1,6 @@
 import { db } from "../supabase.js";
 import { ESTADOS_FACTURA, ESTADOS_COBRO, FORMAS_PAGO, CATEGORIAS_SERVICIO, eur, dateEs, todayIso } from "../utils/format.js";
+import { guardarEstadoFacturacion } from "../utils/margen.js";
 import { construirLedger, conIva, estadoEfectivo, rangoAnio, resumenPeriodo, conIvaSegunPago } from "../utils/resumen.js";
 import { round2 } from "../utils/invoice-calc.js";
 import { dividirImporte, nombresFraccionados, estaFraccionado, MAX_FRACCIONES, normalizarPorcentajes, porcentajesIguales } from "../utils/fraccionamiento.js";
@@ -198,8 +199,7 @@ export async function renderProyectos(container, param) {
         <td class="money">${eur(importeConIva)}</td>
         <td>
           <select class="sel-forma cell-select" data-id="${p.id}" title="Forma de pago">
-            <option value="transferencia" ${p.forma_pago!=="efectivo"?"selected":""}>Transferencia</option>
-            <option value="efectivo" ${p.forma_pago==="efectivo"?"selected":""}>Efectivo</option>
+            ${Object.entries(FORMAS_PAGO).map(([k, v]) => `<option value="${k}" ${k === (p.forma_pago || "transferencia") ? "selected" : ""}>${v.label}</option>`).join("")}
           </select>
         </td>
         <td style="padding-right:18px;">
@@ -232,9 +232,8 @@ export async function renderProyectos(container, param) {
           await db.from("facturas").update({ estado: mapa[nuevo] }).eq("id", facturaId).exec();
           (facturaProyectos || []).forEach(fp => { if (fp.factura_id === facturaId && fp.facturas) fp.facturas.estado = mapa[nuevo]; });
         } else {
-          await db.from("proyectos").update({ estado_facturacion: nuevo }).eq("id", sel.dataset.id).exec();
           const p = proyectos.find(x => x.id === sel.dataset.id);
-          if (p) p.estado_facturacion = nuevo;
+          if (p) await guardarEstadoFacturacion(p, nuevo);
         }
         await recargarYPintar();
       });
@@ -705,9 +704,18 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opcione
       notas: $detalle.querySelector("#f-notas").value.trim(),
     };
     if (!payload.nombre) { toastError("El nombre del proyecto es obligatorio."); $detalle.querySelector("#f-nombre").focus(); return; }
-    const { error } = esNuevo
-      ? await db.from("proyectos").insert(payload).exec()
-      : await db.from("proyectos").update(payload).eq("id", proyecto.id).exec();
+    // Fecha de emisión para el margen de facturación (migración 006): se anota
+    // al salir de pendiente y se borra al volver. Si la columna no existe aún,
+    // se guarda sin ella.
+    const cambiaEstado = payload.estado_facturacion !== (proyecto.estado_facturacion || "pendiente");
+    const conFecha = { ...payload };
+    if (payload.estado_facturacion === "pendiente") conFecha.fecha_emision = null;
+    else if (cambiaEstado && !proyecto.fecha_emision) conFecha.fecha_emision = todayIso();
+    const guardar = datos => esNuevo
+      ? db.from("proyectos").insert(datos).exec()
+      : db.from("proyectos").update(datos).eq("id", proyecto.id).exec();
+    let { error } = await guardar(conFecha);
+    if (error && "fecha_emision" in conFecha) ({ error } = await guardar(payload));
     if (error) { toastError("No se ha podido guardar: " + error); return; }
     toastOk(esNuevo ? `Proyecto "${payload.nombre}" creado.` : "Proyecto actualizado.");
     cerrarFicha();

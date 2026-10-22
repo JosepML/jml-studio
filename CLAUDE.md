@@ -56,6 +56,8 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 
 ## Registro de cambios recientes
 
+- `pendiente` — sección "Margen de facturación del año" en Dashboard y Financiero (`js/utils/margen.js`): margen restante (3.600 € sin IVA menos lo emitido desde el 22/10/2026), margen libre (restando lo registrado sin emitir) y cuántos proyectos más caben según el importe medio. Tope y fecha de corte editables en Configuración. Solo cuentan proyectos con forma de pago `transferencia`; nueva forma de pago `alta_ss` ("Alta en S.S."). Requiere ejecutar `sql/migration_006_fecha_emision.sql` (`proyectos.fecha_emision` y la nueva forma de pago): sin ella los proyectos sin factura real no se datan y no restan.
+
 - `pendiente` — el listado de presupuestos y facturas entiende sufijos de letra en el número (`27B`): se ordena justo encima del `27` y debajo del `28`, en vez de caer al final.
 - `pendiente` — vista previa del PDF de facturas y presupuestos dentro de la página (ojo en el listado y miniatura desplegable en el editor); probada con datos simulados en navegador de escritorio y a ancho de móvil, falta probarla en el móvil físico.
 - `pendiente` — ficha de proyecto ligeramente más ancha; Generar factura vuelve a la cabecera y los botones quedan como Eliminar a la izquierda, Cerrar a la derecha y Guardar al extremo derecho.

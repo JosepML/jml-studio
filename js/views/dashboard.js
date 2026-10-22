@@ -2,6 +2,7 @@ import { db } from "../supabase.js";
 import { eur, ESTADOS_PROYECTO, ESTADOS_COBRO } from "../utils/format.js";
 import { calcularModelo130Trimestral, round2 } from "../utils/invoice-calc.js";
 import { construirLedger, resumenPeriodo, resumenTrimestre, resumenIvaTrimestre, rangoMes, rangoAnio, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
+import { calcularMargen, htmlMargen } from "../utils/margen.js";
 import { escapeHtml } from "./clientes.js";
 import { getConfig } from "../utils/config-usuario.js";
 import { skeletonPagina, animarVista, estadoError } from "../utils/ui.js";
@@ -94,6 +95,8 @@ export async function renderDashboard(container) {
 
   const porEstado = Object.keys(ESTADOS_COBRO).map(k => ({ key: k, label: ESTADOS_COBRO[k].label, fg: ESTADOS_COBRO[k].fg, count: ledger.filter(f=>estadoEfectivo(f)===k).length }));
 
+  const margen = calcularMargen(ledger, { tope: cfg.margen_tope, desde: cfg.margen_desde, anio });
+
   container.innerHTML = `
     <div class="grid grid-5" style="margin-bottom:20px;">
       <div class="card kpi"><div class="label">Facturado este mes</div><div class="value">${eur(resumenMes.transferencia + resumenMes.efectivo)}</div></div>
@@ -102,6 +105,8 @@ export async function renderDashboard(container) {
       <div class="card kpi impuesto-irpf"><div class="label">IRPF previsto · T${qActual}</div><div class="value">${eur(provision.aIngresar)}</div></div>
       <div class="card kpi impuesto-iva"><div class="label">IVA previsto · T${qActual}</div><div class="value">${eur(ivaAPagar)}</div></div>
     </div>
+
+    ${htmlMargen(margen)}
 
     <!-- El calendario es un widget acotado a la izquierda y las tres gráficas
          van apiladas a su derecha, para no dejar medio Dashboard en blanco. -->
