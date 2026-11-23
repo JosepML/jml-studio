@@ -5,7 +5,7 @@ import { round2 } from "../utils/invoice-calc.js";
 import { guardarEstadoFacturacion } from "../utils/margen.js";
 import { construirLedger, resumenPeriodo, rangoAnio, rangoMes, conIva, estadoEfectivo, conIvaSegunPago } from "../utils/resumen.js";
 import { escapeHtml } from "./clientes.js";
-import { nextNumero } from "./facturacion.js?v=vista-previa-miniatura-20261020";
+import { nextNumero } from "./facturacion.js?v=cliente-descargas-20261123";
 import { toastOk, toastError, confirmar as confirmarDialogo, skeletonPagina, engancharArrastre, estadoError } from "../utils/ui.js";
 
 const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];

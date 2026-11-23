@@ -1536,10 +1536,58 @@ function cargarJsPdf() {
 // de sus datos ya guardados — usado tanto por el icono de descarga rápida en
 // las listas como por el botón "Descargar PDF" del editor, para no duplicar
 // la lógica de maquetación en dos sitios.
-async function descargarPdfDocumento(doc, cliente) {
+export async function descargarPdfDocumento(doc, cliente) {
   try {
     const { pdf, nombreArchivo } = await generarPdfDocumento(doc, cliente);
     pdf.save(nombreArchivo);
+  } catch (e) {
+    toastError(e.message);
+  }
+}
+
+function cargarJsZip() {
+  return new Promise((resolve, reject) => {
+    if (window.JSZip) return resolve(window.JSZip);
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+    script.onload = () => resolve(window.JSZip);
+    script.onerror = () => reject(new Error("No se ha podido cargar el compresor ZIP (sin conexión a internet)."));
+    document.head.appendChild(script);
+  });
+}
+
+// Descarga varios documentos de un mismo cliente en un único ZIP. Un clic que
+// dispara N descargas seguidas lo bloquea el navegador, así que se empaquetan.
+// Los documentos a los que les falten datos para un PDF válido se omiten, con
+// el mismo criterio que la descarga individual, y se avisa de cuáles son.
+export async function descargarZipDocumentos(docs, cliente, nombreZip) {
+  const validos = [], omitidos = [];
+  for (const d of docs) (faltanDatosParaPdf(d, cliente).length ? omitidos : validos).push(d);
+  if (!validos.length) { toastError("Ningún documento se puede descargar: faltan datos en todos."); return; }
+  try {
+    if (validos.length === 1) {
+      await descargarPdfDocumento(validos[0], cliente);
+    } else {
+      const JSZip = await cargarJsZip();
+      const zip = new JSZip();
+      const usados = new Set();
+      for (const d of validos) {
+        const { pdf, nombreArchivo } = await generarPdfDocumento(d, cliente);
+        // Dos documentos con el mismo número no pueden pisarse dentro del ZIP.
+        let nombre = nombreArchivo, n = 2;
+        while (usados.has(nombre)) nombre = nombreArchivo.replace(/\.pdf$/, `-${n++}.pdf`);
+        usados.add(nombre);
+        zip.file(nombre, pdf.output("arraybuffer"));
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = nombreZip;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }
+    toastOk(`${validos.length} ${validos.length === 1 ? "documento descargado" : "documentos descargados"}.`);
+    if (omitidos.length) toastError(`No se han incluido ${omitidos.map(d => d.numero).join(", ")}: les faltan datos.`);
   } catch (e) {
     toastError(e.message);
   }
