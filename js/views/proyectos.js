@@ -3,12 +3,73 @@ import { ESTADOS_FACTURA, ESTADOS_COBRO, FORMAS_PAGO, CATEGORIAS_SERVICIO, eur, 
 import { guardarEstadoFacturacion } from "../utils/margen.js";
 import { construirLedger, conIva, estadoEfectivo, rangoAnio, resumenPeriodo, conIvaSegunPago } from "../utils/resumen.js";
 import { round2 } from "../utils/invoice-calc.js";
-import { dividirImporte, nombresFraccionados, estaFraccionado, MAX_FRACCIONES, normalizarPorcentajes, porcentajesIguales } from "../utils/fraccionamiento.js";
+import { nombresFraccionados, estaFraccionado, MAX_FRACCIONES, porcentajesIguales, resolverReparto } from "../utils/fraccionamiento.js";
 import { escapeHtml, escapeAttr } from "./clientes.js";
 import { toastOk, toastError, confirmar, confirmarBorrado, skeletonPagina, estadoError } from "../utils/ui.js";
 
-async function crearProyectosFraccionados(payload, porcentajes = [50, 50]) {
-  const importes = dividirImporte(payload.precio_acordado, porcentajes);
+// Reparto de pagos con cada fracción en % o en €. Los dos campos de cada pago
+// están enlazados: el último que se toca manda (es el que se guarda como dato
+// escrito) y el otro se recalcula. Así 800 + 902 sobre 1.702 € cuadra aunque
+// en porcentaje no salga exacto (47,0035...%). El texto de estado avisa de la
+// diferencia con el total en lugar de bloquear en silencio.
+function montarRepartoPagos($cont, { prefijo, getTotal, onCambio }) {
+  let fracciones = [];
+  const num = v => Number(String(v).replace(",", ".")) || 0;
+  const $campos = () => [...$cont.querySelectorAll(".reparto-pago")];
+  const sincronizarOtro = (i, modo) => {
+    const $fila = $campos()[i];
+    const total = round2(getTotal());
+    if (modo === "pct") $fila.querySelector(".reparto-eur").value = total > 0 ? round2(total * num($fila.querySelector(".reparto-pct").value) / 100) : "";
+    else $fila.querySelector(".reparto-pct").value = total > 0 ? round2(num($fila.querySelector(".reparto-eur").value) * 100 / total) : "";
+  };
+  const leerFracciones = () => $campos().map((f, i) => ({ modo: fracciones[i]?.modo || "pct", valor: fracciones[i]?.modo === "eur" ? f.querySelector(".reparto-eur").value : f.querySelector(".reparto-pct").value }));
+  const leer = () => resolverReparto(round2(getTotal()), leerFracciones());
+  const actualizarEstado = () => {
+    const $estado = $cont.querySelector(".reparto-estado");
+    if (!$estado) return;
+    const total = round2(getTotal());
+    const r = leer();
+    const sumaEur = round2(r.importes.reduce((s, v) => s + v, 0));
+    if (r.valido) {
+      $estado.textContent = `Total: ${eur(sumaEur)} · 100% · Reparto válido`;
+      $estado.style.color = "var(--green-fg)";
+    } else {
+      const dif = r.soloPorcentaje ? r.diferenciaPct : r.diferencia;
+      const unidad = r.soloPorcentaje ? "%" : " €";
+      const txt = Math.abs(dif || 0) > 0 ? `${dif > 0 ? "Faltan" : "Sobran"} ${String(Math.abs(dif)).replace(".", ",")}${unidad} para llegar a ${r.soloPorcentaje ? "100%" : eur(total)}` : "Revisa los valores: cada pago debe ser mayor que 0";
+      $estado.textContent = `Total: ${eur(sumaEur)} · ${txt}`;
+      $estado.style.color = "var(--red-fg,#B4453A)";
+    }
+    // El importe que no suma se marca con texto, no solo con color (daltonismo).
+    $estado.dataset.valido = r.valido ? "1" : "0";
+  };
+  const pintar = (valores, modos = []) => {
+    fracciones = valores.map((_, i) => ({ modo: modos[i] || "pct" }));
+    const total = round2(getTotal());
+    $cont.innerHTML = `<div class="row">${valores.map((v, i) => `<div class="field reparto-pago"><label>Pago ${i + 1}</label>
+      <div style="display:flex;gap:8px;">
+        <input class="reparto-pct" id="${prefijo}-pct-${i}" type="number" min="0.01" max="100" step="0.01" value="${v}" aria-label="Pago ${i + 1} en porcentaje" style="flex:1;min-width:0;">
+        <span class="muted" style="align-self:center;">%</span>
+        <input class="reparto-eur" id="${prefijo}-eur-${i}" type="number" min="0.01" step="0.01" value="${total > 0 ? round2(total * num(v) / 100) : ""}" aria-label="Pago ${i + 1} en euros" style="flex:1;min-width:0;">
+        <span class="muted" style="align-self:center;">€</span>
+      </div></div>`).join("")}</div><p class="reparto-estado muted" style="margin:8px 0 0;"></p>`;
+    $campos().forEach((fila, i) => {
+      fila.querySelector(".reparto-pct").addEventListener("input", () => { fracciones[i].modo = "pct"; sincronizarOtro(i, "pct"); actualizarEstado(); onCambio?.(); });
+      fila.querySelector(".reparto-eur").addEventListener("input", () => { fracciones[i].modo = "eur"; sincronizarOtro(i, "eur"); actualizarEstado(); onCambio?.(); });
+    });
+    actualizarEstado();
+  };
+  // Si cambia el total (precio del proyecto), los pagos escritos en € se
+  // mantienen y los de % recalculan su importe.
+  const refrescarTotal = () => {
+    $campos().forEach((_, i) => sincronizarOtro(i, fracciones[i]?.modo === "eur" ? "eur" : "pct"));
+    actualizarEstado();
+  };
+  return { pintar, leer, refrescarTotal, cantidad: () => fracciones.length, valores: () => $campos().map(f => f.querySelector(".reparto-pct").value), modos: () => fracciones.map(f => f.modo) };
+}
+
+async function crearProyectosFraccionados(payload, reparto) {
+  const { importes, porcentajes } = reparto;
   const nombres = nombresFraccionados(payload.nombre, porcentajes);
   const grupo = crypto.randomUUID();
   const creados = [];
@@ -336,7 +397,7 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
             </div>
             <div class="toggle-box" style="margin-top:12px;">
               <label><input type="checkbox" id="npw-fraccionar"> Fraccionar pago</label>
-              <div class="hint-box" style="display:flex;">Puedes repartirlo en 2 a 6 pagos. Los porcentajes deben sumar 100%.</div>
+              <div class="hint-box" style="display:flex;">Puedes repartirlo en 2 a 6 pagos, indicando cada uno en % o en €. La suma debe coincidir con el precio.</div>
               <div id="npw-fracciones" hidden style="margin-top:12px;">
                 <div class="field" style="max-width:220px;"><label for="npw-num-pagos">Número de pagos</label><select id="npw-num-pagos">${Array.from({ length: MAX_FRACCIONES - 1 }, (_, i) => `<option value="${i + 2}">${i + 2} pagos</option>`).join("")}</select></div>
                 <div id="npw-fracciones-campos"></div>
@@ -377,28 +438,21 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
   const $etiqueta = $backdrop.querySelector("#npw-etiqueta");
 
   const campo = id => $backdrop.querySelector(`#npw-${id}`);
-  const obtenerPorcentajes = () => [...$backdrop.querySelectorAll(".npw-porcentaje")].map(input => input.value);
-  const actualizarSuma = () => {
-    const $suma = $backdrop.querySelector("#npw-suma");
-    if (!$suma) return;
-    const total = round2(obtenerPorcentajes().reduce((s, v) => s + Number(String(v).replace(",", ".") || 0), 0));
-    $suma.textContent = `Total: ${String(total).replace(".", ",")}%${total === 100 ? " · Reparto válido" : " · Debe sumar 100%"}`;
-    $suma.style.color = total === 100 ? "var(--green-fg)" : "var(--red-fg,#B4453A)";
-  };
+  const reparto = montarRepartoPagos(campo("fracciones-campos"), {
+    prefijo: "npw",
+    getTotal: () => Number(campo("precio").value || 0),
+    onCambio: () => actualizarPasos(),
+  });
   const pintarFracciones = () => {
-    const $wrap = campo("fracciones-campos");
-    if (!$wrap) return;
     const n = Number(campo("num-pagos")?.value || 2);
-    const actuales = obtenerPorcentajes();
-    const valores = actuales.length === n ? actuales : porcentajesIguales(n);
-    $wrap.innerHTML = `<div class="row">${valores.map((valor, i) => `<div class="field"><label for="npw-pct-${i}">Pago ${i + 1} (%)</label><input class="npw-porcentaje" id="npw-pct-${i}" type="number" min="0.01" max="100" step="0.01" value="${valor}"></div>`).join("")}</div><p id="npw-suma" class="muted" style="margin:8px 0 0;"></p>`;
-    $wrap.querySelectorAll("input").forEach(input => input.addEventListener("input", () => { actualizarSuma(); actualizarPasos(); }));
-    actualizarSuma();
+    // Conserva lo escrito si no cambia el número de pagos.
+    if (reparto.cantidad() === n) { reparto.refrescarTotal(); return; }
+    reparto.pintar(porcentajesIguales(n));
   };
   const pasoCompleto = id => {
     if (id === "proyecto") return !!campo("nombre").value.trim();
     if (id === "fechas") return !!campo("inicio").value;
-    if (id === "importes") return Number(campo("precio").value || 0) >= 0 && Number(campo("coste").value || 0) >= 0 && (!campo("fraccionar").checked || !!normalizarPorcentajes(obtenerPorcentajes()));
+    if (id === "importes") return Number(campo("precio").value || 0) >= 0 && Number(campo("coste").value || 0) >= 0 && (!campo("fraccionar").checked || reparto.leer().valido);
     return true;
   };
   const pintarPasos = () => {
@@ -424,7 +478,7 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
       <div><span>Fechas</span><strong>${inicio ? dateEs(inicio) : "—"} → ${entrega ? dateEs(entrega) : "—"}</strong></div>
       <div><span>Precio acordado</span><strong>${eur(Number(campo("precio").value || 0))}</strong></div>
       <div><span>Forma de pago</span><strong>${escapeHtml(FORMAS_PAGO[campo("forma").value]?.label || "—")}</strong></div>
-      <div><span>Fraccionamiento</span><strong>${campo("fraccionar").checked ? obtenerPorcentajes().map(p => `${p}%`).join(" + ") : "Pago único"}</strong></div>
+      <div><span>Fraccionamiento</span><strong>${campo("fraccionar").checked ? reparto.leer().importes.map(v => eur(v)).join(" + ") : "Pago único"}</strong></div>
     </div>`;
   };
   function mostrarPaso() {
@@ -451,7 +505,8 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
     if (campo("fraccionar").checked) pintarFracciones();
     actualizarPasos();
   });
-  campo("num-pagos").addEventListener("change", pintarFracciones);
+  campo("num-pagos").addEventListener("change", () => reparto.pintar(porcentajesIguales(Number(campo("num-pagos").value || 2))));
+  campo("precio").addEventListener("input", () => reparto.refrescarTotal());
   $anterior.addEventListener("click", () => irAPaso(pasoActual - 1));
   $siguiente.addEventListener("click", async () => {
     if (pasoActual < pasos.length - 1) { irAPaso(pasoActual + 1); return; }
@@ -480,17 +535,17 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
       notas: "",
     };
     const fraccionar = campo("fraccionar").checked;
-    const porcentajes = normalizarPorcentajes(obtenerPorcentajes());
-    if (fraccionar && !porcentajes) { irAPaso(2); toastError("Los porcentajes deben sumar exactamente 100%."); return; }
+    const repartoFinal = fraccionar ? reparto.leer() : null;
+    if (fraccionar && !repartoFinal.valido) { irAPaso(2); toastError("El reparto de pagos debe sumar exactamente el precio acordado."); return; }
     $siguiente.disabled = true;
     const { error } = fraccionar
-      ? await crearProyectosFraccionados(payload, porcentajes)
+      ? await crearProyectosFraccionados(payload, repartoFinal)
       : await db.from("proyectos").insert(payload).exec();
     $siguiente.disabled = false;
     if (error) { toastError("No se ha podido crear el proyecto: " + error); return; }
     cerrar();
     toastOk(fraccionar
-      ? `"${nombre}" creado en ${porcentajes.length} pagos (${porcentajes.map(p => `${p}%`).join(" + ")}).`
+      ? `"${nombre}" creado en ${repartoFinal.importes.length} pagos (${repartoFinal.importes.map(v => eur(v)).join(" + ")}).`
       : (opciones.mesNombre ? `"${nombre}" añadido a ${opciones.mesNombre}.` : `Proyecto "${nombre}" creado.`));
     if (onGuardado) await onGuardado(payload);
   });
@@ -502,41 +557,29 @@ function abrirNuevoProyectoWizard(clientes, onGuardado, opciones = {}) {
   campo("nombre").focus();
 }
 
-function pedirPorcentajesFraccionamiento(inicial = [50, 50]) {
+function pedirRepartoFraccionamiento(total, inicial = [50, 50]) {
   return new Promise(resolve => {
     const $backdrop = document.createElement("div");
     $backdrop.className = "modal-backdrop proyecto-fraccionamiento-backdrop";
     $backdrop.innerHTML = `<div class="modal" role="dialog" aria-modal="true" style="max-width:560px;">
       <div class="card-head"><h2>Fraccionar pago</h2></div>
-      <p class="muted">Elige cuántos pagos habrá y qué porcentaje corresponde a cada uno. Deben sumar 100%.</p>
+      <p class="muted">Elige cuántos pagos habrá e indica cada uno en % o en €. La suma debe coincidir con el precio acordado (${eur(total)}).</p>
       <div class="field"><label for="pf-num">Número de pagos</label><select id="pf-num">${Array.from({ length: MAX_FRACCIONES - 1 }, (_, i) => `<option value="${i + 2}">${i + 2} pagos</option>`).join("")}</select></div>
       <div id="pf-campos" style="margin-top:12px;"></div>
-      <p id="pf-suma" class="muted" style="margin:8px 0 0;"></p>
       <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:22px;"><button class="btn btn-ghost" id="pf-cancelar" type="button">Cancelar</button><button class="btn btn-primary" id="pf-confirmar" type="button">Fraccionar pago</button></div>
     </div>`;
     document.body.appendChild($backdrop);
     const $num = $backdrop.querySelector("#pf-num");
-    const $campos = $backdrop.querySelector("#pf-campos");
-    const $suma = $backdrop.querySelector("#pf-suma");
+    const reparto = montarRepartoPagos($backdrop.querySelector("#pf-campos"), { prefijo: "pf", getTotal: () => total });
     const cerrar = valor => { $backdrop.remove(); resolve(valor); };
-    const actualizar = () => {
-      const total = round2([...$campos.querySelectorAll(".pf-pct")].reduce((s, input) => s + Number(String(input.value).replace(",", ".") || 0), 0));
-      $suma.textContent = `Total: ${String(total).replace(".", ",")}%${total === 100 ? " · Reparto válido" : " · Debe sumar 100%"}`;
-      $suma.style.color = total === 100 ? "var(--green-fg)" : "var(--red-fg,#B4453A)";
-    };
-    const pintar = valores => {
-      $campos.innerHTML = `<div class="row">${valores.map((v, i) => `<div class="field"><label>Pago ${i + 1} (%)</label><input class="pf-pct" type="number" min="0.01" max="100" step="0.01" value="${v}"></div>`).join("")}</div>`;
-      actualizar();
-      $campos.querySelectorAll("input").forEach(input => input.addEventListener("input", actualizar));
-    };
     $num.value = String(inicial.length);
-    pintar(inicial);
-    $num.addEventListener("change", () => pintar(porcentajesIguales($num.value)));
+    reparto.pintar(inicial);
+    $num.addEventListener("change", () => reparto.pintar(porcentajesIguales($num.value)));
     $backdrop.querySelector("#pf-cancelar").addEventListener("click", () => cerrar(null));
     $backdrop.querySelector("#pf-confirmar").addEventListener("click", () => {
-      const valores = normalizarPorcentajes([...$campos.querySelectorAll(".pf-pct")].map(input => input.value));
-      if (!valores) { $suma.textContent = "El reparto debe sumar exactamente 100%."; $suma.style.color = "var(--red-fg,#B4453A)"; return; }
-      cerrar(valores);
+      const r = reparto.leer();
+      if (!r.valido) { toastError("El reparto debe sumar exactamente el precio acordado."); return; }
+      cerrar(r);
     });
     $backdrop.addEventListener("mousedown", e => { if (e.target === $backdrop) cerrar(null); });
   });
@@ -741,10 +784,10 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opcione
         toastError("No se puede fraccionar un proyecto que ya tiene una factura vinculada.");
         return;
       }
-      const porcentajes = await pedirPorcentajesFraccionamiento();
-      if (!porcentajes) return;
+      const reparto = await pedirRepartoFraccionamiento(round2(Number(proyecto.precio_acordado || 0)));
+      if (!reparto) return;
+      const { importes, porcentajes } = reparto;
       const grupo = crypto.randomUUID();
-      const importes = dividirImporte(proyecto.precio_acordado, porcentajes);
       const nombres = nombresFraccionados(proyecto.nombre, porcentajes);
       const actualizacion = await db.from("proyectos").update({
         nombre: nombres[0],
@@ -783,7 +826,7 @@ export async function abrirFichaProyecto(proyecto, clientes, onGuardado, opcione
         toastError("No se han podido crear todas las partes; el proyecto original se ha restaurado.");
         return;
       }
-      toastOk(`Pago fraccionado en ${porcentajes.length} partes (${porcentajes.map(p => `${p}%`).join(" + ")}).`);
+      toastOk(`Pago fraccionado en ${importes.length} partes (${importes.map(v => eur(v)).join(" + ")}).`);
       cerrarFicha();
       if (onGuardado) await onGuardado();
     });

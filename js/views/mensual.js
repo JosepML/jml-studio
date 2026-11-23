@@ -1,5 +1,5 @@
 import { db } from "../supabase.js";
-import { abrirFichaProyecto } from "./proyectos.js?v=margen-facturacion-20261022";
+import { abrirFichaProyecto } from "./proyectos.js?v=fraccionar-importe-20261123";
 import { eur, FORMAS_PAGO, todayIso } from "../utils/format.js";
 import { round2 } from "../utils/invoice-calc.js";
 import { guardarEstadoFacturacion } from "../utils/margen.js";
