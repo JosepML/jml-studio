@@ -56,6 +56,7 @@ el color nunca puede ser la única pista. No usar servicios de IA de pago.
 
 ## Registro de cambios recientes
 
+- `pendiente` — ficha de cliente: la pestaña de documentos se divide en Facturas y Presupuestos, con botón de descarga de PDF en cada fila y "Descargar todas" (ZIP con JSZip desde CDN, omite los documentos a los que les faltan datos). Caché del service worker `v86`.
 - `pendiente` — Fraccionar pago permite indicar cada pago en % o en € (campos enlazados, el último editado manda), con aviso de la diferencia contra el total y comparación en céntimos (`resolverReparto` en `js/utils/fraccionamiento.js`). Vale para el wizard de proyectos y para la ficha. Caché del service worker `v85`.
 - `pendiente` — sección "Margen de facturación del año" en Dashboard y Financiero (`js/utils/margen.js`): margen restante (3.600 € sin IVA menos lo emitido desde el 22/10/2026), margen libre (restando lo registrado sin emitir) y cuántos proyectos más caben según el importe medio. Tope y fecha de corte editables en Configuración. Solo cuentan proyectos con forma de pago `transferencia`; nueva forma de pago `alta_ss` ("Alta en S.S."). Requiere ejecutar `sql/migration_006_fecha_emision.sql` (`proyectos.fecha_emision` y la nueva forma de pago): sin ella los proyectos sin factura real no se datan y no restan.
 

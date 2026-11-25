@@ -302,10 +302,43 @@ export function abrirModalNuevoCliente(alCrear) {
 // Ficha con pestañas
 // ---------------------------------------------------------------------------
 
+const ICONO_DESCARGA = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7.2 10.2 12 15l4.8-4.8"/><path d="M4.5 19.5h15"/></svg>`;
+
+// Una sección (facturas o presupuestos) de la pestaña de documentos, con su
+// botón de descarga conjunta y uno por fila. Van separadas porque se emiten,
+// se cobran y se archivan de forma distinta.
+function seccionDocumentos(tipo, titulo, docs, vacio) {
+  const estados = tipo === "presupuesto" ? ESTADOS_PRESUPUESTO : ESTADOS_FACTURA;
+  return `
+    <section class="cli-docs-seccion" style="margin-bottom:22px;">
+      <div class="card-head" style="margin-bottom:8px;">
+        <h4 style="margin:0;">${titulo} (${docs.length})</h4>
+        ${docs.length ? `<button class="btn btn-ghost card-actions" data-descargar-todas="${tipo}" type="button">Descargar todas (${docs.length})</button>` : ""}
+      </div>
+      ${docs.length ? `
+      <table>
+        <thead><tr><th>Nº</th><th>Fecha</th><th class="money">Total</th><th>Estado</th><th></th></tr></thead>
+        <tbody>
+          ${docs.map(d => {
+            const e = estados[d.estado] || {};
+            return `
+            <tr class="clickable" data-doc="${d.id}" data-tipo="${d.tipo}">
+              <td><strong>${escapeHtml(d.numero)}</strong></td>
+              <td>${dateEs(d.fecha)}</td>
+              <td class="money">${eur(Number(d.total || 0))}</td>
+              <td><span class="badge" style="background:${e.bg || "#F0F1F4"};color:${e.fg || "#5B6478"}">${e.label || d.estado}</span></td>
+              <td style="width:44px;"><button class="icon-btn" data-descargar-doc="${d.id}" type="button" title="Descargar PDF de ${escapeAttr(d.numero)}" aria-label="Descargar PDF de ${escapeAttr(d.numero)}">${ICONO_DESCARGA}</button></td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>` : `<div class="empty-state">${vacio}</div>`}
+    </section>`;
+}
+
 async function abrirFicha(container, cliente) {
   const [{ data: proyectos }, { data: documentos }] = await Promise.all([
     db.from("proyectos").select("id,nombre,estado,precio_acordado,fecha_inicio").eq("cliente_id", cliente.id).order("fecha_inicio").exec(),
-    db.from("facturas").select("id,numero,tipo,fecha,total,estado").eq("cliente_id", cliente.id).order("fecha").exec(),
+    db.from("facturas").select("*").eq("cliente_id", cliente.id).order("fecha").exec(),
   ]);
   // Lo más reciente arriba, que es como se busca.
   const listaProyectos = (proyectos || []).slice().reverse();
@@ -359,24 +392,8 @@ async function abrirFicha(container, cliente) {
       </div>
 
       <div data-panel="documentos" hidden>
-        ${listaDocumentos.length ? `
-        <table>
-          <thead><tr><th>Nº</th><th>Tipo</th><th>Fecha</th><th class="money">Total</th><th>Estado</th></tr></thead>
-          <tbody>
-            ${listaDocumentos.map(d => {
-              const estados = d.tipo === "presupuesto" ? ESTADOS_PRESUPUESTO : ESTADOS_FACTURA;
-              const e = estados[d.estado] || {};
-              return `
-              <tr class="clickable" data-doc="${d.id}" data-tipo="${d.tipo}">
-                <td><strong>${escapeHtml(d.numero)}</strong></td>
-                <td>${d.tipo === "presupuesto" ? "Presupuesto" : "Factura"}</td>
-                <td>${dateEs(d.fecha)}</td>
-                <td class="money">${eur(Number(d.total || 0))}</td>
-                <td><span class="badge" style="background:${e.bg || "#F0F1F4"};color:${e.fg || "#5B6478"}">${e.label || d.estado}</span></td>
-              </tr>`;
-            }).join("")}
-          </tbody>
-        </table>` : `<div class="empty-state">Todavía no le has emitido ninguna factura ni presupuesto.</div>`}
+        ${seccionDocumentos("factura", "Facturas", listaDocumentos.filter(d => d.tipo !== "presupuesto"), "Todavía no le has emitido ninguna factura.")}
+        ${seccionDocumentos("presupuesto", "Presupuestos", listaDocumentos.filter(d => d.tipo === "presupuesto"), "Todavía no le has hecho ningún presupuesto.")}
       </div>
     </div>`;
 
@@ -395,6 +412,37 @@ async function abrirFicha(container, cliente) {
 
   container.querySelectorAll("[data-proyecto]").forEach(tr => {
     tr.addEventListener("click", () => { location.hash = `#/proyectos/${tr.dataset.proyecto}`; });
+  });
+  // Facturación se carga bajo demanda: arrastra el generador de PDF y no hace
+  // falta para ver la ficha. Misma URL que en app.js para compartir módulo.
+  const cargarFacturacion = () => import("./facturacion.js?v=cliente-descargas-20261123");
+  container.querySelectorAll("[data-descargar-doc]").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const doc = listaDocumentos.find(d => d.id === btn.dataset.descargarDoc);
+      if (!doc) return;
+      btn.disabled = true;
+      try {
+        const { descargarPdfDocumento, faltanDatosParaPdf } = await cargarFacturacion();
+        const faltan = faltanDatosParaPdf(doc, cliente);
+        if (faltan.length) toastError(`No se puede descargar ${doc.numero}: faltan ${faltan.join(", ")}.`);
+        else await descargarPdfDocumento(doc, cliente);
+      } catch (err) { toastError(err.message); }
+      btn.disabled = false;
+    });
+  });
+  container.querySelectorAll("[data-descargar-todas]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const tipo = btn.dataset.descargarTodas;
+      const docs = listaDocumentos.filter(d => (tipo === "presupuesto") === (d.tipo === "presupuesto"));
+      const nombre = String(cliente.nombre || "cliente").replace(/[^\w\-]+/g, "_");
+      btn.disabled = true;
+      try {
+        const { descargarZipDocumentos } = await cargarFacturacion();
+        await descargarZipDocumentos(docs, cliente, `${tipo === "presupuesto" ? "Presupuestos" : "Facturas"}-${nombre}.zip`);
+      } catch (err) { toastError(err.message); }
+      btn.disabled = false;
+    });
   });
   container.querySelectorAll("[data-doc]").forEach(tr => {
     tr.addEventListener("click", () => {
